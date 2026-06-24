@@ -34,9 +34,9 @@ BENCH = ROOT / "benchmark"
 
 # (display name, cached olmOCR markdown, document type description)
 DOCS = [
-    ("syllabus", "syllabus.md", "clean, already accessible"),
-    ("irs_schedule_c", "irs_schedule_c.md", "dense tax form"),
-    ("navy_bulletin", "navy_bulletin.md", "OCR'd historical scan, prose"),
+    ("syllabus", "syllabus_olmocr.md", "clean, already accessible"),
+    ("irs_schedule_c", "irs_olmocr.md", "dense tax form"),
+    ("navy_bulletin", "navy_olmocr.md", "OCR'd historical scan, prose"),
 ]
 
 
