@@ -54,6 +54,7 @@ DEFAULT_HTML = ROOT / "output" / "syllabus_scored.html"
 DEFAULT_REVIEWS = ROOT / "tests" / "mock_reviews.json"
 OUT_MANIFEST = ROOT / "output" / "patch_manifest.json"
 OUT_REJECTED = ROOT / "output" / "judge_rejected.json"
+OUT_AUDIT = ROOT / "output" / "judge_audit.json"
 
 # Confidence as a function of agreement count (see spec).
 CONF_BY_COUNT = {1: 0.60, 2: 0.80, 3: 0.95}
@@ -279,17 +280,40 @@ def _extract_json(text: str) -> dict:
 # ---------------------------------------------------------------------------
 def build_manifest(html: Path, reviews: Path, use_llm: bool) -> tuple[list, list, list]:
     index = parse_html(html)
-    groups = deduplicate(load_reviews(reviews))
+    reviews_dict = load_reviews(reviews)
+    total_reviewers = len(reviews_dict)
+    groups = deduplicate(reviews_dict)
     log(f"deduplicated {sum(len(g.reviewers) for g in groups)} raw issues "
         f"-> {len(groups)} unique issue(s)")
 
-    patches, rejected, deferred = [], [], []
+    patches, rejected, deferred, audit = [], [], [], []
+
+    def record(g, decision, structural, patch_generated, claude_call=False, claude=None):
+        """One auditable per-issue decision row for output/judge_audit.json."""
+        audit.append({
+            "issue_id": f"{g.element_id}:{g.wcag_criterion}",
+            "element_id": g.element_id,
+            "wcag_criterion": g.wcag_criterion,
+            "reviewers": sorted(g.reviewers),
+            "dedup_status": (f"{len(g.reviewers)}/{total_reviewers} agree "
+                             f"(confidence {g.confidence})"),
+            "issue": g.issue,
+            "suggested_fix": g.suggested_fix,
+            "structural_check": structural,
+            "advisory_flags": {"hallucinated": g.hallucinated_hints, "fix_type": g.fix_type_hints},
+            "claude_call": claude_call,
+            "claude_reasoning": (claude or {}).get("reasoning") if claude else None,
+            "decision": decision,
+            "patch_generated": patch_generated,
+        })
+
     for g in groups:
         el = index.get(g.element_id)
         decision, reason, target, value = classify(g, el)
         agree = f"{len(g.reviewers)} reviewer(s): {', '.join(sorted(g.reviewers))}"
 
         if decision == "hallucinated":
+            record(g, "REJECT_HALLUCINATED", reason, False)
             rejected.append({
                 "element_id": g.element_id, "wcag_criterion": g.wcag_criterion,
                 "status": "hallucinated", "reason": reason, "flagged_by": sorted(g.reviewers),
@@ -304,6 +328,7 @@ def build_manifest(html: Path, reviews: Path, use_llm: bool) -> tuple[list, list
                 "status": "needs_human", "reason": reason, "flagged_by": sorted(g.reviewers),
                 "confidence": g.confidence, "issue": g.issue,
             })
+            record(g, "NEEDS_HUMAN", reason, False)
             log(f"  ⚠ needs_human [{g.element_id}] {reason}")
             continue
 
@@ -317,6 +342,7 @@ def build_manifest(html: Path, reviews: Path, use_llm: bool) -> tuple[list, list
                 "status": "already_satisfied", "flagged_by": sorted(g.reviewers),
                 "reason": f'{target}="{value}" is already present on the element',
             })
+            record(g, "ALREADY_SATISFIED", f'{target}="{value}" already present', False)
             log(f"  = already satisfied [{g.element_id}] {target}=\"{value}\"")
             continue
         if decision == "llm_safe" and el and len((el.get("alt") or "").strip()) >= 15:
@@ -325,6 +351,7 @@ def build_manifest(html: Path, reviews: Path, use_llm: bool) -> tuple[list, list
                 "status": "already_satisfied", "flagged_by": sorted(g.reviewers),
                 "reason": "element already has substantive alt text",
             })
+            record(g, "ALREADY_SATISFIED", "element already has substantive alt text", False)
             log(f"  = already satisfied [{g.element_id}] alt already present")
             continue
 
@@ -340,6 +367,7 @@ def build_manifest(html: Path, reviews: Path, use_llm: bool) -> tuple[list, list
                               f"{g.confidence}). {reason}. Setting {target}=\"{value}\" is "
                               f"non-destructive and needs no model call."),
             })
+            record(g, "ACCEPT", f'{reason}; target {target} is valid', True)
             log(f"  ✓ deterministic patch [{g.element_id}] {target}=\"{value}\"")
             continue
 
@@ -350,6 +378,7 @@ def build_manifest(html: Path, reviews: Path, use_llm: bool) -> tuple[list, list
                 "status": "deferred_llm", "reason": "LLM-safe fix; run without --no-llm to generate",
                 "flagged_by": sorted(g.reviewers),
             })
+            record(g, "DEFERRED_LLM", "LLM-safe fix; deferred (--no-llm)", False)
             log(f"  … llm_safe deferred [{g.element_id}] (--no-llm)")
             continue
 
@@ -361,6 +390,8 @@ def build_manifest(html: Path, reviews: Path, use_llm: bool) -> tuple[list, list
                 "status": "needs_human", "reason": "Claude judged the fix unsafe to auto-generate",
                 "claude": result, "flagged_by": sorted(g.reviewers),
             })
+            record(g, "NEEDS_HUMAN", f"alt on <{el['tag']}> is valid; Claude judged fix unsafe",
+                   False, claude_call=True, claude=result)
             log(f"  ⚠ needs_human [{g.element_id}] Claude declined to auto-fix")
             continue
 
@@ -377,9 +408,13 @@ def build_manifest(html: Path, reviews: Path, use_llm: bool) -> tuple[list, list
                           f"alt text and judged it safe. Claude reasoning: "
                           f"{result.get('reasoning', '')}"),
         })
+        record(g, "ACCEPT", f"alt on <{el['tag']}> is valid; Claude generated + approved", True,
+               claude_call=True, claude=result)
         log(f"  ✓ llm_safe patch [{g.element_id}] alt=\"{result.get('new_value','')[:60]}\"")
 
-    return patches, rejected, deferred
+    OUT_AUDIT.parent.mkdir(parents=True, exist_ok=True)
+    OUT_AUDIT.write_text(json.dumps(audit, indent=2))
+    return patches, rejected, deferred, audit
 
 
 def main() -> int:
@@ -400,7 +435,7 @@ def main() -> int:
         log(f"FATAL: reviews not found: {args.reviews}")
         return 1
 
-    patches, rejected, deferred = build_manifest(args.html, args.reviews, use_llm=not args.no_llm)
+    patches, rejected, deferred, audit = build_manifest(args.html, args.reviews, use_llm=not args.no_llm)
 
     OUT_MANIFEST.parent.mkdir(parents=True, exist_ok=True)
     OUT_MANIFEST.write_text(json.dumps(patches, indent=2))
@@ -411,6 +446,7 @@ def main() -> int:
     log(f"DONE  patches={len(patches)}  rejected={len(rejected)}  deferred={len(deferred)}")
     log(f"  manifest: {OUT_MANIFEST}")
     log(f"  rejected: {OUT_REJECTED}")
+    log(f"  audit:    {OUT_AUDIT}")
     return 0
 
 

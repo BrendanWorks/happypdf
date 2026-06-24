@@ -124,7 +124,7 @@ def run_loop(baseline_html: str, reviews_provider, *, label: str = "doc",
             reviews_path = Path(d) / "reviews.json"
             html_path.write_text(current)
             reviews_path.write_text(json.dumps(reviews))
-            patches, rejected, deferred = judge.build_manifest(html_path, reviews_path, use_llm=use_llm)
+            patches, rejected, deferred, audit = judge.build_manifest(html_path, reviews_path, use_llm=use_llm)
 
         try:
             patched, applied = applicator.apply_patches(current, patches)
@@ -141,6 +141,9 @@ def run_loop(baseline_html: str, reviews_provider, *, label: str = "doc",
             "round": r, "patches_applied": len(applied), "rejected": len(rejected),
             "score": axe["score"], "violations": axe["violations"], "passes": axe["passes"],
             "gate_passed": gate_res["passed"], "gate_failed_checks": gate_res["failed_checks"],
+            "gate_checks": [{"name": c["name"], "passed": c["passed"], "detail": c["detail"]}
+                            for c in gate_res["checks"]],
+            "judge_audit": audit,
             "seconds": round(time.time() - t0, 2),
         }
         log(f"[{label}] round {r}: patches={len(applied)} rejected={len(rejected)} "
