@@ -1,0 +1,9 @@
+{
+  "name": "happypdf",
+  "version": "1.0.0",
+  "description": "PDF-to-accessible-HTML conversion pipeline",
+  "license": "MIT",
+  "dependencies": {
+    "axe-core": "^4.12.1"
+  }
+}

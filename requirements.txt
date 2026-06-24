@@ -1,0 +1,8 @@
+# Pinned to the exact versions the vertical slice was tested against.
+# (These supersede the draft pins in the setup spec; modal 0.67 predates the
+#  Function.from_name API the orchestrator uses, so the tested 1.x pin is required.)
+
+playwright==1.60.0     # headless Chromium driver for running axe-core in a real browser
+PyMuPDF==1.27.2.3      # PDF parsing + embedded image extraction (imported as `fitz`)
+modal==1.4.3           # calls the deployed olmOCR and Qwen2-VL GPU functions
+requests>=2.31.0       # HTTP utility for hosted-mode model backends (future rounds)

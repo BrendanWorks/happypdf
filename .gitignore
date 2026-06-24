@@ -1,0 +1,27 @@
+# Python
+venv/
+.venv/
+__pycache__/
+*.pyc
+*.egg-info/
+dist/
+build/
+
+# Node
+node_modules/
+
+# Outputs (transient; regenerated per run)
+output/
+*.md
+*.json
+!README.md
+!package.json
+!docs/**/*.md
+
+# Secrets
+.env
+.env.local
+modal.toml
+
+# OS
+.DS_Store
