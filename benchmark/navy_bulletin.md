@@ -1,0 +1,197 @@
+THIS WENT ON ALL NIGHT: Heavy and light batteries of United States ships, including the guns of this cruiser, poured sheets of flame and steel at the Japanese force which moved into the Kula Gulf following the American bombardment of Vila and Bairoko on New Georgia. Broadsides from American warships during the first 5 minutes of the action sent five Japanese destroyers to the bottom. A short time later, in an exchange lasting some 15 minutes, three and possibly four Japanese cruisers were sunk. It was during this engagement that the U. S. S. Helena was sunk. While United States ships were picking up survivors of the Helena, other American vessels raced into the fray to sink a Japanese light cruiser and destroyer and damage another destroyer.
+
+—Official U. S. Navy Photograph.
+"HELENA" CREW MEMBERS ANSWER ROLL: Covered with oil and missing much of their uniforms, these members of the Helena's crew were picked up by a destroyer. Other destroyers later risked possible attack by the Japanese to rescue 161 members of the cruiser's crew marooned on an island.
+
+NEW UNIFORMS: Shipmates on the destroyer which picked up survivors of the Helena gave them clean, dry uniforms and they returned to the fight.
+
+AFTER THE BATTLE—CLEAN-UP: Crew members of one of the ships in the Kula battle salvage shell cases—to be used against the enemy again.
+
+—Official U. S. Navy Photographs.
+DECORATIONS AND Definite, Complete Systems of Awards for
+
+By ROSS F. COLLINS
+Captain, USNR
+(This article is appearing concurrently in the Numismatic Review)
+
+From the formation of the Republic until quite recent years neither the Navy nor the Army had a definite, complete system of awards to cover heroism and especially meritorious service. In the past few years the Army arrived at a really complete system, which was followed by the Navy during the past year. The Marine Corps and Coast Guard are covered by the regulations applying to the Navy awards.
+
+Official decorations and medals of our government, in the sense of those intended to be worn on the uniform, began with the award for fidelity by the Congress on 3 November 1780, to three private soldiers, John Paulding, David Williams, and Isaac Van Wart, all New York State Militiamen, for the apprehension of Major John André.
+
+On 7 August 1782, George Washington issued an official order from his headquarters at Newburgh-on-the-Hudson, establishing a decoration to cover instances of unusual gallantry, and also of extraordinary fidelity and essential service. This decoration, worn on the left breast, consisted of a heart of purple cloth or silk, edged with narrow lace or binding, and was the forerunner of the present Purple Heart. It was provided that the facts of the act or service should be submitted to the Commander in Chief, accompanied by certificates from the commanding officers of the regiment and brigade to which the individual belonged, or other incontrovertible proof, for final approval.
+
+This medal was never abolished, but so far as is now known, only three men ever received this award, viz: Sergt. Daniel Bissel (2d Connecticut Regiment, Continental Army), Sgt. Daniel Brown (6th Connecticut Regiment, Continental Army), and Sgt. Elijah Churchill of the 2d Continental Dragoons, of Connecticut.
+
+The same order provided a long service and good conduct badge for 3 years service with bravery, fidelity, and good conduct. It consisted of a narrow piece of white cloth, of an angular form fixed to the left sleeve of the uniform. Six years similar service was indicated by two similar pieces of cloth set parallel to each other.
+
+No other official decorations or medals were issued until during the Civil War. The first of modern United States decorations was the Navy Medal of Honor authorized by Congress on 21 December 1861.
+
+The award was limited to "petty officers, seamen, landsmen, and marines" for gallantry in action and other seamanlike qualities. On 12 July 1862 the Army Medal of Honor was authorized for "noncommissioned officers and privates" for gallantry in action and other soldier-like qualities. On 3 March 1863, the award was made available to commissioned officers of the Army, and the wording of the authority was changed making it available to only those who have most distinguished themselves in action.
+
+The limitation for Civil War service was also removed, as had been done for the Navy on 16 July 1862. It was not until 3 March 1915, however, that commissioned officers of the Navy and Marine Corps were made eligible for the award.
+
+No further medals were authorized until 1869 when the first Navy Good Conduct Medal was authorized. The
+MEDALS OF THE U. S.
+Heroism and Service is Recent Development
+
+Certificate of Merit was authorized in 1847 but no medal was issued to go with it until 1905. The next medal was the Manila Bay Medal, familiarly known as the "Dewey Medal," which was followed by the West Indies Campaign Medal ("Sampson Medal"), the Specially Meritorious Service Medal, and the Congressional Medal for Philippine Service.
+
+All of these medals were for special acts or special occasions, and no medallic award had ever been available to the veterans of any of our campaigns. Principally through the efforts of Lt. Gen. Adna R. Chaffee for the Army, and Maj. Gen. George F. Elliott for the Marine Corps and the Navy, the deep-rooted prejudice against such awards in a Republic was overcome, questions of legality were untangled, and on 11 January 1906 it was announced in orders to the Army that campaign badges would be issued as part of the uniform.
+
+ORDER OF PRECEDENCE
+The following order of precedence of Navy decorations, and corresponding decorations awarded by the Army to naval personnel, has been approved by SecNav for wear by naval personnel:
+
+Medal of Honor (Navy).
+Medal of Honor (Army).
+Marine Corps Brevet Medal.
+Navy Cross.
+Distinguished Service Cross (Army).
+Distinguished Service Medal.
+Distinguished Service Medal (Army).
+Legion of Merit.
+Silver Star Medal.
+Distinguished Flying Cross.
+Navy and Marine Corps Medal.
+Soldiers Medal (Army).
+Air Medal.
+Purple Heart.
+Specially Meritorious Medal.
+Presidential Unit Citation.
+Gold Life Saving Medal.
+Silver Life Saving Medal.
+Dewey Medal.
+Sampson Medal.
+NC-4 Medal.
+Byrd Antarctic Expedition Medal.
+2d Byrd Antarctic Expedition Medal.
+Navy Expeditionary Medal.
+Marine Corps Expeditionary Medal.
+Campaign Medals in chronological order.
+
+On 13 August 1908 the following campaigns were designated: Civil War, Indian Wars, Spanish Campaign, Philippine Campaign. Later orders made members of the organized militia, and men no longer in the service, eligible for the medals.
+
+On 27 June 1908 two orders were issued by the Secretary of the Navy, one for the Navy and the other for the Marine Corps, authorizing medals for the Civil War, Spanish Campaign, Philippine Campaign, and China Campaign. Medals for the Army of Cuban Occupation and Army of Cuban Pacification followed, and were available to all of the armed services participating.
+
+The medals for the Army differ in design from those for the Navy and Marine Corps, the latter two being identical except for the inscription on the reverse. Up to 1913, however, the ribbons for Army medals differed from those for the Navy and Marine Corps, so that veterans of the same campaigns wore entirely different ribbon bars. Following recommendations of the joint board, effective in the Navy on 12 August 1913, both services agreed to a uniform set of ribbons. In some cases one service adopted the ribbon of the other, and in others an entirely new ribbon was agreed upon.
+
+The World War resulted in the institution of the Distinguished Service Cross, Silver Star, and Distinguished Service Medal for the Army, and the Distinguished Service Medal, and Navy Cross for the Navy.
+
+The Silver Star was originally a small silver star worn on the campaign ribbon by those cited for gallantry in action, but was later issued as an actual medal. It was recently authorized for the Navy.
+
+In 1926 the Distinguished Flying Cross was instituted available to all our armed services. At the same time the Soldier's Medal was authorized. This medal for service with the Army provided an award for those who distinguish themselves by heroism not involving actual conflict with an enemy. It was paralleled last year by the new Navy and Marine Corps Medal.
+
+In 1932 the Purple Heart was re-established for the Army. It was awarded to those who had received the Meritorious Services Citation Certificate, and to those who were wounded in action. The Army now has a good conduct medal, and all services are eligible for the new Legion of Merit. This provides a junior award for distinguished or meritorious service. Four degrees, the highest of which becomes a signal honor, are authorized for awards to foreign officers.
+
+It is hoped that these additional awards, together, with policies that
+ADMIRAL WILLIAM D. LEAHY, USN (RET.)        ADMIRAL ERNEST J. KING, USN
+
+Photographs like these are being prepared for the Archives.
+
+Photo-Paintings of Naval Leaders
+
+Technical Improvements Have Made Possible Portraits in Quantity for Historical Uses
+
+Determined that likenesses of its leaders in this war shall be preserved for post-war purposes in the same way the scenes of its epic struggles are being recorded, the Navy has commissioned the noted portrait photographer, Maurice Constant, as a lieutenant in the Naval Reserve and set up a Documentary Photography unit in BuPers to insure that the lack of proper picturization of leaders of other wars will not occur again.
+
+After photographing the Naval officers in Washington responsible for the conduct of the war, Lieutenant Constant will leave for other areas.
+
+In addition to photographing Naval personnel, Lieutenant Constant will photograph Army leaders at the War Department's request. Time permitting, it is planned also to photograph leaders of Allied nations.
+
+Since historical evaluation requires study of the leaders of the period under scrutiny, likenesses are of specific use. As far back as the Revolutionary War, painters were commissioned to produce portraits of military leaders. The medium of oil being of necessity a long and tedious process, the output was necessarily restricted to portraits of a few men.
+
+Lieutenant Constant in civilian life produced a collection of portrait studies of distinguished personages in the fields of art, science, government, and the armed forces which has been incorporated into the Franklin D. Roosevelt Hyde Park Library. A Constant panel of the Justices hangs in the Supreme Court Building.
+"Dishing It Out With the Navy," a typical poster painting by Lt. Comdr. McClelland Barclay, USNR
+
+The Navy's Combat Artists
+Capturing Scenes the Camera Cannot Catch,
+Painters Are Helping Record War's History
+
+Reports during the past month that Lt. Comdr. McClelland Barclay, USNR, artist most widely known for his Navy recruiting posters, is missing in action in the Southwest Pacific, focus attention on the activities of a group of artists commissioned in the Navy to "paint" the war. Although Lieutenant Commander Barclay was on a special duty, not attached to the regular group, his functions were similar to the others.
+
+What the purpose of the Navy combat artists is, and how they accomplish their duties, was explained recently in an address by Commander E. John Long, USNR, officer in charge of the Pictorial Section, Office of Public Relations, under whose cognizance the artists operate. The text of that address, delivered before the Architectural League of New York, is quoted below:
+
+Historians of World War I found a woefully inadequate pictorial record of that conflict and particularly of the part played by our Navy. The picture coverage of the present war will be much better. Every important action of the war has been reported by cameramen and artists as well as writers. In the Navy's files are thousands of photographs which, for security reasons, cannot be released until the war is over.
+
+The modern camera, in spite of its great scope and versatility, however, has definite limitations. Some subjects, such as action at night, or in foul weather, or over wide expanses of sea and sky, are beyond the range of photography. But they may be depicted by an artist, who can capture the dramatic intensity of an action and put it on canvas, and by a proper use of an artist's skill make scenes and activities more vivid and poignant, stressing and integrating essential elements and omitting unimportant detail.
+
+Significant naval events are thus being recorded today, not only by the camera but by a few carefully chosen men, who are naval officers as well as artists. These men, assigned by the Navy's Office of Public Relations to combat zones, paint the Navy at war in all its phases, whether aboard ship, at our furthest outposts, or with the bold task forces that are the spearheads of modern strategy. In addition to their primary job as artists,
+Battle of the Santa Cruz Islands, by Lt. (jg) Dwight C. Shepler, USNR
+
+Loading Mail Bags, by Lt. (jg) Mitchell Jamieson, USNR
+The Reuben James survivors, by Lt. Comdr. Griffith B. Coale, USNR
+
+these men have duties as junior officers of the watch afloat, in order that they may have a thorough understanding of their subject matter.
+
+In all theaters of war, from the great naval battles of Guadalcanal, Savo Island, Lunga Point, and Santa Cruz, the occupation of the Aleutian Island of Amchitka, aboard convoys to Iceland and Africa and Sicily, in the perilous waters of the North Atlantic, these officer-artists have been on the spot, experiencing momentous events and recording them so that the public and Navy alike may have a better conception of the vast and bloody conflict taking place beyond our shores.
+
+Almost a year before Pearl Harbor, the Navy commissioned Lt. Comdr. Griffith Baily Coale, USNR, to paint historical events of the turbulent "emergency period" preceding the war. His first assignment was a convoy to Iceland. The stirring events of that trip, recorded in paintings and drawings, supplemented by his log, were published in book form by Farrar & Rinehart under the title "North Atlantic Patrol." The book has been very well received in naval circles as well as by the public, and all profits have been donated to the Navy Relief Society.
+
+Coale was later sent to Pearl Harbor and Midway Island. He painted in Hawaii an important historical canvas, depicting the sneak attack of 7 December reconstructed from photographs, official reports, and eyewitness accounts, soon after this world-shaking event took place.
+
+In the spring of 1942, after eliminating many candidates, four young artists, Lt. William F. Draper, USNR, and Lt. Dwight C. Shepler, USNR, both of Boston; Lt. Albert K. Murray, USNR, of New York; and Lt. (jg) Mitchell Jamieson, USNR, of Washington, D.C., were commissioned as officer-artists to be sent on combat assignments. Each had to pass the rigorous physical examination as do other naval officers.
+
+Lieutenant Shepler was the first to see battle action. He served as a deck officer aboard several ships during 6 months of the first Solomons campaign in '42-'43, when bitter fighting was at its peak. His cruiser was in the thick of the battle of Santa Cruz. From his battle station, Shepler saw Jap planes dive-bomb his ship and others which were screening a United States carrier. This watercolor, with the sky blotched with anti-aircraft fire, and Jap planes falling, is one of Shepler's most stirring paintings.
+
+No photographs are available of the night battle off Savo Island, but Lieutenant Shepler has depicted it in a dramatic painting which shows the second phase of the victorious action against two strong Japanese surface forces on 14 November 1942. The picture was checked for accuracy and approved by the admiral commanding our forces there.
+
+In the mud and dust and jungle of Guadalcanal, Shepler lived for 3 weeks, under steady Japanese bombardment. His pictures interpret more fully than photographs the true character of this tropical hell and of the struggles of our gallant marines. Shepler's water colors reveal men, malarial and wounded, being carried to landing boats and then to waiting ships, leaving comrades, both dead and alive, who had shown American courage at its best. This artist saw the peak of battle action. He portrayed, with a revealing insight, the men behind the guns and their officers from first-hand knowledge, gained as a trenchmate who had experienced their thrills, hardships, and dangers.
+
+Officer-artist Lt. William F. Draper went ashore with the forces of occupation at lonely Amchitka Island, the Aleutians, in January 1943. His paintings show ships stealing through
+Kodiak, by Lt. William F. Draper, USNR
+
+hazardous waters in the cold Arctic dawn, gray shadows against a grayer sky, while boatloads of anxious soldiers approach the barren shores, nearest United States territory to Tokyo, in small landing boats. All were tense, since they did not know what Jap resistance might develop. One of the ships ran aground and spread oil about, a likely target for Jap planes. Fortunately, the Japs deferred their first bombing visit for some days.
+
+Lieutenant Draper's number was almost up once, as strafing bullets skimmed through the grass next to him as he crouched in his fox hole. In several dramatic oils he shows Jap planes attacking our positions, with bombs bursting and tracer bullets and ack-ack fire as red streaks against a sullen wintry sky.
+
+While in the Aleutians, Lieutenant Draper's work was hampered by eccentric winds which sometimes blew at 100 miles an hour, wrecking planes and tossing lumber about like paper. He expressed this dread wind, more destructive than enemy raids, in three paintings. These and other pictures were made under most trying circumstances, for several times his canvas sailed into the air like a kite. When he ran out of canvas, Draper worked on pieces of masonite salvaged from Quonset huts. When he ran out of paint, he borrowed housepaint and carried on.
+
+In this series he also shows us how the Seabees, the Navy's resourceful construction battalions, built from nothingness a Navy town. His brush reveals the ever-present hazards of life in an Arctic wilderness, a land of savage storms enveloped by a sea whose icy swells can freeze a person in a few minutes. Through it all runs the never-failing determination of stout-hearted men and the acts of courage, heroism, and unspoken sacrifice that war's necessities bring out of the worst of us. Draper's Aleutian series was published in the August 1943 issue of the National Geographic Magazine.
+
+Lt. Albert K. Murray, before going to the Caribbean area on assignment, painted portraits of six members of the Navy General Board. He also made a series of charcoal and oil portraits from life of heroes of the U.S.S. Boise, after she returned from fabulous exploits in the South Pacific and was undergoing repairs at the Philadelphia Navy Yard. The rugged captain, keen Irish Mike Moran, the doctor, under whose expert and devoted care all men not killed outright were brought through safely; the gunner's mate; and others, heroes all, have been put on paper and canvas as typical examples of a gallant fighting band.
+
+In the Caribbean, Murray has depicted naval activity in a theater of the war that has yielded some fine, though not quite so spectacular material as the Pacific and Aleutians.
+Ensign Lowell E. Davis, USN, by Lt. Albert K. Murray, USNR
+
+He has given us a vivid and accurate picture of Navy life afloat and ashore in the closely guarded area between us and our Latin-American neighbors.
+
+Lt. (jg) Mitchell Jamieson, USNR, whose series of paintings on Embarkation appeared in Life Magazine, gives us a running picture story of a typical convoy trip to North Africa. Jamieson stood watch and performed other naval duties en route. He shows us all of the manifold activities aboard a convoyed troop ship—weighing anchor, message signaling, gunnery practice, men lounging in an uncomfortable aft hold, a scene in the galley as Filipino cooks get chow ready and sailors sit peeling spuds, men receiving mail, attending divine service, the armed guard ready for subs, etc.
+
+In North Africa, Jamieson sensed the impact of military occupation on an area that had been largely pastoral and agricultural for decades. His impressions of Arab coal heavers returning home at midnight, soldiers marching to the accompaniment of shrill-voiced Arab children begging for alms, the building of a tent city to shelter increasing hordes of troops, men learning to do things with their hands through necessity, long convoys entering the harbor and troops disembarking, the training of amphibious forces for invasion, the rusting hulls of torpedoed ships—Jamieson gives us all the myriad scenes and activities of modern warfare against a fantastic background of green and brown African hills and blue sky. He has seen and brought to us those extensive preparations and humdrum routine, those preludes to action, that are as much a part of war as battles themselves.
+
+These officer-artists have not done their paintings in ivory towers, nor have they used the war as a test tube for new theories of art and expression. They have gone out to risk and suffer in the same degree as the man behind the guns, to give to the public, in graphic media, a better appreciation and a more complete insight into what is being done by our fighting men on the world's far-flung battlefronts.
+
+Sir Douglas Haig, in his introduction to the Western Front, the great collection of the drawings by Muirhead Bone on the last World War, said "the portrait and the picture are invaluable aids to the right reading of history."
+
+The collection of paintings and drawings by these Navy artists is a vivid and accurate picture of the Navy at war. In addition to the many photographs being made, it will provide a historical record of naval warfare such as the world has never seen before.
+
+A book on the work of the men in the Navy art project is being published this fall by William Morrow & Co., New York, with text by Hanson Baldwin and a foreword by Admiral A. J. Hepburn, Chairman of the Navy General Board. Approximately 25 reproductions in color and 75 reproductions in black and white of the artists' work will be included.
+Chief Needs of Survivors: Protection Against Elements . . .
+Means of furnishing protection against the weather are taking the form of several types of rubber and waterproof suits that double as life preservers, and portable covers that can be drawn over a liferaft as a sunshade, a rain-collecting surface, and a protection against cold or high seas. There are being studied also special sun caps and sunburn creams.
+
+The Trials of Lifesaving Equipment
+
+New Devices Are Perfected in Tests Many Miles at Sea
+
+By RICHARD L. GRIDLEY
+Lieutenant, USNR
+
+The gradual spread of war to all oceans and climates has resulted in an ambitious program of the armed forces and other Government and private agencies in developing lifesaving equipment to aid persons cast adrift in any of the seven seas.
+
+As a means of keeping all services and agencies abreast of the latest developments in this field, the joint Chiefs of Staff recently directed the Coordinator of Research and Development of the Navy Department to undertake coordination of this work, including methods, techniques, evaluation of present equipment, as well as research on emergency equipment. Liaison is maintained with other United Nations in order that new rescue ideas may be adopted by all friendly countries at the earliest possible moment.
+
+All branches of the armed forces and other agencies dealing in sea transportation, as well as the cognizant bureaus of the Navy, Army, and the Office of Strategic Services, are involved in the coordination plan.
+
+The Navy Department, using its own as well as other personnel, has been directly involved during the past month in two important "proving ground" tests of emergency rescue equipment. These trials were held off Cape Fear, N. C., and Pensacola, Fla. Particular attention was paid to rubber rafts and rubber raft equipment used largely for the rescue of airmen forced down at sea. At Pensacola, too, the physical condition of "survivors" exposed to varying periods of sun, rain, and other exposure was under special study.
+
+Rations are being developed to conserve space and to provide some nourishment without promoting an accompanying thirst. Fishing kits are included to provide a change of diet. Small first-aid kits are of assistance in case of disease, discomfort, or accident.
+
+With a supply of pure drinking water and rations available, the next problem of the survivor is to be rescued. Many gadgets for attracting attention have been devised and are either in use or under study. Hand-operated short-wave radio transmitters seem to have great possibilities in revealing the position of a lost raft. When rescuing planes or ships are in the vicinity other methods of attracting attention are available. Small rafts are extremely difficult to sight at sea, and nearby craft must be attracted by other means. Small hand mirrors, reflecting the sun toward the rescuers, can be seen for 10 miles. At night rockets provide the same effect. Various daytime methods include a bright-colored box kite, a brilliant dye that is thrown in the water in the vicinity of the raft, smoke guns, and gaudy colors on the raft and accessories.
+
+The comfort of survivors has not been overlooked in the consideration of life-raft design. Sleeping accommodations are to be improved considerably by stretching a canvas from side to side, thereby enabling occupants to keep off the bottom of the raft where water usually is standing. Seating arrangements will be changed to permit the necessary stretch of limbs without great inconvenience to other occupants. Stowage of accessories and clothes can be improved so that the raft at all times can present a trim appearance.
+
+Miscellaneous articles like rations, tooth brushes—recently found to be a powerful morale builder—cigarettes, matches, watches, and other knickknacks can be preserved watertight within a new life-preserved bag worn on the chest. It is reinflated by the lungs.
+
+All of these rescue ideas have been subject of intensive experimentation by the Navy and Army, both in the laboratory and in the field. The field trials have been made under actual wartime conditions by casting volunteers adrift many miles at sea. These trials have uncovered many bugs in equipment that looked perfect on the drafting board and in the laboratories. It is expected that many lives will be saved in the future and the ordeals of many survivors made easier by the continuing study into the field of emergency rescue equipment.
+
+... And Drinking Water
+This portable water still weighs 7 lbs. and turns out 12 lbs. of water from 1 lb. of fuel. Chemical methods of precipitating salts out of sea water have been perfected by naval experts.

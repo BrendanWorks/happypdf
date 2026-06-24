@@ -18,6 +18,11 @@ output/
 !package.json
 !docs/**/*.md
 !tests/**/*.json
+!benchmark/*.md
+
+# benchmark generated artifacts (inputs .pdf/.md + BENCHMARK.md are tracked above)
+benchmark/*_baseline.html
+benchmark/*_final.html
 
 # Secrets
 .env

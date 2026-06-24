@@ -2,29 +2,33 @@
 """
 Multi-round remediation loop — the vertical slice's iteration driver.
 
-For each round (1..MAX_ROUNDS):
-  1. Judge re-reviews the current HTML using that round's mock reviews
-     (tests/mock_reviews_rN.json) and emits a patch manifest.
-  2. Applicator applies the manifest deterministically -> patched HTML.
-  3. Preservation gate compares the round's input HTML to the patched HTML.
-     If it fails, the round is discarded (no progress) and the loop stops.
-  4. axe-core rescores the patched HTML.
-  5. Stop condition: axe score >= threshold AND hard gates pass AND the round
-     produced no new patches (nothing left to fix) -> converged.
+The core is `run_loop(baseline_html, reviews_provider, ...)`, which is review-source
+agnostic: it asks a provider for each round's reviews. `src/loop.py` runs it with a
+file-based provider (tests/mock_reviews_rN.json); `src/benchmark.py` runs the same
+loop with reviews synthesized per document. Swapping in live OLMo/Gemini/GPT
+reviewers is just another provider — the loop, gate, applicator, and stop logic
+do not change.
 
-The orchestrator is review-source agnostic: swap the per-round mock files for
-live OLMo/Gemini/GPT calls without touching this loop.
+Per round:
+  1. Provider supplies the round's reviews (dict) or None to stop.
+  2. Judge -> patch manifest (LLM-safe fixes go to Claude Opus 4.8 when use_llm).
+  3. Applicator applies the manifest deterministically -> patched HTML.
+  4. Preservation gate compares the round's input to the patched output. Fail =>
+     the round is discarded (no progress) and the loop stops.
+  5. axe-core rescores. Converged when score >= threshold AND hard gates pass AND
+     the round produced no new patches.
 
-Note: the gate is a pre/post comparison, so it necessarily runs *after* the
-applicator each round (against that round's input), rather than at the very top.
+Note: the gate is a pre/post comparison, so it runs after the applicator each
+round (against that round's input), not at the very top.
 
-Run (needs ANTHROPIC_API_KEY for the judge's LLM-safe fixes):
-  python src/loop.py
+Run:
+  python src/loop.py            # needs ANTHROPIC_API_KEY for the LLM-safe fix
 """
 
 import json
 import sys
 import tempfile
+import time
 from datetime import datetime
 from pathlib import Path
 
@@ -38,8 +42,6 @@ import gate         # noqa: E402
 
 ROOT = SRC.parent
 BASELINE = ROOT / "output" / "syllabus_scored.html"
-REVIEWS_FOR = lambda r: ROOT / "tests" / f"mock_reviews_r{r}.json"
-ROUND_HTML = lambda r: ROOT / "output" / f"loop_round{r}.html"
 FINAL_HTML = ROOT / "output" / "syllabus_final.html"
 SUMMARY = ROOT / "output" / "loop_summary.json"
 
@@ -88,107 +90,102 @@ def hard_gates_pass(gate_res: dict, axe: dict) -> bool:
     return gate_res["passed"] and axe["critical_serious"] == 0
 
 
+def run_loop(baseline_html: str, reviews_provider, *, label: str = "doc",
+             use_llm: bool = True, max_rounds: int = MAX_ROUNDS,
+             threshold: float = SCORE_THRESHOLD) -> dict:
+    """Drive the remediation loop. `reviews_provider(round, current_html)` returns
+    a reviews dict for the round, or None to stop. Returns a summary dict."""
+    base_axe = axe_score(baseline_html)
+    log(f"[{label}] baseline: score {base_axe['score']}%  violations "
+        f"{base_axe['violations']}  passes {base_axe['passes']}")
+
+    current = baseline_html
+    final = baseline_html
+    rounds: list[dict] = []
+    stopped = "max_rounds_reached"
+
+    for r in range(1, max_rounds + 1):
+        t0 = time.time()
+        reviews = reviews_provider(r, current)
+        if reviews is None:
+            stopped = "no_more_reviews"
+            break
+
+        with tempfile.TemporaryDirectory() as d:
+            html_path = Path(d) / "current.html"
+            reviews_path = Path(d) / "reviews.json"
+            html_path.write_text(current)
+            reviews_path.write_text(json.dumps(reviews))
+            patches, rejected, deferred = judge.build_manifest(html_path, reviews_path, use_llm=use_llm)
+
+        try:
+            patched, applied = applicator.apply_patches(current, patches)
+        except applicator.PatchError as e:
+            rounds.append({"round": r, "status": "applicator_rollback", "error": str(e),
+                           "seconds": round(time.time() - t0, 2)})
+            stopped = "applicator_rollback"
+            log(f"[{label}] round {r}: applicator rolled back ({e}); stopping")
+            break
+
+        gate_res = gate.run_gate(current, patched)
+        axe = axe_score(patched)
+        entry = {
+            "round": r, "patches_applied": len(applied), "rejected": len(rejected),
+            "score": axe["score"], "violations": axe["violations"], "passes": axe["passes"],
+            "gate_passed": gate_res["passed"], "gate_failed_checks": gate_res["failed_checks"],
+            "seconds": round(time.time() - t0, 2),
+        }
+        log(f"[{label}] round {r}: patches={len(applied)} rejected={len(rejected)} "
+            f"score={axe['score']}% viol={axe['violations']} passes={axe['passes']} "
+            f"gate={'PASS' if gate_res['passed'] else 'FAIL'} ({entry['seconds']}s)")
+
+        if not gate_res["passed"]:
+            entry["status"] = "gate_failed_reverted"
+            rounds.append(entry)
+            stopped = "gate_failed"
+            log(f"[{label}] round {r}: gate failed {gate_res['failed_checks']} — reverting, stopping")
+            break
+
+        current, final = patched, patched
+        entry["status"] = "accepted"
+        rounds.append(entry)
+
+        if (axe["score"] >= threshold and hard_gates_pass(gate_res, axe) and len(applied) == 0):
+            stopped = "converged"
+            log(f"[{label}] round {r}: converged (no remaining fixes)")
+            break
+
+    return {"label": label, "baseline": base_axe, "rounds": rounds,
+            "rounds_accepted": len([r for r in rounds if r.get("status") == "accepted"]),
+            "stopped_reason": stopped, "final": axe_score(final), "final_html": final}
+
+
+# ---------------------------------------------------------------------------
+# CLI: run on the syllabus with file-based mock reviews
+# ---------------------------------------------------------------------------
+def _file_provider(r: int, _current_html: str):
+    p = ROOT / "tests" / f"mock_reviews_r{r}.json"
+    return json.loads(p.read_text()) if p.exists() else None
+
+
 def main() -> int:
     log("=" * 72)
-    log("Remediation loop starting")
+    log("Remediation loop starting (syllabus, file-based mock reviews)")
     if not BASELINE.exists():
         log(f"FATAL: baseline not found: {BASELINE}")
         return 1
 
-    current_path = BASELINE
-    current_html = BASELINE.read_text()
-    base_axe = axe_score(current_html)
-    log(f"baseline: score {base_axe['score']}%  violations {base_axe['violations']}  "
-        f"passes {base_axe['passes']}")
+    summary = run_loop(BASELINE.read_text(), _file_provider, label="syllabus", use_llm=True)
+    FINAL_HTML.write_text(summary.pop("final_html"))
+    SUMMARY.write_text(json.dumps({**summary, "final_html": str(FINAL_HTML)}, indent=2))
 
-    rounds: list[dict] = []
-    stopped_reason = "max_rounds_reached"
-    final_html = current_html
-
-    for r in range(1, MAX_ROUNDS + 1):
-        reviews = REVIEWS_FOR(r)
-        log("-" * 72)
-        log(f"ROUND {r}: reviews={reviews.name}")
-        if not reviews.exists():
-            log(f"  no reviews for round {r}; stopping")
-            stopped_reason = "no_more_reviews"
-            break
-
-        # 1. Judge -> manifest (LLM-safe fixes go to Claude Opus 4.8).
-        patches, rejected, deferred = judge.build_manifest(current_path, reviews, use_llm=True)
-
-        # 2. Applicator -> patched HTML (all-or-nothing).
-        try:
-            patched_html, applied = applicator.apply_patches(current_html, patches)
-        except applicator.PatchError as e:
-            log(f"  applicator rolled back: {e}; stopping")
-            rounds.append({"round": r, "status": "applicator_rollback", "error": str(e)})
-            stopped_reason = "applicator_rollback"
-            break
-
-        # 3. Preservation gate (pre-round input vs patched output).
-        gate_res = gate.run_gate(current_html, patched_html)
-
-        # 4. Rescore.
-        axe = axe_score(patched_html)
-
-        entry = {
-            "round": r, "reviews": reviews.name,
-            "patches_applied": len(applied), "rejected": len(rejected),
-            "score": axe["score"], "violations": axe["violations"], "passes": axe["passes"],
-            "gate_passed": gate_res["passed"],
-            "gate_failed_checks": gate_res["failed_checks"],
-        }
-        log(f"  patches applied={len(applied)}  rejected={len(rejected)}  "
-            f"score={axe['score']}%  violations={axe['violations']}  passes={axe['passes']}  "
-            f"gate={'PASS' if gate_res['passed'] else 'FAIL'}")
-
-        # Gate failure: round does not count as progress; revert and stop.
-        if not gate_res["passed"]:
-            entry["status"] = "gate_failed_reverted"
-            rounds.append(entry)
-            log(f"  ✗ gate failed {gate_res['failed_checks']} — reverting round {r}, stopping")
-            stopped_reason = "gate_failed"
-            break
-
-        # Round accepted.
-        ROUND_HTML(r).write_text(patched_html)
-        current_html, current_path, final_html = patched_html, ROUND_HTML(r), patched_html
-        entry["status"] = "accepted"
-        rounds.append(entry)
-
-        # 5. Stop condition.
-        converged = (axe["score"] >= SCORE_THRESHOLD
-                     and hard_gates_pass(gate_res, axe)
-                     and len(applied) == 0)
-        if converged:
-            log(f"  ✓ converged: score {axe['score']}% >= {SCORE_THRESHOLD}%, "
-                f"hard gates pass, no remaining fixes")
-            stopped_reason = "converged"
-            break
-
-    FINAL_HTML.write_text(final_html)
-    final_axe = axe_score(final_html)
-    summary = {
-        "baseline": base_axe,
-        "rounds": rounds,
-        "rounds_run": len([r for r in rounds if r.get("status") == "accepted"]),
-        "stopped_reason": stopped_reason,
-        "final": final_axe,
-        "final_html": str(FINAL_HTML),
-    }
-    SUMMARY.write_text(json.dumps(summary, indent=2))
-
+    accepted = [e for e in summary["rounds"] if e.get("status") == "accepted"]
     log("=" * 72)
-    log("LOOP COMPLETE")
-    log(f"  stopped: {stopped_reason}")
-    log(f"  progression: baseline {base_axe['passes']} passes -> "
-        + " -> ".join(f"r{e['round']} {e['passes']}p/{e['patches_applied']}fix"
-                      for e in rounds if e.get("status") == "accepted"))
-    log(f"  final: score {final_axe['score']}%  violations {final_axe['violations']}  "
-        f"passes {final_axe['passes']}")
+    log(f"LOOP COMPLETE  stopped={summary['stopped_reason']}")
+    log("  progression: baseline {}p -> ".format(summary["baseline"]["passes"])
+        + " -> ".join(f"r{e['round']} {e['passes']}p/{e['patches_applied']}fix" for e in accepted))
+    log(f"  final: score {summary['final']['score']}%  passes {summary['final']['passes']}")
     log(f"  final HTML: {FINAL_HTML}")
-    log(f"  summary:    {SUMMARY}")
     return 0
 
 
