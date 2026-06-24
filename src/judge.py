@@ -72,10 +72,13 @@ DET_ATTRS = ("role", "aria-label", "aria-describedby", "aria-labelledby", "lang"
 # like "heading" (needs aria-level) or "checkbox" (needs aria-checked) are NOT
 # here: applying them bare introduces an aria-required-attr violation, so they
 # route to needs_human instead.
+# Only context-free roles. Excludes listitem/row/cell/columnheader/rowheader,
+# which are valid only inside a specific parent (a bare role="listitem" on a <p>
+# is an axe violation) — those route to needs_human.
 SAFE_ROLES = frozenset({
     "navigation", "banner", "main", "contentinfo", "complementary", "region",
-    "search", "form", "list", "listitem", "table", "row", "cell", "columnheader",
-    "rowheader", "group", "figure", "note", "article", "document", "img",
+    "search", "form", "group", "figure", "note", "article", "document", "img",
+    "list", "table",
 })
 
 
@@ -214,6 +217,12 @@ def classify(g: Group, el: dict | None) -> tuple[str, str, str | None, str | Non
         return "llm_safe", "alt text for an image requires model judgment", target, value
 
     # 4. Deterministic: a concrete attribute value on a safe target.
+    if target in ("aria-describedby", "aria-labelledby"):
+        # These reference the id of a description element that must already exist;
+        # the applicator never creates one, so auto-adding them dangles the ref.
+        return ("needs_human",
+                f"{target} references a description element that must exist; route to human",
+                target, value)
     if target == "role" and value and value.lower() not in SAFE_ROLES:
         return ("needs_human",
                 f'role="{value}" needs validation/companion attributes (not a self-sufficient role)',

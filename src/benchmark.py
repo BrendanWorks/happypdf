@@ -27,6 +27,7 @@ from lxml import html
 SRC = Path(__file__).resolve().parent
 sys.path.insert(0, str(SRC))
 import build_syllabus_slice as bss   # noqa: E402
+import reviewers                     # noqa: E402
 from loop import run_loop            # noqa: E402
 
 ROOT = SRC.parent
@@ -86,34 +87,39 @@ def synth_reviews(rnd: int, current_html: str):
 # ---------------------------------------------------------------------------
 # Run + report
 # ---------------------------------------------------------------------------
-def run_document(name: str, md_file: str, doctype: str) -> dict:
+def run_document(name: str, md_file: str, doctype: str, *, live: bool = False) -> dict:
     md_path = BENCH / md_file
-    print(f"\n=== {name} ({doctype}) ===", flush=True)
+    print(f"\n=== {name} ({doctype}) {'[LIVE]' if live else '[mock]'} ===", flush=True)
     markdown = bss.strip_front_matter(md_path.read_text())
     baseline_html = bss.HtmlBuilder(markdown, [], {}).build()
-    (BENCH / f"{name}_baseline.html").write_text(baseline_html)
+    suffix = "_live" if live else ""
+    (BENCH / f"{name}{suffix}_baseline.html").write_text(baseline_html)
 
+    provider = reviewers.live_provider if live else synth_reviews
     t0 = time.time()
-    summary = run_loop(baseline_html, synth_reviews, label=name, use_llm=False)
+    summary = run_loop(baseline_html, provider, label=name, use_llm=live)
     summary["doctype"] = doctype
     summary["total_seconds"] = round(time.time() - t0, 2)
 
-    (BENCH / f"{name}_final.html").write_text(summary.pop("final_html"))
-    (BENCH / f"{name}_summary.json").write_text(json.dumps({**summary, "name": name}, indent=2))
+    (BENCH / f"{name}{suffix}_final.html").write_text(summary.pop("final_html"))
+    (BENCH / f"{name}{suffix}_summary.json").write_text(json.dumps({**summary, "name": name}, indent=2))
     return {**summary, "name": name}
 
 
-def comparison_table(results: list[dict]) -> str:
+def comparison_table(results: list[dict], *, live: bool = False) -> str:
     def cell(rounds, r):
         e = next((x for x in rounds if x["round"] == r and x.get("status") == "accepted"), None)
         return f"{e['patches_applied']} → {e['passes']}p" if e else "—"
 
+    source = ("live OLMo (Modal) + Gemini (google-genai) + GPT (openai), called in parallel"
+              if live else "synthesized per document from its real elements")
     lines = [
-        "# happypdf Benchmark — remediation loop across document types",
+        f"# happypdf Benchmark — {'LIVE reviewers' if live else 'remediation loop'} "
+        "across document types",
         "",
         "Full pipeline per document: cached olmOCR markdown → semantic HTML → "
         "multi-round loop (judge → applicator → preservation gate → axe rescore). "
-        "Reviews are synthesized per document from its real elements.",
+        f"Reviews are {source}.",
         "",
         "**Note on violations:** the HTML generator emits clean semantic HTML5, so "
         "every document starts at **0 axe violations**. The loop's measurable effect "
@@ -145,13 +151,23 @@ def comparison_table(results: list[dict]) -> str:
 
 
 def main() -> int:
-    results = [run_document(*d) for d in DOCS]
-    table = comparison_table(results)
-    (BENCH / "BENCHMARK.md").write_text(table)
-    (BENCH / "benchmark_summary.json").write_text(json.dumps(results, indent=2))
+    import argparse
+    ap = argparse.ArgumentParser(description="Run the loop across benchmark documents.")
+    ap.add_argument("--live", action="store_true",
+                    help="use live OLMo/Gemini/GPT reviewers instead of synthesized mocks")
+    args = ap.parse_args()
+
+    if args.live:
+        reviewers.load_env()
+    results = [run_document(*d, live=args.live) for d in DOCS]
+    table = comparison_table(results, live=args.live)
+    out_md = BENCH / ("BENCHMARK_LIVE.md" if args.live else "BENCHMARK.md")
+    out_json = BENCH / ("benchmark_live_summary.json" if args.live else "benchmark_summary.json")
+    out_md.write_text(table)
+    out_json.write_text(json.dumps(results, indent=2))
     print("\n" + "=" * 72)
     print(table)
-    print(f"written: {BENCH / 'BENCHMARK.md'}")
+    print(f"written: {out_md}")
     return 0
 
 

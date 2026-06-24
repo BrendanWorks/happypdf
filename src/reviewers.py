@@ -87,12 +87,18 @@ def load_env() -> None:
 # Normalization
 # ---------------------------------------------------------------------------
 def _extract_json(text: str) -> dict | list:
+    text = (text or "").strip()
+    if text.startswith("```"):  # strip markdown code fences
+        text = re.sub(r"^```[a-zA-Z]*\n?", "", text)
+        text = re.sub(r"\n?```$", "", text).strip()
     try:
         return json.loads(text)
     except json.JSONDecodeError:
-        m = re.search(r"\{.*\}", text, re.S) or re.search(r"\[.*\]", text, re.S)
+        # Salvage the first complete JSON value, ignoring trailing junk
+        # (small models often emit "Extra data" after a valid object).
+        m = re.search(r"[\{\[]", text)
         if m:
-            return json.loads(m.group(0))
+            return json.JSONDecoder().raw_decode(text[m.start():])[0]
         raise
 
 
@@ -172,19 +178,26 @@ async def _call_gpt(html: str) -> str:
 
 
 async def _call_olmo(html: str) -> str:
+    # Use a synchronous client in a worker thread: a per-round asyncio.run() closes
+    # its loop before httpx's async client finishes TLS teardown, which spews
+    # "Event loop is closed" noise. A sync client sidesteps that entirely while
+    # still running in parallel with the other reviewers via the thread executor.
     import httpx
 
-    async with httpx.AsyncClient(timeout=300, follow_redirects=True) as client:
-        r = await client.post(
-            f"{OLMO_URL}/review",
-            json={"html_chunk": _clip(html), "system_prompt": REVIEW_INSTRUCTION,
-                  "max_tokens": 1024},
-        )
-        r.raise_for_status()
-        data = r.json()
-        if not data.get("success"):
-            raise RuntimeError(data.get("error", "OLMo review failed"))
-        return data["raw_output"]
+    def _sync() -> str:
+        with httpx.Client(timeout=300, follow_redirects=True) as client:
+            r = client.post(
+                f"{OLMO_URL}/review",
+                json={"html_chunk": _clip(html), "system_prompt": REVIEW_INSTRUCTION,
+                      "max_tokens": 1024},
+            )
+            r.raise_for_status()
+            data = r.json()
+            if not data.get("success"):
+                raise RuntimeError(data.get("error", "OLMo review failed"))
+            return data["raw_output"]
+
+    return await asyncio.to_thread(_sync)
 
 
 REVIEWERS = {"olmo": _call_olmo, "gemini": _call_gemini, "gpt": _call_gpt}

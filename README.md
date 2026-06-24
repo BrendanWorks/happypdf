@@ -150,7 +150,7 @@ axe-core runs in a real headless Chromium browser and returns structured JSON. S
 - **Duplicate element IDs from visual artifacts:** olmOCR treats PDF visual separator lines (rows of dashes) as content. They get IDs. If many are present, you'll see duplicates. Documented and non-blocking for the vertical slice.
 - **Heading hierarchy:** olmOCR returns section labels as paragraphs, not headings. Short standalone lines are heuristically promoted to `<h2>`. This works well in practice but isn't perfect.
 - **axe-core coverage:** axe-core detects ~30–40% of WCAG requirements. The other 60% require human review or custom logic. The loop handles the automatable portion; hard cases route to `needs_human`.
-- **Live reviewers not yet wired:** The loop currently runs with mock reviews per round. Wiring live OLMo/Gemini/GPT reviewers is the next step and requires API credentials.
+- **Live reviewers are wired and validated** (`src/reviewers.py`): OLMo (Modal), Gemini (google-genai), and GPT (openai) run in parallel with retry/backoff and graceful per-reviewer skip. Validated end-to-end on all three benchmark docs — all converge, gate passes every round, 0 violations throughout (see `benchmark/BENCHMARK_LIVE.md`). Note: OLMo (7B) sometimes emits malformed JSON on large documents and is skipped for that round; the loop continues with the other reviewers.
 
 ## Related Work
 
