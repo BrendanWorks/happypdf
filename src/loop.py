@@ -92,9 +92,11 @@ def hard_gates_pass(gate_res: dict, axe: dict) -> bool:
 
 def run_loop(baseline_html: str, reviews_provider, *, label: str = "doc",
              use_llm: bool = True, max_rounds: int = MAX_ROUNDS,
-             threshold: float = SCORE_THRESHOLD) -> dict:
+             threshold: float = SCORE_THRESHOLD, on_round=None) -> dict:
     """Drive the remediation loop. `reviews_provider(round, current_html)` returns
-    a reviews dict for the round, or None to stop. Returns a summary dict."""
+    a reviews dict for the round, or None to stop. `on_round(entry, patched_html)`
+    is an optional progress hook called after each accepted round. Returns a
+    summary dict."""
     base_axe = axe_score(baseline_html)
     log(f"[{label}] baseline: score {base_axe['score']}%  violations "
         f"{base_axe['violations']}  passes {base_axe['passes']}")
@@ -170,6 +172,8 @@ def run_loop(baseline_html: str, reviews_provider, *, label: str = "doc",
         prev_violations = axe["violations"]
         entry["status"] = "accepted"
         rounds.append(entry)
+        if on_round:
+            on_round(entry, patched)
 
         if (axe["score"] >= threshold and hard_gates_pass(gate_res, axe) and len(applied) == 0):
             stopped = "converged"

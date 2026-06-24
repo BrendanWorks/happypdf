@@ -19,6 +19,11 @@ output/
 !docs/**/*.md
 !tests/**/*.json
 !benchmark/*.md
+!frontend/**/*.json
+!api/snapshots/*.json
+
+# frontend build output (node_modules already covered above)
+frontend/dist/
 
 # benchmark generated artifacts (inputs .pdf/.md + BENCHMARK.md are tracked above)
 benchmark/*_baseline.html

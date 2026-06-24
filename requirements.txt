@@ -12,3 +12,6 @@ lxml==6.1.1            # applicator: fast, lenient HTML tree mutation for patche
 openai==1.109.1        # live GPT reviewer
 google-genai==1.75.0   # live Gemini reviewer (the unified SDK; not google-generativeai)
 httpx==0.28.1          # async calls to the OLMo Modal endpoint
+fastapi==0.138.0       # demo API in front of the pipeline (api/main.py)
+uvicorn==0.49.0        # ASGI server for the demo API
+python-multipart==0.0.32  # PDF upload handling for live jobs

@@ -1,0 +1,143 @@
+{
+  "id": "irs_schedule_c",
+  "label": "IRS Schedule C",
+  "doctype": "Dense tax form",
+  "source": "real live run (OLMo + Gemini + GPT reviewers, Claude judge)",
+  "baseline": {
+    "score": 100.0,
+    "violations": 0,
+    "passes": 23,
+    "critical_serious": 0
+  },
+  "rounds": [
+    {
+      "round": 1,
+      "patches_applied": 1,
+      "passes": 28,
+      "score": 100.0,
+      "violations": 0,
+      "gate_passed": true,
+      "gate_checks": [
+        {
+          "name": "text_coverage",
+          "passed": true,
+          "detail": "1066 -> 1066 words (100.0%); threshold 95%"
+        },
+        {
+          "name": "image_count",
+          "passed": true,
+          "detail": "0 -> 0 images (must not decrease)"
+        },
+        {
+          "name": "heading_order",
+          "passed": true,
+          "detail": "before [1] -> after [1]; skips none"
+        },
+        {
+          "name": "table_structure",
+          "passed": true,
+          "detail": "2 -> 2 tables"
+        }
+      ],
+      "accepted": 1,
+      "needs_human": 0,
+      "hallucinations": 0,
+      "seconds": 43.67,
+      "reviewers": [
+        "gemini"
+      ]
+    },
+    {
+      "round": 2,
+      "patches_applied": 1,
+      "passes": 28,
+      "score": 100.0,
+      "violations": 0,
+      "gate_passed": true,
+      "gate_checks": [
+        {
+          "name": "text_coverage",
+          "passed": true,
+          "detail": "1066 -> 1066 words (100.0%); threshold 95%"
+        },
+        {
+          "name": "image_count",
+          "passed": true,
+          "detail": "0 -> 0 images (must not decrease)"
+        },
+        {
+          "name": "heading_order",
+          "passed": true,
+          "detail": "before [1] -> after [1]; skips none"
+        },
+        {
+          "name": "table_structure",
+          "passed": true,
+          "detail": "2 -> 2 tables"
+        }
+      ],
+      "accepted": 1,
+      "needs_human": 18,
+      "hallucinations": 1,
+      "seconds": 63.42,
+      "reviewers": [
+        "gemini",
+        "gpt"
+      ]
+    },
+    {
+      "round": 3,
+      "patches_applied": 0,
+      "passes": 28,
+      "score": 100.0,
+      "violations": 0,
+      "gate_passed": true,
+      "gate_checks": [
+        {
+          "name": "text_coverage",
+          "passed": true,
+          "detail": "1066 -> 1066 words (100.0%); threshold 95%"
+        },
+        {
+          "name": "image_count",
+          "passed": true,
+          "detail": "0 -> 0 images (must not decrease)"
+        },
+        {
+          "name": "heading_order",
+          "passed": true,
+          "detail": "before [1] -> after [1]; skips none"
+        },
+        {
+          "name": "table_structure",
+          "passed": true,
+          "detail": "2 -> 2 tables"
+        }
+      ],
+      "accepted": 0,
+      "needs_human": 0,
+      "hallucinations": 0,
+      "seconds": 34.99,
+      "reviewers": [
+        "gemini",
+        "gpt"
+      ]
+    }
+  ],
+  "final": {
+    "score": 100.0,
+    "violations": 0,
+    "passes": 28,
+    "critical_serious": 0
+  },
+  "stopped_reason": "converged",
+  "total_seconds": 145.04,
+  "enhancements": [
+    {
+      "element_id": "block-1-86be9228",
+      "attribute": "aria-label",
+      "value": "Part I Income"
+    }
+  ],
+  "final_html": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n  <meta charset=\"UTF-8\">\n  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">\n  <title>Introduction to Physics - Course Syllabus</title>\n  <style>\n    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; line-height: 1.6; color: #1a1a1a; }\n    .skip-link { position: absolute; top: -40px; left: 0; background: #000; color: #fff; padding: 8px; text-decoration: none; }\n    .skip-link:focus { top: 0; }\n    table { border-collapse: collapse; width: 100%; margin: 1em 0; }\n    th, td { border: 1px solid #767676; padding: 8px; text-align: left; }\n    th { background: #eee; }\n    img { max-width: 100%; height: auto; }\n    figure { margin: 1.5em 0; }\n  </style>\n</head>\n<body>\n  <a href=\"#main-content\" class=\"skip-link\">Skip to main content</a>\n  <main id=\"main-content\">\n    <h1 data-ir-id=\"block-1-613bf905\">Profit or Loss From Business</h1>\n    <p data-ir-id=\"block-1-f46e3d76\">(Sole Proprietorship)</p>\n    <p data-ir-id=\"block-1-96a87396\">Attach to Form 1040, 1040-SR, 1040-SS, 1040-NR, or 1041; partnerships must generally file Form 1065.</p>\n    <p data-ir-id=\"block-1-83db11af\">Go to www.irs.gov/ScheduleC for instructions and the latest information.</p>\n    <p data-ir-id=\"block-1-f33f795e\">Name of proprietor</p>\n    <p data-ir-id=\"block-1-0b98f0c1\">Social security number (SSN)</p>\n    <p data-ir-id=\"block-1-b16627cb\">A Principal business or profession, including product or service (see instructions)</p>\n    <p data-ir-id=\"block-1-6a70a904\">B Enter code from instructions</p>\n    <p data-ir-id=\"block-1-ad978f14\">C Business name. If no separate business name, leave blank.</p>\n    <p data-ir-id=\"block-1-2ff2148e\">D Employer ID number (EIN) (see instr.)</p>\n    <p data-ir-id=\"block-1-7f9588cc\">E Business address (including suite or room no.)</p>\n    <p data-ir-id=\"block-1-58624b30\">City, town or post office, state, and ZIP code</p>\n    <p data-ir-id=\"block-1-3aa700be\">F Accounting method: (1) \u2610 Cash   (2) \u2610 Accrual   (3) \u2610 Other (specify) ____________________________</p>\n    <p data-ir-id=\"block-1-32b9d713\">G Did you \u201cmaterially participate\u201d in the operation of this business during 2025? If \u201cNo,\u201d see instructions for limit on losses \u2610 Yes \u2610 No</p>\n    <p data-ir-id=\"block-1-b39851ba\">H If you started or acquired this business during 2025, check here ____________________________</p>\n    <p data-ir-id=\"block-1-5811996d\">I Did you make any payments in 2025 that would require you to file Form(s) 1099? See instructions \u2610 Yes \u2610 No</p>\n    <p data-ir-id=\"block-1-bf1ae948\">J If \u201cYes,\u201d did you or will you file required Form(s) 1099? \u2610 Yes \u2610 No</p>\n    <p data-ir-id=\"block-1-bd3030e5\">Part I Income</p>\n    <table data-ir-id=\"block-1-86be9228\">\n      <tr><th>Line</th><th>Description</th><th>Amount</th></tr>\n      <tr><td>1</td><td>Gross receipts or sales. See instructions for line 1 and check the box if this income was reported to you on Form W-2 and the \u201cStatutory employee\u201d box on that form was checked</td><td>1</td></tr>\n      <tr><td>2</td><td>Returns and allowances</td><td>2</td></tr>\n      <tr><td>3</td><td>Subtract line 2 from line 1</td><td>3</td></tr>\n      <tr><td>4</td><td>Cost of goods sold (from line 42)</td><td>4</td></tr>\n      <tr><td>5</td><td><b>Gross profit.</b> Subtract line 4 from line 3</td><td>5</td></tr>\n      <tr><td>6</td><td>Other income, including federal and state gasoline or fuel tax credit or refund (see instructions)</td><td>6</td></tr>\n      <tr><td>7</td><td><b>Gross income.</b> Add lines 5 and 6</td><td>7</td></tr>\n    </table>\n    <p data-ir-id=\"block-1-71512749\">Part II Expenses. Enter expenses for business use of your home only on line 30.</p>\n    <table data-ir-id=\"block-1-86be9228\" aria-label=\"Part I Income\">\n      <tr><th>Line</th><th>Description</th><th>Amount</th></tr>\n      <tr><td>8</td><td>Advertising</td><td>8</td></tr>\n      <tr><td>9</td><td>Car and truck expenses (see instructions)</td><td>9</td></tr>\n      <tr><td>10</td><td>Commissions and fees</td><td>10</td></tr>\n      <tr><td>11</td><td>Contract labor (see instructions)</td><td>11</td></tr>\n      <tr><td>12</td><td>Depletion</td><td>12</td></tr>\n      <tr><td>13</td><td>Depreciation and section 179 expense deduction (not included in Part III) (see instructions)</td><td>13</td></tr>\n      <tr><td>14</td><td>Employee benefit programs (other than on line 19)</td><td>14</td></tr>\n      <tr><td>15</td><td>Insurance (other than health)</td><td>15</td></tr>\n      <tr><td>a</td><td>Mortgage (paid to banks, etc.)</td><td>16a</td></tr>\n      <tr><td>b</td><td>Other</td><td>16b</td></tr>\n      <tr><td>17</td><td>Legal and professional services</td><td>17</td></tr>\n      <tr><td>18</td><td>Office expense (see instructions)</td><td>18</td></tr>\n      <tr><td>19</td><td>Pension and profit-sharing plans</td><td>19</td></tr>\n      <tr><td>20</td><td>Rent or lease (see instructions):<br>a Vehicles, machinery, and equipment<br>b Other business property</td><td>20a<br>20b</td></tr>\n      <tr><td>21</td><td>Repairs and maintenance</td><td>21</td></tr>\n      <tr><td>22</td><td>Supplies (not included in Part III)</td><td>22</td></tr>\n      <tr><td>23</td><td>Taxes and licenses</td><td>23</td></tr>\n      <tr><td>24</td><td>Travel and meals:<br>a Travel<br>b Deductible meals (see instructions)</td><td>24a<br>24b</td></tr>\n      <tr><td>25</td><td>Utilities</td><td>25</td></tr>\n      <tr><td>26</td><td>Wages (less employment credits)</td><td>26</td></tr>\n      <tr><td>27a</td><td>Energy efficient commercial bldgs deduction (attach Form 7205)<br>b Other expenses (from line 48)</td><td>27a<br>27b</td></tr>\n      <tr><td>28</td><td>Total expenses before expenses for business use of home. Add lines 8 through 27b</td><td>28</td></tr>\n      <tr><td>29</td><td>Tentative profit or (loss). Subtract line 28 from line 7</td><td>29</td></tr>\n      <tr><td>30</td><td>Expenses for business use of your home. Do not report these expenses elsewhere. Attach Form 8829 unless using the simplified method. See instructions.<br><b>Simplified method filers only:</b> Enter the total square footage of (a) your home: ____________<br>and (b) the part of your home used for business: ____________. Use the Simplified Method Worksheet in the instructions to figure the amount to enter on line 30</td><td>30</td></tr>\n      <tr><td>31</td><td>Net profit or (loss). Subtract line 30 from line 29.<br><ul><li>If a profit, enter on both Schedule 1 (Form 1040), line 3, and on Schedule SE, line 2. (If you checked the box on line 1, see instructions.) Estates and trusts, enter on Form 1041, line 3.</li><li>If a loss, you must go to line 32.</li></ul></td><td>31</td></tr>\n      <tr><td>32</td><td>If you have a loss, check the box that describes your investment in this activity. See instructions.<br><ul><li>If you checked 32a, enter the loss on both Schedule 1 (Form 1040), line 3, and on Schedule SE, line 2. (If you checked the box on line 1, see the line 31 instructions.) Estates and trusts, enter on Form 1041, line 3.</li><li>If you checked 32b, you must attach Form 6198. Your loss may be limited.</li></ul></td><td>32a \u2610 All investment is at risk.<br>32b \u2610 Some investment is not at risk.</td></tr>\n    </table>\n    <p data-ir-id=\"block-1-00a95724\">Part III Cost of Goods Sold (see instructions)</p>\n    <p data-ir-id=\"block-1-3b25bf56\">33 Method(s) used to value closing inventory:    a   \u2610 Cost   \u2610 b Lower of cost or market   \u2610 c Other (attach explanation)</p>\n    <p data-ir-id=\"block-1-f649fb93\">34 Was there any change in determining quantities, costs, or valuations between opening and closing inventory?</p>\n    <p data-ir-id=\"block-1-e0966233\">If \u201cYes,\u201d attach explanation . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .  \u2610 Yes \u2610 No</p>\n    <p data-ir-id=\"block-1-38d6af36\">35 Inventory at beginning of year. If different from last year\u2019s closing inventory, attach explanation . . .</p>\n    <p data-ir-id=\"block-1-6ae1125a\">36 Purchases less cost of items withdrawn for personal use</p>\n    <p data-ir-id=\"block-1-33bf322a\">37 Cost of labor. Do not include any amounts paid to yourself.</p>\n    <p data-ir-id=\"block-1-c0553273\">38 Materials and supplies</p>\n    <p data-ir-id=\"block-1-cbffd20a\">39 Other costs.</p>\n    <p data-ir-id=\"block-1-66b4d0cc\">40 Add lines 35 through 39</p>\n    <p data-ir-id=\"block-1-75ae7f37\">41 Inventory at end of year</p>\n    <p data-ir-id=\"block-1-a1c8877e\">42 Cost of goods sold. Subtract line 41 from line 40. Enter the result here and on line 4.</p>\n    <p data-ir-id=\"block-1-07a26cbf\">Part IV Information on Your Vehicle. Complete this part only if you are claiming car or truck expenses on line 9 and are not required to file Form 4562 for this business. See the instructions for line 13 to find out if you must file Form 4562.</p>\n    <p data-ir-id=\"block-1-5a4d0163\">43 When did you place your vehicle in service for business purposes? (month/day/year)</p>\n    <p data-ir-id=\"block-1-f1dfa8cc\">44 Of the total number of miles you drove your vehicle during 2025, enter the number of miles you used your vehicle for:</p>\n    <p data-ir-id=\"block-1-3bd2a994\">a Business ________________</p>\n    <p data-ir-id=\"block-1-89409198\">b Commuting (see instructions) ____________________________ c Other ____________________________</p>\n    <p data-ir-id=\"block-1-86723475\">45 Was your vehicle available for personal use during off-duty hours? . . . . . . . . . . . . . . \u2610 Yes \u2610 No</p>\n    <p data-ir-id=\"block-1-79fe1f79\">46 Do you (or your spouse) have another vehicle available for personal use?. . . . . . . . . . . . . . . \u2610 Yes \u2610 No</p>\n    <p data-ir-id=\"block-1-49b017d8\">47a Do you have evidence to support your deduction? . . . . . . . . . . . . . . . . . . . . \u2610 Yes \u2610 No</p>\n    <p data-ir-id=\"block-1-0ace2615\">b If \u201cYes,\u201d is the evidence written? . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . \u2610 Yes \u2610 No</p>\n    <p data-ir-id=\"block-1-e488dc1d\">Part V Other Expenses. List below business expenses not included on lines 8-27a, or line 30.</p>\n    <p data-ir-id=\"block-1-29671bdf\">-------------------------------------------------------------------------------------------------------</p>\n    <p data-ir-id=\"block-1-29671bdf\">-------------------------------------------------------------------------------------------------------</p>\n    <p data-ir-id=\"block-1-29671bdf\">-------------------------------------------------------------------------------------------------------</p>\n    <p data-ir-id=\"block-1-29671bdf\">-------------------------------------------------------------------------------------------------------</p>\n    <p data-ir-id=\"block-1-29671bdf\">-------------------------------------------------------------------------------------------------------</p>\n    <p data-ir-id=\"block-1-29671bdf\">-------------------------------------------------------------------------------------------------------</p>\n    <p data-ir-id=\"block-1-67470c4a\">48 Total other expenses. Enter here and on line 27b . . . . . . . . . . . . . . . . . . . . . . . . . 48</p>\n  </main>\n</body>\n</html>"
+}
