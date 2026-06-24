@@ -103,10 +103,18 @@ def run_loop(baseline_html: str, reviews_provider, *, label: str = "doc",
     final = baseline_html
     rounds: list[dict] = []
     stopped = "max_rounds_reached"
+    prev_violations = base_axe["violations"]
 
     for r in range(1, max_rounds + 1):
         t0 = time.time()
-        reviews = reviews_provider(r, current)
+        try:
+            reviews = reviews_provider(r, current)
+        except Exception as e:
+            rounds.append({"round": r, "status": "reviewers_failed", "error": str(e),
+                           "seconds": round(time.time() - t0, 2)})
+            stopped = "reviewers_failed"
+            log(f"[{label}] round {r}: reviewers failed ({e}); stopping")
+            break
         if reviews is None:
             stopped = "no_more_reviews"
             break
@@ -146,7 +154,17 @@ def run_loop(baseline_html: str, reviews_provider, *, label: str = "doc",
             log(f"[{label}] round {r}: gate failed {gate_res['failed_checks']} — reverting, stopping")
             break
 
+        # Axe-regression guard: never accept a round that makes accessibility worse.
+        if axe["violations"] > prev_violations:
+            entry["status"] = "axe_regression_reverted"
+            entry["regression"] = f"{prev_violations} -> {axe['violations']} violations"
+            rounds.append(entry)
+            stopped = "axe_regression"
+            log(f"[{label}] round {r}: axe regression ({entry['regression']}) — reverting, stopping")
+            break
+
         current, final = patched, patched
+        prev_violations = axe["violations"]
         entry["status"] = "accepted"
         rounds.append(entry)
 
@@ -169,13 +187,27 @@ def _file_provider(r: int, _current_html: str):
 
 
 def main() -> int:
+    import argparse
+    ap = argparse.ArgumentParser(description="Run the remediation loop on the syllabus baseline.")
+    ap.add_argument("--live", action="store_true",
+                    help="use live OLMo/Gemini/GPT reviewers instead of mock files")
+    ap.add_argument("--baseline", type=Path, default=BASELINE)
+    args = ap.parse_args()
+
     log("=" * 72)
-    log("Remediation loop starting (syllabus, file-based mock reviews)")
-    if not BASELINE.exists():
-        log(f"FATAL: baseline not found: {BASELINE}")
+    if not args.baseline.exists():
+        log(f"FATAL: baseline not found: {args.baseline}")
         return 1
 
-    summary = run_loop(BASELINE.read_text(), _file_provider, label="syllabus", use_llm=True)
+    if args.live:
+        import reviewers
+        reviewers.load_env()  # ensure ANTHROPIC/GOOGLE/OPENAI keys are present for judge + reviewers
+        provider, mode = reviewers.live_provider, "live reviewers"
+    else:
+        provider, mode = _file_provider, "file-based mock reviews"
+    log(f"Remediation loop starting (syllabus, {mode})")
+
+    summary = run_loop(args.baseline.read_text(), provider, label="syllabus", use_llm=True)
     FINAL_HTML.write_text(summary.pop("final_html"))
     SUMMARY.write_text(json.dumps({**summary, "final_html": str(FINAL_HTML)}, indent=2))
 

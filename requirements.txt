@@ -9,3 +9,6 @@ requests>=2.31.0       # HTTP utility for hosted-mode model backends (future rou
 anthropic==0.111.0     # Claude judge (Opus 4.8) — synthesizes peer reviews into patches
 beautifulsoup4==4.14.3 # judge HTML parsing (data-ir-id -> element index)
 lxml==6.1.1            # applicator: fast, lenient HTML tree mutation for patches
+openai==1.109.1        # live GPT reviewer
+google-genai==1.75.0   # live Gemini reviewer (the unified SDK; not google-generativeai)
+httpx==0.28.1          # async calls to the OLMo Modal endpoint

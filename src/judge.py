@@ -67,6 +67,15 @@ HUMAN_KW = (
 )
 # Attributes a patch may set deterministically when a concrete value is supplied.
 DET_ATTRS = ("role", "aria-label", "aria-describedby", "aria-labelledby", "lang")
+# Self-sufficient ARIA roles — safe to add without companion attributes. Roles
+# like "heading" (needs aria-level) or "checkbox" (needs aria-checked) are NOT
+# here: applying them bare introduces an aria-required-attr violation, so they
+# route to needs_human instead.
+SAFE_ROLES = frozenset({
+    "navigation", "banner", "main", "contentinfo", "complementary", "region",
+    "search", "form", "list", "listitem", "table", "row", "cell", "columnheader",
+    "rowheader", "group", "figure", "note", "article", "document", "img",
+})
 
 
 def log(msg: str) -> None:
@@ -87,6 +96,7 @@ def parse_html(path: Path) -> dict[str, dict]:
             "text": text,
             "alt": el.get("alt", ""),
             "empty": not text and not el.get("alt"),
+            "attrs": {k: v for k, v in el.attrs.items()},
         }
     return index
 
@@ -203,6 +213,10 @@ def classify(g: Group, el: dict | None) -> tuple[str, str, str | None, str | Non
         return "llm_safe", "alt text for an image requires model judgment", target, value
 
     # 4. Deterministic: a concrete attribute value on a safe target.
+    if target == "role" and value and value.lower() not in SAFE_ROLES:
+        return ("needs_human",
+                f'role="{value}" needs validation/companion attributes (not a self-sufficient role)',
+                target, value)
     if target in DET_ATTRS and value:
         return "deterministic", "reviewer supplied a concrete, non-destructive attribute value", target, value
 
@@ -291,6 +305,27 @@ def build_manifest(html: Path, reviews: Path, use_llm: bool) -> tuple[list, list
                 "confidence": g.confidence, "issue": g.issue,
             })
             log(f"  ⚠ needs_human [{g.element_id}] {reason}")
+            continue
+
+        # No-op suppression: a fix that doesn't change the DOM is not progress.
+        # This is what lets live runs converge — reviewers re-flag already-fixed
+        # elements every round, but re-setting an attribute to its current value
+        # produces no patch.
+        if decision == "deterministic" and el and el["attrs"].get(target) == value:
+            rejected.append({
+                "element_id": g.element_id, "wcag_criterion": g.wcag_criterion,
+                "status": "already_satisfied", "flagged_by": sorted(g.reviewers),
+                "reason": f'{target}="{value}" is already present on the element',
+            })
+            log(f"  = already satisfied [{g.element_id}] {target}=\"{value}\"")
+            continue
+        if decision == "llm_safe" and el and len((el.get("alt") or "").strip()) >= 15:
+            rejected.append({
+                "element_id": g.element_id, "wcag_criterion": g.wcag_criterion,
+                "status": "already_satisfied", "flagged_by": sorted(g.reviewers),
+                "reason": "element already has substantive alt text",
+            })
+            log(f"  = already satisfied [{g.element_id}] alt already present")
             continue
 
         if decision == "deterministic":
