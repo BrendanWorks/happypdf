@@ -1,0 +1,107 @@
+{
+  "olmo": [
+    {
+      "issue_id": "olmo-001",
+      "wcag_criterion": "1.3.1",
+      "element_id": "block-1-bf39d72d",
+      "issue": "Data table has no accessible name; screen reader users cannot tell what the table contains.",
+      "impact": "serious",
+      "confidence": 0.88,
+      "suggested_fix": "Add aria-label=\"Class schedule by week\" to the table.",
+      "fix_type": "deterministic",
+      "hallucinated": false
+    },
+    {
+      "issue_id": "olmo-002",
+      "wcag_criterion": "1.3.1",
+      "element_id": "block-1-cbcab1f0",
+      "issue": "The grade weighting table has no accessible name.",
+      "impact": "moderate",
+      "confidence": 0.72,
+      "suggested_fix": "Add aria-label=\"Grade weighting breakdown\" to the table.",
+      "fix_type": "deterministic",
+      "hallucinated": false
+    },
+    {
+      "issue_id": "olmo-003",
+      "wcag_criterion": "1.3.1",
+      "element_id": "block-1-cbcab1f0",
+      "issue": "Grade table header cells use rowspan and colspan without scope; the header associations are semantically incorrect for screen readers.",
+      "impact": "serious",
+      "confidence": 0.81,
+      "suggested_fix": "Restructure the header row so each data cell is associated with the correct column and row headers.",
+      "fix_type": "needs_human",
+      "hallucinated": false
+    }
+  ],
+  "gemini": [
+    {
+      "issue_id": "gem-101",
+      "wcag_criterion": "1.3.1",
+      "element_id": "block-1-bf39d72d",
+      "issue": "Table is missing an accessible name so its purpose is unclear to assistive technology.",
+      "impact": "serious",
+      "confidence": 0.9,
+      "suggested_fix": "Add aria-label=\"Class schedule by week\" to the table element.",
+      "fix_type": "deterministic",
+      "hallucinated": false
+    },
+    {
+      "issue_id": "gem-102",
+      "wcag_criterion": "1.1.1",
+      "element_id": "block-1-844ada8f",
+      "issue": "Image alt text is verbose and repeats the phrase 'Accessible University'; rewrite it to be concise.",
+      "impact": "moderate",
+      "confidence": 0.7,
+      "suggested_fix": "Rewrite the alt text to a concise description of the logo.",
+      "fix_type": "llm_safe",
+      "hallucinated": false
+    },
+    {
+      "issue_id": "gem-103",
+      "wcag_criterion": "1.3.1",
+      "element_id": "block-1-cbcab1f0",
+      "issue": "Grade table header structure is wrong; rowspan/colspan headers lack scope and associations.",
+      "impact": "serious",
+      "confidence": 0.79,
+      "suggested_fix": "A human should rebuild the header associations for this complex table.",
+      "fix_type": "needs_human",
+      "hallucinated": false
+    }
+  ],
+  "gpt": [
+    {
+      "issue_id": "gpt-201",
+      "wcag_criterion": "1.3.1",
+      "element_id": "block-1-bf39d72d",
+      "issue": "The schedule table lacks an accessible name for assistive technology.",
+      "impact": "serious",
+      "confidence": 0.86,
+      "suggested_fix": "Add aria-label=\"Class schedule by week\" to the table.",
+      "fix_type": "deterministic",
+      "hallucinated": false
+    },
+    {
+      "issue_id": "gpt-202",
+      "wcag_criterion": "1.1.1",
+      "element_id": "block-1-844ada8f",
+      "issue": "Alt text on the logo image is overly long and should be tightened.",
+      "impact": "moderate",
+      "confidence": 0.74,
+      "suggested_fix": "Provide concise alt text for the image.",
+      "fix_type": "llm_safe",
+      "hallucinated": false
+    },
+    {
+      "issue_id": "gpt-203",
+      "wcag_criterion": "1.1.1",
+      "element_id": "block-1-a4bf20ea",
+      "issue": "This element is missing alt text and is inaccessible to screen reader users.",
+      "impact": "critical",
+      "confidence": 0.69,
+      "suggested_fix": "Add alt=\"Course syllabus heading\" to the element.",
+      "fix_type": "deterministic",
+      "hallucinated": false
+    }
+  ]
+}
