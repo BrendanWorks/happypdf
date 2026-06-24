@@ -15,7 +15,7 @@ The orchestration is identical across all three modes — only the model backend
 | Mode | Models | Cost | When to use |
 |------|--------|------|-------------|
 | **Self-hosted / Open-weight** | OLMo peer review + local inference on your own hardware or Modal account | Zero marginal cost, lower quality | Cost-sensitive, offline, or air-gapped environments |
-| **Demo / Hosted** | happypdf provisions Claude as judge/fixer with OLMo as peer reviewers | Per-conversion (scales with document size and review rounds) | Best quality |
+| **Demo / Hosted** | happypdf provisions Claude as judge/fixer with OLMo as peer reviewer | Per-conversion (scales with document size and review rounds) | Best quality |
 | **BYOK / Enterprise** | User brings their own Claude / ChatGPT enterprise credentials; same code as demo mode | Zero incremental cost to happypdf | Enterprises that already hold model contracts |
 
 **BYOK is the differentiator.** No competitor has built it. The barrier to enterprise accessibility tooling is procurement friction, not technical capability — organizations already have model contracts but cannot easily route a third-party SaaS tool through them. BYOK sidesteps that entirely: the customer points happypdf at credentials they already own and pay for.
