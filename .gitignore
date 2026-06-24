@@ -17,6 +17,7 @@ output/
 !README.md
 !package.json
 !docs/**/*.md
+!tests/**/*.json
 
 # Secrets
 .env

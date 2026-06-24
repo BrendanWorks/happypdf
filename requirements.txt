@@ -6,3 +6,6 @@ playwright==1.60.0     # headless Chromium driver for running axe-core in a real
 PyMuPDF==1.27.2.3      # PDF parsing + embedded image extraction (imported as `fitz`)
 modal==1.4.3           # calls the deployed olmOCR and Qwen2-VL GPU functions
 requests>=2.31.0       # HTTP utility for hosted-mode model backends (future rounds)
+anthropic==0.111.0     # Claude judge (Opus 4.8) — synthesizes peer reviews into patches
+beautifulsoup4==4.14.3 # judge HTML parsing (data-ir-id -> element index)
+lxml==6.1.1            # applicator: fast, lenient HTML tree mutation for patches

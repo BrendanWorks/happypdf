@@ -1,0 +1,38 @@
+[
+  {
+    "element_id": "block-1-bf39d72d",
+    "operation": "annotate",
+    "target_attribute": "role",
+    "new_value": "table",
+    "wcag_criterion": "1.3.1",
+    "confidence": 0.95,
+    "reasoning": "annotate: add an explicit table role."
+  },
+  {
+    "element_id": "block-1-844ada8f",
+    "operation": "replace",
+    "target_attribute": "alt",
+    "new_value": "Accessible University logo",
+    "wcag_criterion": "1.1.1",
+    "confidence": 0.8,
+    "reasoning": "replace: rewrite the image alt text."
+  },
+  {
+    "element_id": "block-1-63483697",
+    "operation": "wrap",
+    "wrapper_tag": "section",
+    "wrapper_attributes": {"role": "group", "aria-label": "Course objectives"},
+    "wcag_criterion": "1.3.1",
+    "confidence": 0.7,
+    "reasoning": "wrap: group the objectives heading in a labelled section."
+  },
+  {
+    "element_id": "block-1-844ada8f",
+    "operation": "insert",
+    "position": "after",
+    "new_element": "<figcaption data-ir-id=\"block-1-cap0001\">Accessible University logo and tagline</figcaption>",
+    "wcag_criterion": "1.1.1",
+    "confidence": 0.7,
+    "reasoning": "insert: add a visible caption after the image."
+  }
+]
