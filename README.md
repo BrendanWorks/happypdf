@@ -164,9 +164,9 @@ axe-core runs in a real headless Chromium browser and returns structured JSON. S
 2. ~~Multi-round loop with early stopping~~ — done (`src/loop.py`)
 3. ~~Content preservation gate~~ — done (`src/gate.py`)
 4. ~~Benchmark across document types~~ — done (`src/benchmark.py`, [benchmark/BENCHMARK.md](benchmark/BENCHMARK.md))
-5. ~Wire live OLMo/Gemini/GPT reviewers (replaces mock reviews; needs API credentials)~
-6. ~Next.js frontend (drag-and-drop, visual review)~
-7. ~Pre-cached demo mode~
+5. ~~Wire live OLMo/Gemini/GPT reviewers (replaces mock reviews; needs API credentials)~~
+6. ~~Next.js frontend (drag-and-drop, visual review)~~
+7. ~~Pre-cached demo mode~~
 
 ### Running Tests
 
