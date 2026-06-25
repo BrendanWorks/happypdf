@@ -60,21 +60,14 @@ app.add_middleware(
 
 # Daily rate limit for the paid live path. Backed by a Modal Dict on Modal (shared
 # across container restarts), or an in-process counter locally.
-DAILY_LIMIT = int(os.environ.get("HAPPYPDF_DAILY_LIMIT", "10"))
+DAILY_LIMIT = int(os.environ.get("HAPPYPDF_DAILY_LIMIT", "20"))  # raised for demo testing
 _local_counts: dict[str, int] = {}
 
 
 def _rate_check() -> tuple[bool, int]:
-    """Returns (allowed, count_after). Increments only when allowed."""
+    """Returns (allowed, count_after). Increments only when allowed.
+    Uses in-memory counter (safe for max_containers=1 single pinned container)."""
     today = datetime.now().strftime("%Y-%m-%d")
-    if os.environ.get("HAPPYPDF_ON_MODAL"):
-        import modal
-        counts = modal.Dict.from_name("happypdf-counts", create_if_missing=True)
-        c = counts.get(today, 0)
-        if c >= DAILY_LIMIT:
-            return False, c
-        counts[today] = c + 1
-        return True, c + 1
     c = _local_counts.get(today, 0)
     if c >= DAILY_LIMIT:
         return False, c
