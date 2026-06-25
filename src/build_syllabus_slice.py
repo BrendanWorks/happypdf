@@ -226,14 +226,17 @@ class HtmlBuilder:
         flush_list()
 
         # Inject extracted images as figures with Qwen2-VL alt text.
+        # Use data-URIs so the HTML is self-contained (works offline + downloads).
         for img in self.images:
             res = self.alt_map.get(img["filename"], {})
             alt = res.get("alt_text") or img["filename"]
-            rel = f"{IMG_DIR.name}/{img['filename']}"
             fig_id = self._id("fig:" + img["filename"])
             img_id = self._id("img:" + img["filename"])
+            # Guess MIME type from the b64 hint in the filename or use image/jpeg as default.
+            mime = "image/png" if img["filename"].endswith(".png") else "image/jpeg"
+            data_uri = f'data:{mime};base64,{img.get("b64", "")}'
             body.append(f'    <figure data-ir-id="{fig_id}">')
-            body.append(f'      <img data-ir-id="{img_id}" src="{rel}" alt="{self._attr(alt)}">')
+            body.append(f'      <img data-ir-id="{img_id}" src="{data_uri}" alt="{self._attr(alt)}">')
             if res.get("requires_long_desc"):
                 cap_id = self._id("cap:" + img["filename"])
                 body.append(f'      <figcaption data-ir-id="{cap_id}">'
