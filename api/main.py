@@ -174,8 +174,13 @@ def _live(jid: str, pdf_bytes: bytes, filename: str) -> None:
                            label=filename, use_llm=True, on_round=on_round)
         final_html = summary["final_html"]
         from build_snapshots import enhancements
+        try:
+            enhancements_list = enhancements(baseline_html, final_html)
+        except Exception as e:
+            print(f"Warning: enhancements calculation failed: {e}")
+            enhancements_list = []
         _set(jid, stage="done", final=summary["final"], final_html=final_html,
-             enhancements=enhancements(baseline_html, final_html),
+             enhancements=enhancements_list,
              stopped_reason=summary["stopped_reason"], status="done")
     except Exception as e:
         _set(jid, status="error", error=f"{type(e).__name__}: {e}")
