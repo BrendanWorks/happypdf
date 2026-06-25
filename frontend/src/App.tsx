@@ -219,15 +219,6 @@ function DemoPanel() {
       } catch { /* keep polling */ }
     }, 600);
   };
-  const apiDemo = async (id: string, label: string) => {
-    begin(`${label} (replay of a real run)`);
-    try {
-      const r = await fetch(`${API_BASE}/api/jobs/demo/${id}`, { method: 'POST' });
-      if (!r.ok) throw new Error();
-      const { job_id } = (await r.json()) as { job_id: string };
-      setJobId(job_id); poll(job_id);
-    } catch { setBusy(false); setClientError(`Couldn't reach the API at ${API_BASE}.`); }
-  };
   const apiLive = async (file: File) => {
     begin(file.name);
     try {
@@ -239,7 +230,9 @@ function DemoPanel() {
     } catch { setBusy(false); setClientError(`Couldn't start a live job at ${API_BASE}.`); }
   };
 
-  const startDemo = (id: string, label: string) => (HAS_API ? apiDemo(id, label) : clientReplay(id, label));
+  // Demos always replay the bundled snapshots client-side — free, instant, and
+  // independent of the (paid) live API. Only PDF uploads use the API.
+  const startDemo = (id: string, label: string) => clientReplay(id, label);
   const onDropFile = (file: File) => {
     if (HAS_API) { apiLive(file); }
     else { setClientError('Live upload runs in self-hosted mode. The demos below are real recorded runs you can replay instantly.'); }

@@ -1,6 +1,6 @@
 # Netlify builds the Vite frontend from the frontend/ subdirectory.
-# The 3 benchmark demos replay bundled real snapshots client-side, so no backend
-# is required in production. (Local dev can point at the API via VITE_API_URL.)
+# The 3 benchmark demos always replay bundled real snapshots client-side (free,
+# instant). Live PDF upload calls the Modal API below (rate-limited to 10/day).
 [build]
   base = "frontend"
   command = "npm run build"
@@ -8,6 +8,8 @@
 
 [build.environment]
   NODE_VERSION = "20"
+  # Enables live PDF upload on the public site (rate-limited, paid GPU endpoint).
+  VITE_API_URL = "https://brendanworks--happypdf-api-fastapi-app.modal.run"
 
 # SPA: single page, no client routing, but keep a catch-all to be safe.
 [[redirects]]

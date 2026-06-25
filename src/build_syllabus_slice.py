@@ -82,7 +82,7 @@ def strip_front_matter(md: str) -> str:
 # Step 3: image extraction (PyMuPDF)
 # ---------------------------------------------------------------------------
 def extract_images(pdf_path: Path) -> list[dict]:
-    IMG_DIR.mkdir(exist_ok=True)
+    IMG_DIR.mkdir(parents=True, exist_ok=True)
     doc = fitz.open(pdf_path)
     images = []
     seen_xrefs = set()

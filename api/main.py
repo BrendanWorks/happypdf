@@ -15,9 +15,11 @@ or:
 """
 
 import json
+import os
 import threading
 import time
 import uuid
+from datetime import datetime
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException, UploadFile, File
@@ -47,9 +49,37 @@ STAGES = [
 app = FastAPI(title="happypdf API")
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://localhost:5174", "http://127.0.0.1:5173"],
+    allow_origins=[
+        "http://localhost:5173", "http://localhost:5174", "http://127.0.0.1:5173",
+        "https://happypdf.netlify.app",
+    ],
+    # Netlify deploy previews / branch deploys: https://<hash>--happypdf.netlify.app
+    allow_origin_regex=r"https://([a-z0-9-]+--)?happypdf\.netlify\.app",
     allow_methods=["*"], allow_headers=["*"],
 )
+
+# Daily rate limit for the paid live path. Backed by a Modal Dict on Modal (shared
+# across container restarts), or an in-process counter locally.
+DAILY_LIMIT = int(os.environ.get("HAPPYPDF_DAILY_LIMIT", "10"))
+_local_counts: dict[str, int] = {}
+
+
+def _rate_check() -> tuple[bool, int]:
+    """Returns (allowed, count_after). Increments only when allowed."""
+    today = datetime.now().strftime("%Y-%m-%d")
+    if os.environ.get("HAPPYPDF_ON_MODAL"):
+        import modal
+        counts = modal.Dict.from_name("happypdf-counts", create_if_missing=True)
+        c = counts.get(today, 0)
+        if c >= DAILY_LIMIT:
+            return False, c
+        counts[today] = c + 1
+        return True, c + 1
+    c = _local_counts.get(today, 0)
+    if c >= DAILY_LIMIT:
+        return False, c
+    _local_counts[today] = c + 1
+    return True, c + 1
 
 # In-memory job store (local dev). job_id -> dict.
 JOBS: dict[str, dict] = {}
@@ -183,6 +213,13 @@ def start_demo(name: str):
 async def start_live(file: UploadFile = File(...)):
     if not (file.filename or "").lower().endswith(".pdf"):
         raise HTTPException(400, "please upload a .pdf")
+    allowed, count = _rate_check()
+    if not allowed:
+        raise HTTPException(
+            429,
+            f"Daily live-conversion limit reached ({DAILY_LIMIT}/day). "
+            f"Try the instant replay demos, or self-host for unlimited runs.",
+        )
     data = await file.read()
     jid = _new_job("live", file.filename)
     threading.Thread(target=_live, args=(jid, data, file.filename), daemon=True).start()

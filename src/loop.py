@@ -26,6 +26,7 @@ Run:
 """
 
 import json
+import os
 import sys
 import tempfile
 import time
@@ -49,6 +50,7 @@ MAX_ROUNDS = 3
 SCORE_THRESHOLD = 95.0  # percent: passes / (passes + violations)
 
 AXE_CANDIDATES = [
+    Path(os.environ["AXE_CORE_PATH"]) if os.environ.get("AXE_CORE_PATH") else None,
     ROOT / "node_modules/axe-core/axe.min.js",
     Path("/Users/brendanworks/node_modules/axe-core/axe.min.js"),
 ]
@@ -60,7 +62,7 @@ def log(msg: str) -> None:
 
 def axe_score(html_str: str) -> dict:
     """Run axe-core on an HTML string in headless Chromium."""
-    axe_path = next((p for p in AXE_CANDIDATES if p.exists()), None)
+    axe_path = next((p for p in AXE_CANDIDATES if p and p.exists()), None)
     if axe_path is None:
         raise FileNotFoundError("axe-core not found")
     axe_src = axe_path.read_text()
