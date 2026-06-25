@@ -25,9 +25,10 @@ import {
 // ─── Pipeline types + API ────────────────────────────────────────────────────
 
 // When VITE_API_URL is set (local dev), the demo drives the real backend.
-// On a static host (Netlify) it's unset, and the benchmark demos replay bundled
-// real snapshots entirely client-side — no backend, no per-visitor cost.
-const API_BASE: string = ((import.meta as any).env?.VITE_API_URL as string) || '';
+// On a static host (Netlify) it defaults to the Modal endpoint.
+// The benchmark demos also replay bundled snapshots client-side for instant results.
+const API_BASE: string = ((import.meta as any).env?.VITE_API_URL as string) ||
+  'https://brendanworks--happypdf-api-fastapi-app.modal.run';
 const HAS_API = API_BASE.length > 0;
 
 type Metric = { score: number; passes: number; violations: number };
