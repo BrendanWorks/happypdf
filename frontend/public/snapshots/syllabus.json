@@ -1,0 +1,117 @@
+{
+  "id": "syllabus",
+  "label": "AccessComputing Syllabus",
+  "doctype": "Clean digital PDF",
+  "source": "real live run (OLMo + Gemini + GPT reviewers, Claude judge)",
+  "baseline": {
+    "score": 100.0,
+    "violations": 0,
+    "passes": 23,
+    "critical_serious": 0
+  },
+  "rounds": [
+    {
+      "round": 1,
+      "patches_applied": 3,
+      "passes": 28,
+      "score": 100.0,
+      "violations": 0,
+      "gate_passed": true,
+      "gate_checks": [
+        {
+          "name": "text_coverage",
+          "passed": true,
+          "detail": "166 -> 166 words (100.0%); threshold 95%"
+        },
+        {
+          "name": "image_count",
+          "passed": true,
+          "detail": "0 -> 0 images (must not decrease)"
+        },
+        {
+          "name": "heading_order",
+          "passed": true,
+          "detail": "before [1] -> after [1]; skips none"
+        },
+        {
+          "name": "table_structure",
+          "passed": true,
+          "detail": "2 -> 2 tables"
+        }
+      ],
+      "accepted": 3,
+      "needs_human": 4,
+      "hallucinations": 0,
+      "seconds": 83.69,
+      "reviewers": [
+        "gemini",
+        "olmo"
+      ]
+    },
+    {
+      "round": 2,
+      "patches_applied": 0,
+      "passes": 28,
+      "score": 100.0,
+      "violations": 0,
+      "gate_passed": true,
+      "gate_checks": [
+        {
+          "name": "text_coverage",
+          "passed": true,
+          "detail": "166 -> 166 words (100.0%); threshold 95%"
+        },
+        {
+          "name": "image_count",
+          "passed": true,
+          "detail": "0 -> 0 images (must not decrease)"
+        },
+        {
+          "name": "heading_order",
+          "passed": true,
+          "detail": "before [1] -> after [1]; skips none"
+        },
+        {
+          "name": "table_structure",
+          "passed": true,
+          "detail": "2 -> 2 tables"
+        }
+      ],
+      "accepted": 0,
+      "needs_human": 5,
+      "hallucinations": 0,
+      "seconds": 30.37,
+      "reviewers": [
+        "gemini",
+        "gpt",
+        "olmo"
+      ]
+    }
+  ],
+  "final": {
+    "score": 100.0,
+    "violations": 0,
+    "passes": 28,
+    "critical_serious": 0
+  },
+  "stopped_reason": "converged",
+  "total_seconds": 117.5,
+  "enhancements": [
+    {
+      "element_id": "block-1-9076f821",
+      "attribute": "aria-label",
+      "value": "Course Objectives"
+    },
+    {
+      "element_id": "block-1-bf39d72d",
+      "attribute": "aria-label",
+      "value": "Class Schedule"
+    },
+    {
+      "element_id": "block-1-cbcab1f0",
+      "attribute": "aria-label",
+      "value": "Grade Weighting Breakdown"
+    }
+  ],
+  "final_html": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n  <meta charset=\"UTF-8\">\n  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">\n  <title>Introduction to Physics - Course Syllabus</title>\n  <style>\n    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; line-height: 1.6; color: #1a1a1a; }\n    .skip-link { position: absolute; top: -40px; left: 0; background: #000; color: #fff; padding: 8px; text-decoration: none; }\n    .skip-link:focus { top: 0; }\n    table { border-collapse: collapse; width: 100%; margin: 1em 0; }\n    th, td { border: 1px solid #767676; padding: 8px; text-align: left; }\n    th { background: #eee; }\n    img { max-width: 100%; height: auto; }\n    figure { margin: 1.5em 0; }\n  </style>\n</head>\n<body>\n  <a href=\"#main-content\" class=\"skip-link\">Skip to main content</a>\n  <main id=\"main-content\">\n    <h1 data-ir-id=\"block-1-cd967709\">Introduction to Physics</h1>\n    <p data-ir-id=\"block-1-a4bf20ea\">Course Syllabus</p>\n    <p data-ir-id=\"block-1-884786ad\">Textbook</p>\n    <p data-ir-id=\"block-1-a12ec833\">Our sole text for this course will be Introduction to Physics, Second Edition, authored by the instructor.</p>\n    <p data-ir-id=\"block-1-63483697\">Course Objectives</p>\n    <ul data-ir-id=\"block-1-be626af5\">\n      <li data-ir-id=\"block-1-9076f821\" aria-label=\"Course Objectives\">To offer students exposure to basic principles of Physics</li>\n      <li data-ir-id=\"block-1-a34a7895\">To provide students with rich, thought-provoking discussions during laboratory sessions</li>\n      <li data-ir-id=\"block-1-8005d3fc\">To provide students with experiential learning opportunities during laboratory sessions</li>\n    </ul>\n    <p data-ir-id=\"block-1-f924d448\">Class Schedule</p>\n    <table data-ir-id=\"block-1-bf39d72d\" aria-label=\"Class Schedule\">\n      <tr>\n        <th>Week</th>\n        <th>Topic</th>\n        <th>Reading Assignment</th>\n      </tr>\n      <tr>\n        <td>1</td>\n        <td>Course Introduction</td>\n        <td>Chapter 1</td>\n      </tr>\n      <tr>\n        <td>2</td>\n        <td>Inertia, equilibrium, kinematics</td>\n        <td>Chapters 2-3</td>\n      </tr>\n      <tr>\n        <td>3</td>\n        <td>Newton\u2019s laws, vectors, momentum, energy</td>\n        <td>Chapters 4-7</td>\n      </tr>\n      <tr>\n        <td>4</td>\n        <td>Matter, elasticity, scaling</td>\n        <td>Chapters 8-10</td>\n      </tr>\n      <tr>\n        <td>5</td>\n        <td>Wave kinematics, sound, electricity, magnetism, induction</td>\n        <td>Chapters 11-15</td>\n      </tr>\n      <tr>\n        <td>6</td>\n        <td>Light, reflection and refraction, emission</td>\n        <td>Chapters 15-18</td>\n      </tr>\n      <tr>\n        <td>7</td>\n        <td>Review, final exam</td>\n        <td></td>\n      </tr>\n    </table>\n    <p data-ir-id=\"block-1-fb7b7029\">Grades</p>\n    <p data-ir-id=\"block-1-3d8d6b57\">Grades will be assigned on a ten-point scale (90 to 100 is an A, 80 to 89 is a B, etc.). Homework, exams, and projects will be weighted as follows:</p>\n    <table data-ir-id=\"block-1-cbcab1f0\" aria-label=\"Grade Weighting Breakdown\">\n      <tr>\n        <th rowspan=\"2\">Homework</th>\n        <th colspan=\"4\">Exams</th>\n        <th colspan=\"3\">Projects</th>\n      </tr>\n      <tr>\n        <th>1</th>\n        <th>2</th>\n        <th>Final</th>\n        <th>1</th>\n        <th>2</th>\n        <th>Final</th>\n      </tr>\n      <tr>\n        <td>15%</td>\n        <td>15%</td>\n        <td>15%</td>\n        <td>20%</td>\n        <td>10%</td>\n        <td>10%</td>\n        <td>15%</td>\n      </tr>\n    </table>\n    <p data-ir-id=\"block-1-2426b944\">Ce programme est \u00e9galement disponible en fran\u00e7ais sur demande.</p>\n  </main>\n</body>\n</html>"
+}

@@ -1,0 +1,16 @@
+# Netlify builds the Vite frontend from the frontend/ subdirectory.
+# The 3 benchmark demos replay bundled real snapshots client-side, so no backend
+# is required in production. (Local dev can point at the API via VITE_API_URL.)
+[build]
+  base = "frontend"
+  command = "npm run build"
+  publish = "dist"
+
+[build.environment]
+  NODE_VERSION = "20"
+
+# SPA: single page, no client routing, but keep a catch-all to be safe.
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200

@@ -24,8 +24,11 @@ import {
 
 // ─── Pipeline types + API ────────────────────────────────────────────────────
 
-const API_BASE: string =
-  ((import.meta as any).env?.VITE_API_URL as string) || 'http://localhost:8000';
+// When VITE_API_URL is set (local dev), the demo drives the real backend.
+// On a static host (Netlify) it's unset, and the benchmark demos replay bundled
+// real snapshots entirely client-side — no backend, no per-visitor cost.
+const API_BASE: string = ((import.meta as any).env?.VITE_API_URL as string) || '';
+const HAS_API = API_BASE.length > 0;
 
 type Metric = { score: number; passes: number; violations: number };
 type Round = {
@@ -55,11 +58,34 @@ type Job = {
   stopped_reason?: string;
   error: string | null;
 };
+type Snapshot = {
+  id: string;
+  label: string;
+  source: string;
+  baseline: Metric;
+  rounds: Round[];
+  final: Metric;
+  enhancements: Enhancement[];
+  stopped_reason: string;
+  final_html: string;
+};
 
 const DEMOS: { id: string; label: string }[] = [
   { id: 'syllabus', label: 'Syllabus' },
   { id: 'irs_schedule_c', label: 'IRS Schedule C' },
   { id: 'navy_bulletin', label: 'Navy Bulletin' },
+];
+
+const STAGES: StageDef[] = [
+  { id: 'uploading', label: 'Upload' },
+  { id: 'extracting', label: 'olmOCR extraction' },
+  { id: 'alt_text', label: 'Alt text generation' },
+  { id: 'html', label: 'Semantic HTML' },
+  { id: 'axe_baseline', label: 'axe-core baseline' },
+  { id: 'round1', label: 'Peer review · Round 1' },
+  { id: 'round2', label: 'Peer review · Round 2' },
+  { id: 'round3', label: 'Peer review · Round 3' },
+  { id: 'done', label: 'Output ready' },
 ];
 
 // ─── Score ring ──────────────────────────────────────────────────────────────
@@ -117,78 +143,111 @@ function DemoPanel() {
   const [dragOver, setDragOver] = useState(false);
   const [busy, setBusy] = useState(false);
   const [clientError, setClientError] = useState<string | null>(null);
+  const [htmlUrl, setHtmlUrl] = useState<string | null>(null);
   const pollRef = useRef<number | null>(null);
+  const timerRef = useRef<number | null>(null);
 
-  const stopPolling = () => {
-    if (pollRef.current !== null) {
-      window.clearInterval(pollRef.current);
-      pollRef.current = null;
-    }
+  const stopTimers = () => {
+    if (pollRef.current !== null) { window.clearInterval(pollRef.current); pollRef.current = null; }
+    if (timerRef.current !== null) { window.clearTimeout(timerRef.current); timerRef.current = null; }
+  };
+  useEffect(() => stopTimers, []);
+
+  const begin = (name: string) => {
+    setFileName(name); setBusy(true); setJob(null); setClientError(null); setHtmlUrl(null);
   };
 
-  useEffect(() => stopPolling, []);
+  // ── Client-side replay (static host): animate a bundled real snapshot ──
+  const clientReplay = async (id: string, label: string) => {
+    begin(`${label} (replay of a real run)`);
+    let snap: Snapshot;
+    try {
+      const r = await fetch(`${import.meta.env.BASE_URL}snapshots/${id}.json`);
+      if (!r.ok) throw new Error();
+      snap = (await r.json()) as Snapshot;
+    } catch {
+      setBusy(false); setClientError('Could not load the demo snapshot.'); return;
+    }
+    const idxOf = (sid: string) => STAGES.findIndex((s) => s.id === sid);
+    let cur: Job = {
+      id, kind: 'replay', name: snap.label, status: 'running', stage: 'uploading',
+      stage_index: 0, stages: STAGES, baseline: null, rounds: [], final: null,
+      enhancements: [], has_html: false, source: snap.source, error: null,
+    };
+    const steps: { stage: string; delay: number; apply?: () => void }[] = [
+      { stage: 'uploading', delay: 350 },
+      { stage: 'extracting', delay: 1000 },
+      { stage: 'alt_text', delay: 800 },
+      { stage: 'html', delay: 600 },
+      { stage: 'axe_baseline', delay: 700, apply: () => { cur.baseline = snap.baseline; } },
+    ];
+    snap.rounds.forEach((rnd) =>
+      steps.push({ stage: `round${rnd.round}`, delay: 850, apply: () => { cur.rounds = [...cur.rounds, rnd]; } }),
+    );
+    steps.push({
+      stage: 'done', delay: 300, apply: () => {
+        cur.final = snap.final; cur.enhancements = snap.enhancements;
+        cur.stopped_reason = snap.stopped_reason; cur.has_html = true; cur.status = 'done';
+      },
+    });
+    let i = 0;
+    const tick = () => {
+      const st = steps[i];
+      cur = { ...cur, stage: st.stage, stage_index: idxOf(st.stage), rounds: [...cur.rounds] };
+      if (st.apply) st.apply();
+      setJob({ ...cur, rounds: [...cur.rounds] });
+      i += 1;
+      if (i < steps.length) { timerRef.current = window.setTimeout(tick, st.delay); }
+      else {
+        setBusy(false);
+        setHtmlUrl(URL.createObjectURL(new Blob([snap.final_html], { type: 'text/html' })));
+      }
+    };
+    tick();
+  };
 
+  // ── API-driven (local dev with the backend running) ──
   const poll = (id: string) => {
-    stopPolling();
+    stopTimers();
     pollRef.current = window.setInterval(async () => {
       try {
         const r = await fetch(`${API_BASE}/api/jobs/${id}`);
         if (!r.ok) return;
         const j = (await r.json()) as Job;
         setJob(j);
-        if (j.status === 'done' || j.status === 'error') {
-          stopPolling();
-          setBusy(false);
-        }
-      } catch {
-        /* transient network error — keep polling */
-      }
+        if (j.status === 'done' || j.status === 'error') { stopTimers(); setBusy(false); }
+      } catch { /* keep polling */ }
     }, 600);
   };
-
-  const startDemo = async (id: string, label: string) => {
-    setFileName(`${label} (replay of a real run)`);
-    setBusy(true);
-    setJob(null);
-    setClientError(null);
+  const apiDemo = async (id: string, label: string) => {
+    begin(`${label} (replay of a real run)`);
     try {
       const r = await fetch(`${API_BASE}/api/jobs/demo/${id}`, { method: 'POST' });
-      if (!r.ok) throw new Error(`API ${r.status}`);
+      if (!r.ok) throw new Error();
       const { job_id } = (await r.json()) as { job_id: string };
-      setJobId(job_id);
-      poll(job_id);
-    } catch {
-      setBusy(false);
-      setClientError(`Couldn't reach the API at ${API_BASE}. Is it running?`);
-    }
+      setJobId(job_id); poll(job_id);
+    } catch { setBusy(false); setClientError(`Couldn't reach the API at ${API_BASE}.`); }
+  };
+  const apiLive = async (file: File) => {
+    begin(file.name);
+    try {
+      const fd = new FormData(); fd.append('file', file);
+      const r = await fetch(`${API_BASE}/api/jobs/live`, { method: 'POST', body: fd });
+      if (!r.ok) throw new Error();
+      const { job_id } = (await r.json()) as { job_id: string };
+      setJobId(job_id); poll(job_id);
+    } catch { setBusy(false); setClientError(`Couldn't start a live job at ${API_BASE}.`); }
   };
 
-  const startLive = async (file: File) => {
-    setFileName(file.name);
-    setBusy(true);
-    setJob(null);
-    setClientError(null);
-    try {
-      const fd = new FormData();
-      fd.append('file', file);
-      const r = await fetch(`${API_BASE}/api/jobs/live`, { method: 'POST', body: fd });
-      if (!r.ok) throw new Error(`API ${r.status}`);
-      const { job_id } = (await r.json()) as { job_id: string };
-      setJobId(job_id);
-      poll(job_id);
-    } catch {
-      setBusy(false);
-      setClientError(`Couldn't start a live job at ${API_BASE}.`);
-    }
+  const startDemo = (id: string, label: string) => (HAS_API ? apiDemo(id, label) : clientReplay(id, label));
+  const onDropFile = (file: File) => {
+    if (HAS_API) { apiLive(file); }
+    else { setClientError('Live upload runs in self-hosted mode. The demos below are real recorded runs you can replay instantly.'); }
   };
 
   const reset = () => {
-    stopPolling();
-    setJob(null);
-    setJobId(null);
-    setFileName(null);
-    setBusy(false);
-    setClientError(null);
+    stopTimers();
+    setJob(null); setJobId(null); setFileName(null); setBusy(false); setClientError(null); setHtmlUrl(null);
   };
 
   const idle = !busy && !job && !clientError;
@@ -197,6 +256,7 @@ function DemoPanel() {
   const done = job?.status === 'done';
   const hasResults = !!job?.baseline;
   const maxRound = done && job ? Math.max(1, job.rounds.length) : 3;
+  const htmlHref = HAS_API && jobId ? `${API_BASE}/api/jobs/${jobId}/html` : htmlUrl;
 
   return (
     <div className="bg-slate-900 rounded-2xl border border-slate-700/60 overflow-hidden">
@@ -206,11 +266,7 @@ function DemoPanel() {
         <span className="w-3 h-3 rounded-full bg-emerald-500/80" />
         <span className="ml-3 text-xs font-mono text-slate-400">happypdf — pipeline</span>
         {!idle && (
-          <button
-            onClick={reset}
-            className="ml-auto text-slate-500 hover:text-slate-300 transition-colors"
-            aria-label="Reset demo"
-          >
+          <button onClick={reset} className="ml-auto text-slate-500 hover:text-slate-300 transition-colors" aria-label="Reset demo">
             <X size={14} />
           </button>
         )}
@@ -219,35 +275,31 @@ function DemoPanel() {
       <div className="p-6 space-y-6">
         {idle ? (
           <>
-            <div
-              onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
-              onDragLeave={() => setDragOver(false)}
-              onDrop={(e) => {
-                e.preventDefault();
-                setDragOver(false);
-                const f = e.dataTransfer.files[0];
-                if (f) startLive(f);
-              }}
-              className={`border-2 border-dashed rounded-xl p-10 text-center transition-all ${
-                dragOver ? 'border-teal-400 bg-teal-400/5' : 'border-slate-600 hover:border-slate-500 hover:bg-slate-800/40'
-              }`}
-            >
-              <Upload className="mx-auto mb-3 text-slate-500" size={32} />
-              <p className="text-slate-300 font-medium mb-1">Drop a PDF to run the live pipeline</p>
-              <p className="text-slate-500 text-sm mb-1">
-                olmOCR → alt text → semantic HTML → axe-core → live-reviewer loop
-              </p>
-              <p className="text-slate-600 text-xs">Live runs take a few minutes and call real models.</p>
-            </div>
+            {HAS_API ? (
+              <div
+                onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+                onDragLeave={() => setDragOver(false)}
+                onDrop={(e) => { e.preventDefault(); setDragOver(false); const f = e.dataTransfer.files[0]; if (f) onDropFile(f); }}
+                className={`border-2 border-dashed rounded-xl p-10 text-center transition-all ${dragOver ? 'border-teal-400 bg-teal-400/5' : 'border-slate-600 hover:border-slate-500 hover:bg-slate-800/40'}`}
+              >
+                <Upload className="mx-auto mb-3 text-slate-500" size={32} />
+                <p className="text-slate-300 font-medium mb-1">Drop a PDF to run the live pipeline</p>
+                <p className="text-slate-500 text-sm mb-1">olmOCR → alt text → semantic HTML → axe-core → live-reviewer loop</p>
+                <p className="text-slate-600 text-xs">Live runs take a few minutes and call real models.</p>
+              </div>
+            ) : (
+              <div className="border-2 border-dashed border-slate-700 rounded-xl p-8 text-center">
+                <Layers className="mx-auto mb-3 text-slate-600" size={28} />
+                <p className="text-slate-300 font-medium mb-1">Replay a real benchmark run</p>
+                <p className="text-slate-500 text-sm">olmOCR → alt text → semantic HTML → axe-core → live-reviewer loop.</p>
+                <p className="text-slate-600 text-xs mt-1">Live PDF upload runs in self-hosted mode.</p>
+              </div>
+            )}
             <div>
-              <p className="text-xs text-slate-500 mb-2">Or replay a real benchmark run — instant, the actual recorded output:</p>
+              <p className="text-xs text-slate-500 mb-2">Pick a document — these are the actual recorded outputs:</p>
               <div className="flex flex-wrap gap-2">
                 {DEMOS.map((d) => (
-                  <button
-                    key={d.id}
-                    onClick={() => startDemo(d.id, d.label)}
-                    className="text-xs font-mono px-3 py-1.5 rounded-md bg-slate-700 text-teal-400 hover:bg-slate-600 transition-colors"
-                  >
+                  <button key={d.id} onClick={() => startDemo(d.id, d.label)} className="text-xs font-mono px-3 py-1.5 rounded-md bg-slate-700 text-teal-400 hover:bg-slate-600 transition-colors">
                     {d.label} →
                   </button>
                 ))}
@@ -258,12 +310,7 @@ function DemoPanel() {
           <div className="text-center py-8 space-y-3">
             <AlertTriangle className="mx-auto text-amber-400" size={28} />
             <p className="text-slate-300 text-sm">{clientError}</p>
-            <button
-              onClick={reset}
-              className="text-xs font-mono px-3 py-1.5 rounded-md bg-slate-700 text-slate-200 hover:bg-slate-600"
-            >
-              Try again
-            </button>
+            <button onClick={reset} className="text-xs font-mono px-3 py-1.5 rounded-md bg-slate-700 text-slate-200 hover:bg-slate-600">Back to demos</button>
           </div>
         ) : (
           <div className="space-y-5">
@@ -285,12 +332,7 @@ function DemoPanel() {
                   const isDone = i < current || (s.id === 'done' && done);
                   const active = i === current && !done;
                   return (
-                    <div
-                      key={s.id}
-                      className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-all ${
-                        active ? 'bg-teal-400/10 border border-teal-400/20' : isDone ? 'opacity-60' : 'opacity-30'
-                      }`}
-                    >
+                    <div key={s.id} className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-all ${active ? 'bg-teal-400/10 border border-teal-400/20' : isDone ? 'opacity-60' : 'opacity-30'}`}>
                       {isDone ? (
                         <CheckCircle size={14} className="text-emerald-400 shrink-0" />
                       ) : active ? (
@@ -298,25 +340,19 @@ function DemoPanel() {
                       ) : (
                         <div className="w-3.5 h-3.5 rounded-full border border-slate-600 shrink-0" />
                       )}
-                      <span className={isDone ? 'text-slate-300' : active ? 'text-teal-300' : 'text-slate-500'}>
-                        {s.label}
-                      </span>
+                      <span className={isDone ? 'text-slate-300' : active ? 'text-teal-300' : 'text-slate-500'}>{s.label}</span>
                     </div>
                   );
                 })}
             </div>
 
             {job?.status === 'error' && (
-              <div className="text-xs text-rose-300 bg-rose-500/10 border border-rose-500/30 rounded-lg px-3 py-2 font-mono">
-                {job.error}
-              </div>
+              <div className="text-xs text-rose-300 bg-rose-500/10 border border-rose-500/30 rounded-lg px-3 py-2 font-mono">{job.error}</div>
             )}
 
             {hasResults && job && (
               <div className="border border-slate-700/60 rounded-xl p-4 space-y-3">
-                <p className="text-xs text-slate-500 font-medium uppercase tracking-wider">
-                  Automated check coverage (axe-core)
-                </p>
+                <p className="text-xs text-slate-500 font-medium uppercase tracking-wider">Automated check coverage (axe-core)</p>
                 <div className="flex items-center justify-around">
                   <div className="text-center space-y-1">
                     <ScoreRing score={job.baseline!.score} size={72} stroke={7} />
@@ -338,21 +374,14 @@ function DemoPanel() {
 
             {hasResults && job && (
               <div className="space-y-1.5">
-                <p className="text-xs text-slate-500 font-medium uppercase tracking-wider px-1">
-                  ARIA enhancements added
-                </p>
+                <p className="text-xs text-slate-500 font-medium uppercase tracking-wider px-1">ARIA enhancements added</p>
                 {job.enhancements.length === 0 ? (
                   <p className="text-xs text-slate-500 px-1">Baseline already passes — no enhancements suggested.</p>
                 ) : (
                   job.enhancements.map((e, i) => (
-                    <div
-                      key={i}
-                      className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-xs border border-emerald-500/20 bg-emerald-500/5"
-                    >
+                    <div key={i} className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-xs border border-emerald-500/20 bg-emerald-500/5">
                       <CheckCircle size={12} className="text-emerald-400 shrink-0" />
-                      <span className="font-mono text-emerald-300 truncate">
-                        {e.attribute}="{e.value}"
-                      </span>
+                      <span className="font-mono text-emerald-300 truncate">{e.attribute}="{e.value}"</span>
                       <span className="ml-auto font-mono text-slate-600 truncate max-w-[35%]">{e.element_id}</span>
                     </div>
                   ))
@@ -363,19 +392,13 @@ function DemoPanel() {
             {done && job && job.rounds.length > 0 && (
               <p className="text-[11px] text-slate-500 text-center leading-relaxed">
                 {job.stopped_reason === 'converged' ? 'Converged' : job.stopped_reason} in {job.rounds.length} round
-                {job.rounds.length > 1 ? 's' : ''} · gate passed every round
-                {job.source ? ` · ${job.source}` : ''}
+                {job.rounds.length > 1 ? 's' : ''} · gate passed every round{job.source ? ` · ${job.source}` : ''}
               </p>
             )}
 
-            {done && job && job.has_html && (
+            {done && job && job.has_html && htmlHref && (
               <div className="flex gap-3 pt-1">
-                <a
-                  href={`${API_BASE}/api/jobs/${jobId}/html`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-teal-500 hover:bg-teal-400 text-slate-900 font-semibold text-sm rounded-lg transition-colors"
-                >
+                <a href={htmlHref} target="_blank" rel="noopener noreferrer" className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-teal-500 hover:bg-teal-400 text-slate-900 font-semibold text-sm rounded-lg transition-colors">
                   <Code2 size={14} />
                   View output HTML
                 </a>
