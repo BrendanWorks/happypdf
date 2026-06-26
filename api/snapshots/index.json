@@ -3,27 +3,27 @@
     "id": "syllabus",
     "label": "AccessComputing Syllabus",
     "doctype": "Clean digital PDF",
-    "baseline_passes": 23,
-    "final_passes": 28,
-    "enhancements": 3,
-    "rounds": 2
-  },
-  {
-    "id": "irs_schedule_c",
-    "label": "IRS Schedule C",
-    "doctype": "Dense tax form",
-    "baseline_passes": 23,
-    "final_passes": 28,
-    "enhancements": 1,
-    "rounds": 3
+    "baseline_passes": 26,
+    "final_passes": 31,
+    "enhancements": 2,
+    "rounds": 0
   },
   {
     "id": "navy_bulletin",
     "label": "Navy Bulletin 1943",
     "doctype": "OCR'd historical scan",
-    "baseline_passes": 17,
-    "final_passes": 22,
-    "enhancements": 2,
-    "rounds": 3
+    "baseline_passes": 20,
+    "final_passes": 20,
+    "enhancements": 0,
+    "rounds": 0
+  },
+  {
+    "id": "irs_schedule_c",
+    "label": null,
+    "doctype": "Dense tax form",
+    "baseline_passes": 23,
+    "final_passes": 28,
+    "enhancements": 1,
+    "rounds": 0
   }
 ]
