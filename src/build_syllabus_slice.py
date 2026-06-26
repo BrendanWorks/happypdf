@@ -136,10 +136,11 @@ def generate_alt_text(images: list[dict]) -> dict[str, dict]:
 # Step 5: Markdown + alt text -> semantic HTML5
 # ---------------------------------------------------------------------------
 class HtmlBuilder:
-    def __init__(self, markdown: str, images: list[dict], alt_map: dict[str, dict]):
+    def __init__(self, markdown: str, images: list[dict], alt_map: dict[str, dict], title: str = "Document"):
         self.lines = markdown.split("\n")
         self.images = images
         self.alt_map = alt_map
+        self.title = title
         self.page = 1
         self.dup_ids: set[str] = set()
         self._seen: set[str] = set()
@@ -243,17 +244,17 @@ class HtmlBuilder:
                             f'Complex image — a full long description is required.</figcaption>')
             body.append("    </figure>")
 
-        return self._wrap(body)
+        return self._wrap(body, self.title)
 
     @staticmethod
-    def _wrap(body: list[str]) -> str:
+    def _wrap(body: list[str], title: str = "Document") -> str:
         head = [
             "<!DOCTYPE html>",
             '<html lang="en">',
             "<head>",
             '  <meta charset="UTF-8">',
             '  <meta name="viewport" content="width=device-width, initial-scale=1.0">',
-            "  <title>Introduction to Physics - Course Syllabus</title>",
+            f"  <title>{title}</title>",
             "  <style>",
             "    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;"
             " max-width: 800px; margin: 0 auto; padding: 20px; line-height: 1.6; color: #1a1a1a; }",

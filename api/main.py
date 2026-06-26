@@ -155,7 +155,7 @@ def _live(jid: str, pdf_bytes: bytes, filename: str) -> None:
         pdf_path.unlink(missing_ok=True)
 
         _set(jid, stage="html")
-        baseline_html = bss.HtmlBuilder(markdown, images, alt_map).build()
+        baseline_html = bss.HtmlBuilder(markdown, images, alt_map, title=filename).build()
 
         _set(jid, stage="axe_baseline")
         _set(jid, baseline=axe_score(baseline_html))
