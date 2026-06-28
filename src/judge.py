@@ -285,7 +285,8 @@ def _generate_alt_text_claude(g: Group, el: dict) -> dict:
         text = "".join(b.text for b in resp.content if b.type == "text")
         return _extract_json(text)
     except Exception as e:
-        raise RuntimeError(f"Claude API failed: {type(e).__name__}: {str(e)}")
+        # Don't leak exception details which could contain API response content
+        raise RuntimeError(f"Claude API error: {type(e).__name__}")
 
 
 def _generate_alt_text_openai(g: Group, el: dict) -> dict:
@@ -305,7 +306,8 @@ def _generate_alt_text_openai(g: Group, el: dict) -> dict:
         text = resp.choices[0].message.content or ""
         return _extract_json(text)
     except Exception as e:
-        raise RuntimeError(f"OpenAI API failed: {type(e).__name__}: {str(e)}")
+        # Don't leak exception details which could contain API response content
+        raise RuntimeError(f"OpenAI API error: {type(e).__name__}")
 
 
 def generate_alt_text(g: Group, el: dict, provider: str | None = None) -> dict:
