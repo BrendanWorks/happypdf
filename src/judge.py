@@ -297,8 +297,10 @@ def _generate_alt_text_openai(g: Group, el: dict) -> dict:
         resp = client.chat.completions.create(
             model="gpt-4o",
             max_tokens=1024,
-            system=_alt_text_system_prompt(),
-            messages=[{"role": "user", "content": _alt_text_user_prompt(g, el)}],
+            messages=[
+                {"role": "system", "content": _alt_text_system_prompt()},
+                {"role": "user", "content": _alt_text_user_prompt(g, el)},
+            ],
         )
         text = resp.choices[0].message.content or ""
         return _extract_json(text)
