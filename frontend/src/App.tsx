@@ -738,6 +738,11 @@ export default function App() {
               </p>
             </div>
 
+            {/* Architecture overview */}
+            <div className="mb-16 max-w-2xl mx-auto">
+              <PipelineRoleDiagram highlightMode={null} />
+            </div>
+
             {/* Pipeline steps */}
             <div className="relative">
               {/* Connector line */}
