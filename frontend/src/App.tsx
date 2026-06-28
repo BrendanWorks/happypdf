@@ -20,6 +20,11 @@ import {
   Globe,
   Key,
   Server,
+  Download,
+  Users,
+  Cpu,
+  GitBranch,
+  Sparkles,
 } from 'lucide-react';
 
 // ─── Pipeline types + API ────────────────────────────────────────────────────
