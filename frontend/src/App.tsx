@@ -140,6 +140,101 @@ function ScoreRing({
   );
 }
 
+// ─── Pipeline role diagram ───────────────────────────────────────────────────
+
+type KeyMode = 'claude' | 'openai' | 'both';
+
+function PipelineRoleDiagram({ highlightMode }: { highlightMode: KeyMode | null }) {
+  const nodes = [
+    {
+      id: 'ocr',
+      label: 'olmOCR',
+      sublabel: 'extraction',
+      role: 'Ai2 open model',
+      highlight: false,
+      icon: <Cpu size={13} />,
+    },
+    {
+      id: 'reviewers',
+      label: 'Peer reviewers',
+      sublabel: 'Gemini · GPT-4o · OLMo',
+      role: 'powered by your OpenAI key (if provided)',
+      highlight: highlightMode === 'openai' || highlightMode === 'both',
+      highlightColor: 'emerald',
+      icon: <Users size={13} />,
+    },
+    {
+      id: 'judge',
+      label: 'Judge + patcher',
+      sublabel: 'deduplicates · applies fixes',
+      role: 'powered by your Claude key (if provided)',
+      highlight: highlightMode === 'claude' || highlightMode === 'both',
+      highlightColor: 'teal',
+      icon: <Sparkles size={13} />,
+    },
+    {
+      id: 'axe',
+      label: 'axe-core',
+      sublabel: 'rescore',
+      role: 'open source, always local',
+      highlight: false,
+      icon: <GitBranch size={13} />,
+    },
+  ];
+
+  return (
+    <div className="rounded-xl border border-slate-700/40 bg-slate-900/60 p-4">
+      <p className="text-[10px] uppercase tracking-widest text-slate-500 font-semibold mb-3">
+        Pipeline roles — use Claude, OpenAI, or both
+      </p>
+      <div className="flex items-stretch gap-1.5">
+        {nodes.map((node, i) => (
+          <div key={node.id} className="flex items-center gap-1.5 flex-1 min-w-0">
+            <div
+              className={`flex-1 rounded-lg px-2.5 py-2.5 border transition-all ${
+                node.highlight
+                  ? node.highlightColor === 'teal'
+                    ? 'border-teal-500/50 bg-teal-500/10 ring-1 ring-teal-500/20'
+                    : 'border-emerald-500/50 bg-emerald-500/10 ring-1 ring-emerald-500/20'
+                  : 'border-slate-700/50 bg-slate-800/50'
+              }`}
+            >
+              <div className={`mb-1 ${
+                node.highlight
+                  ? node.highlightColor === 'teal' ? 'text-teal-400' : 'text-emerald-400'
+                  : 'text-slate-500'
+              }`}>
+                {node.icon}
+              </div>
+              <p className={`text-[10px] font-semibold leading-tight mb-0.5 ${
+                node.highlight
+                  ? node.highlightColor === 'teal' ? 'text-teal-300' : 'text-emerald-300'
+                  : 'text-slate-300'
+              }`}>
+                {node.label}
+              </p>
+              <p className="text-[9px] text-slate-500 leading-tight">{node.sublabel}</p>
+              {node.highlight && (
+                <p className={`text-[9px] mt-1 font-medium leading-tight ${
+                  node.highlightColor === 'teal' ? 'text-teal-400' : 'text-emerald-400'
+                }`}>
+                  ← your key
+                </p>
+              )}
+            </div>
+            {i < nodes.length - 1 && (
+              <ArrowRight size={10} className="text-slate-700 shrink-0" />
+            )}
+          </div>
+        ))}
+      </div>
+      <p className="text-[9px] text-slate-600 mt-2.5 leading-relaxed">
+        Bring whichever enterprise API key you already have. Neither Claude nor OpenAI is required to use the other. Each role is independent.
+      </p>
+    </div>
+  );
+}
+
 // ─── Demo panel ──────────────────────────────────────────────────────────────
 
 function DemoPanel() {
