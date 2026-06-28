@@ -65,6 +65,8 @@ def fastapi_app():
     sys.path.insert(0, "/root/happypdf/src")
     os.environ.setdefault("AXE_CORE_PATH", "/root/axe.min.js")
     os.environ.setdefault("HAPPYPDF_ON_MODAL", "1")
+    # TEST: Force OpenAI provider for this deployment (remove to auto-select)
+    os.environ.setdefault("HAPPYPDF_ALT_TEXT_PROVIDER", "openai")
 
     from main import app as fastapi  # api/main.py
     return fastapi
