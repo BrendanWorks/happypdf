@@ -95,6 +95,7 @@ const STAGE_ORDER: PipelineStage[] = [
   'axe_baseline',
   'round1',
   'round2',
+  'round3',
   'done',
 ];
 
