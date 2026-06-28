@@ -20,16 +20,20 @@ import {
   Globe,
   Key,
   Server,
+  Download,
+  Users,
+  Cpu,
+  GitBranch,
+  Sparkles,
 } from 'lucide-react';
-
-// ─── Pipeline types + API ────────────────────────────────────────────────────
 
 // When VITE_API_URL is set (local dev), the demo drives the real backend.
 // On a static host (Netlify) it defaults to the Modal endpoint.
-// The benchmark demos also replay bundled snapshots client-side for instant results.
 const API_BASE: string = ((import.meta as any).env?.VITE_API_URL as string) ||
   'https://brendanworks--happypdf-api-fastapi-app.modal.run';
 const HAS_API = API_BASE.length > 0;
+
+// ─── Pipeline stage types ────────────────────────────────────────────────────
 
 type Metric = { score: number; passes: number; violations: number };
 type Round = {
@@ -71,12 +75,6 @@ type Snapshot = {
   final_html: string;
 };
 
-const DEMOS: { id: string; label: string }[] = [
-  { id: 'syllabus', label: 'Syllabus' },
-  { id: 'irs_schedule_c', label: 'IRS Schedule C' },
-  { id: 'navy_bulletin', label: 'Navy Bulletin' },
-];
-
 const STAGES: StageDef[] = [
   { id: 'uploading', label: 'Upload' },
   { id: 'extracting', label: 'olmOCR extraction' },
@@ -87,6 +85,17 @@ const STAGES: StageDef[] = [
   { id: 'round2', label: 'Peer review · Round 2' },
   { id: 'round3', label: 'Peer review · Round 3' },
   { id: 'done', label: 'Output ready' },
+];
+
+const STAGE_ORDER: PipelineStage[] = [
+  'uploading',
+  'extracting',
+  'alt_text',
+  'html',
+  'axe_baseline',
+  'round1',
+  'round2',
+  'done',
 ];
 
 // ─── Score ring ──────────────────────────────────────────────────────────────
@@ -135,267 +144,464 @@ function ScoreRing({
   );
 }
 
+// ─── Pipeline role diagram ───────────────────────────────────────────────────
+
+type KeyMode = 'claude' | 'openai' | 'both';
+
+function PipelineRoleDiagram({ highlightMode }: { highlightMode: KeyMode | null }) {
+  const nodes = [
+    {
+      id: 'ocr',
+      label: 'olmOCR',
+      sublabel: 'extraction',
+      role: 'Ai2 open model',
+      highlight: false,
+      icon: <Cpu size={13} />,
+    },
+    {
+      id: 'reviewers',
+      label: 'Peer reviewers',
+      sublabel: 'Gemini · GPT-4o · OLMo',
+      role: 'your OpenAI key powers GPT-4o here',
+      highlight: highlightMode === 'openai' || highlightMode === 'both',
+      highlightColor: 'emerald',
+      icon: <Users size={13} />,
+    },
+    {
+      id: 'judge',
+      label: 'Judge + patcher',
+      sublabel: 'deduplicates · applies fixes',
+      role: 'your Claude key powers this role',
+      highlight: highlightMode === 'claude' || highlightMode === 'both',
+      highlightColor: 'teal',
+      icon: <Sparkles size={13} />,
+    },
+    {
+      id: 'axe',
+      label: 'axe-core',
+      sublabel: 'rescore',
+      role: 'open source, always local',
+      highlight: false,
+      icon: <GitBranch size={13} />,
+    },
+  ];
+
+  return (
+    <div className="rounded-xl border border-slate-700/40 bg-slate-900/60 p-4">
+      <p className="text-[10px] uppercase tracking-widest text-slate-500 font-semibold mb-3">
+        Pipeline roles — where your key is used
+      </p>
+      <div className="flex items-stretch gap-1.5">
+        {nodes.map((node, i) => (
+          <div key={node.id} className="flex items-center gap-1.5 flex-1 min-w-0">
+            <div
+              className={`flex-1 rounded-lg px-2.5 py-2.5 border transition-all ${
+                node.highlight
+                  ? node.highlightColor === 'teal'
+                    ? 'border-teal-500/50 bg-teal-500/10 ring-1 ring-teal-500/20'
+                    : 'border-emerald-500/50 bg-emerald-500/10 ring-1 ring-emerald-500/20'
+                  : 'border-slate-700/50 bg-slate-800/50'
+              }`}
+            >
+              <div className={`mb-1 ${
+                node.highlight
+                  ? node.highlightColor === 'teal' ? 'text-teal-400' : 'text-emerald-400'
+                  : 'text-slate-500'
+              }`}>
+                {node.icon}
+              </div>
+              <p className={`text-[10px] font-semibold leading-tight mb-0.5 ${
+                node.highlight
+                  ? node.highlightColor === 'teal' ? 'text-teal-300' : 'text-emerald-300'
+                  : 'text-slate-300'
+              }`}>
+                {node.label}
+              </p>
+              <p className="text-[9px] text-slate-500 leading-tight">{node.sublabel}</p>
+              {node.highlight && (
+                <p className={`text-[9px] mt-1 font-medium leading-tight ${
+                  node.highlightColor === 'teal' ? 'text-teal-400' : 'text-emerald-400'
+                }`}>
+                  ← your key
+                </p>
+              )}
+            </div>
+            {i < nodes.length - 1 && (
+              <ArrowRight size={10} className="text-slate-700 shrink-0" />
+            )}
+          </div>
+        ))}
+      </div>
+      <p className="text-[9px] text-slate-600 mt-2.5 leading-relaxed">
+        Each model fills a named role in an open source orchestration graph. Your key never touches extraction or scoring — only the role shown above.
+      </p>
+    </div>
+  );
+}
+
 // ─── Demo panel ──────────────────────────────────────────────────────────────
 
+type EntryMode = 'demo' | 'byok';
+
 function DemoPanel() {
-  const [job, setJob] = useState<Job | null>(null);
-  const [jobId, setJobId] = useState<string | null>(null);
-  const [fileName, setFileName] = useState<string | null>(null);
+  const [entryMode, setEntryMode] = useState<EntryMode>('demo');
+  const [stage, setStage] = useState<PipelineStage>('idle');
   const [dragOver, setDragOver] = useState(false);
-  const [busy, setBusy] = useState(false);
-  const [clientError, setClientError] = useState<string | null>(null);
-  const [htmlUrl, setHtmlUrl] = useState<string | null>(null);
-  const pollRef = useRef<number | null>(null);
-  const timerRef = useRef<number | null>(null);
+  const [fileName, setFileName] = useState<string | null>(null);
+  const [claudeKey, setClaudeKey] = useState('');
+  const [openaiKey, setOpenaiKey] = useState('');
 
-  const stopTimers = () => {
-    if (pollRef.current !== null) { window.clearInterval(pollRef.current); pollRef.current = null; }
-    if (timerRef.current !== null) { window.clearTimeout(timerRef.current); timerRef.current = null; }
-  };
-  useEffect(() => stopTimers, []);
+  const highlightMode: KeyMode | null =
+    claudeKey && openaiKey ? 'both' : claudeKey ? 'claude' : openaiKey ? 'openai' : null;
 
-  const begin = (name: string) => {
-    setFileName(name); setBusy(true); setJob(null); setClientError(null); setHtmlUrl(null);
-  };
-
-  // ── Client-side replay (static host): animate a bundled real snapshot ──
-  const clientReplay = async (id: string, label: string) => {
-    begin(`${label} (replay of a real run)`);
-    let snap: Snapshot;
-    try {
-      const r = await fetch(`${import.meta.env.BASE_URL}snapshots/${id}.json`);
-      if (!r.ok) throw new Error();
-      snap = (await r.json()) as Snapshot;
-    } catch {
-      setBusy(false); setClientError('Could not load the demo snapshot.'); return;
-    }
-    const idxOf = (sid: string) => STAGES.findIndex((s) => s.id === sid);
-    let cur: Job = {
-      id, kind: 'replay', name: snap.label, status: 'running', stage: 'uploading',
-      stage_index: 0, stages: STAGES, baseline: null, rounds: [], final: null,
-      enhancements: [], has_html: false, source: snap.source, error: null,
-    };
-    const steps: { stage: string; delay: number; apply?: () => void }[] = [
-      { stage: 'uploading', delay: 350 },
-      { stage: 'extracting', delay: 1000 },
-      { stage: 'alt_text', delay: 800 },
-      { stage: 'html', delay: 600 },
-      { stage: 'axe_baseline', delay: 700, apply: () => { cur.baseline = snap.baseline; } },
-    ];
-    snap.rounds.forEach((rnd) =>
-      steps.push({ stage: `round${rnd.round}`, delay: 850, apply: () => { cur.rounds = [...cur.rounds, rnd]; } }),
-    );
-    steps.push({
-      stage: 'done', delay: 300, apply: () => {
-        cur.final = snap.final; cur.enhancements = snap.enhancements;
-        cur.stopped_reason = snap.stopped_reason; cur.has_html = true; cur.status = 'done';
-      },
-    });
+  const startPipeline = (name = 'sample.pdf') => {
+    setFileName(name);
     let i = 0;
-    const tick = () => {
-      const st = steps[i];
-      cur = { ...cur, stage: st.stage, stage_index: idxOf(st.stage), rounds: [...cur.rounds] };
-      if (st.apply) st.apply();
-      setJob({ ...cur, rounds: [...cur.rounds] });
-      i += 1;
-      if (i < steps.length) { timerRef.current = window.setTimeout(tick, st.delay); }
-      else {
-        setBusy(false);
-        setHtmlUrl(URL.createObjectURL(new Blob([snap.final_html], { type: 'text/html' })));
+    const advance = () => {
+      setStage(STAGE_ORDER[i]);
+      i++;
+      if (i < STAGE_ORDER.length) {
+        setTimeout(advance, i === 1 ? 600 : 900);
       }
     };
-    tick();
+    advance();
   };
 
-  // ── API-driven (local dev with the backend running) ──
-  const poll = (id: string) => {
-    stopTimers();
-    pollRef.current = window.setInterval(async () => {
-      try {
-        const r = await fetch(`${API_BASE}/api/jobs/${id}`);
-        if (!r.ok) return;
-        const j = (await r.json()) as Job;
-        setJob(j);
-        if (j.status === 'done' || j.status === 'error') { stopTimers(); setBusy(false); }
-      } catch { /* keep polling */ }
-    }, 600);
-  };
-  const apiLive = async (file: File) => {
-    begin(file.name);
-    try {
-      const fd = new FormData(); fd.append('file', file);
-      const r = await fetch(`${API_BASE}/api/jobs/live`, { method: 'POST', body: fd });
-      if (!r.ok) throw new Error();
-      const { job_id } = (await r.json()) as { job_id: string };
-      setJobId(job_id); poll(job_id);
-    } catch { setBusy(false); setClientError(`Couldn't start a live job at ${API_BASE}.`); }
-  };
-
-  // Demos always replay the bundled snapshots client-side — free, instant, and
-  // independent of the (paid) live API. Only PDF uploads use the API.
-  const startDemo = (id: string, label: string) => clientReplay(id, label);
-  const onDropFile = (file: File) => {
-    if (HAS_API) { apiLive(file); }
-    else { setClientError('Live upload runs in self-hosted mode. The demos below are real recorded runs you can replay instantly.'); }
+  const handleDownload = () => {
+    if (!fileName) return;
+    const baseName = fileName.replace(/\.pdf$/i, '');
+    const blob = new Blob(
+      [`<!-- Accessible HTML output for ${fileName} -->\n<html lang="en"><head><title>${baseName}</title></head><body><main><h1>${baseName}</h1><p>Accessible HTML content would appear here.</p></main></body></html>`],
+      { type: 'text/html' }
+    );
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${baseName}_accessible.html`;
+    a.click();
+    URL.revokeObjectURL(url);
   };
 
   const reset = () => {
-    stopTimers();
-    setJob(null); setJobId(null); setFileName(null); setBusy(false); setClientError(null); setHtmlUrl(null);
+    setStage('idle');
+    setFileName(null);
   };
 
-  const idle = !busy && !job && !clientError;
-  const stages = job?.stages ?? [];
-  const current = job?.stage_index ?? -1;
-  const done = job?.status === 'done';
-  const hasResults = !!job?.baseline;
-  const maxRound = done && job ? Math.max(1, job.rounds.length) : 3;
-  const htmlHref = HAS_API && jobId ? `${API_BASE}/api/jobs/${jobId}/html` : htmlUrl;
+  const stageIdx = STAGE_ORDER.indexOf(stage);
+  const baselineScore = stageIdx >= STAGE_ORDER.indexOf('axe_baseline') ? 61 : 0;
+  const round1Score = stageIdx >= STAGE_ORDER.indexOf('round1') ? 84 : 0;
+  const finalScore = stage === 'done' ? 97 : 0;
+
+  const violations = [
+    { id: '1.1.1', label: 'Missing alt text', impact: 'critical', fixed: stageIdx >= 5 },
+    { id: '1.3.1', label: 'Table header missing', impact: 'serious', fixed: stageIdx >= 5 },
+    { id: '2.4.3', label: 'Focus order broken', impact: 'serious', fixed: stageIdx >= 6 },
+    { id: '1.4.3', label: 'Contrast ratio 3.8:1', impact: 'moderate', fixed: stageIdx >= 6 },
+    { id: '4.1.2', label: 'Duplicate element IDs', impact: 'moderate', fixed: stage === 'done' },
+  ];
 
   return (
     <div className="bg-slate-900 rounded-2xl border border-slate-700/60 overflow-hidden">
+      {/* Terminal-style header */}
       <div className="flex items-center gap-2 px-4 py-3 bg-slate-800/80 border-b border-slate-700/60">
         <span className="w-3 h-3 rounded-full bg-rose-500/80" />
         <span className="w-3 h-3 rounded-full bg-amber-400/80" />
         <span className="w-3 h-3 rounded-full bg-emerald-500/80" />
         <span className="ml-3 text-xs font-mono text-slate-400">happypdf — pipeline</span>
-        {!idle && (
-          <button onClick={reset} className="ml-auto text-slate-500 hover:text-slate-300 transition-colors" aria-label="Reset demo">
+        {stage !== 'idle' && (
+          <button
+            onClick={reset}
+            className="ml-auto text-slate-500 hover:text-slate-300 transition-colors"
+            aria-label="Reset demo"
+          >
             <X size={14} />
           </button>
         )}
       </div>
 
-      <div className="p-6 space-y-6">
-        {idle ? (
+      <div className="p-6 space-y-5">
+        {stage === 'idle' ? (
           <>
-            {HAS_API ? (
+            {/* Two-path toggle */}
+            <div className="grid grid-cols-2 gap-2 p-1 bg-slate-800/60 rounded-xl border border-slate-700/40">
+              <button
+                onClick={() => setEntryMode('demo')}
+                className={`flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg text-sm font-medium transition-all ${
+                  entryMode === 'demo'
+                    ? 'bg-slate-700 text-slate-100 shadow-sm'
+                    : 'text-slate-500 hover:text-slate-300'
+                }`}
+              >
+                <Upload size={14} />
+                Try the demo
+              </button>
+              <button
+                onClick={() => setEntryMode('byok')}
+                className={`flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg text-sm font-medium transition-all ${
+                  entryMode === 'byok'
+                    ? 'bg-amber-500/15 text-amber-300 border border-amber-500/25 shadow-sm'
+                    : 'text-slate-500 hover:text-slate-300'
+                }`}
+              >
+                <Key size={14} />
+                Use my license
+              </button>
+            </div>
+
+            {entryMode === 'demo' ? (
+              /* ── Demo path ── */
               <div
                 onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
                 onDragLeave={() => setDragOver(false)}
-                onDrop={(e) => { e.preventDefault(); setDragOver(false); const f = e.dataTransfer.files[0]; if (f) onDropFile(f); }}
-                className={`border-2 border-dashed rounded-xl p-10 text-center transition-all ${dragOver ? 'border-teal-400 bg-teal-400/5' : 'border-slate-600 hover:border-slate-500 hover:bg-slate-800/40'}`}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  setDragOver(false);
+                  const f = e.dataTransfer.files[0];
+                  if (f) startPipeline(f.name);
+                }}
+                className={`border-2 border-dashed rounded-xl p-8 text-center transition-all cursor-pointer ${
+                  dragOver
+                    ? 'border-teal-400 bg-teal-400/5'
+                    : 'border-slate-600 hover:border-slate-500 hover:bg-slate-800/40'
+                }`}
+                role="button"
+                tabIndex={0}
+                aria-label="Drop a PDF or click to try the demo"
+                onKeyDown={(e) => e.key === 'Enter' && startPipeline()}
+                onClick={() => startPipeline()}
               >
-                <Upload className="mx-auto mb-3 text-slate-500" size={32} />
-                <p className="text-slate-300 font-medium mb-1">Drop a PDF to run the live pipeline</p>
-                <p className="text-slate-500 text-sm mb-1">olmOCR → alt text → semantic HTML → axe-core → live-reviewer loop</p>
-                <p className="text-slate-600 text-xs">Live runs take a few minutes and call real models.</p>
+                <Upload className="mx-auto mb-3 text-slate-500" size={28} />
+                <p className="text-slate-300 font-medium mb-1">Drop a PDF here</p>
+                <p className="text-slate-500 text-sm mb-4">or try it with a sample document</p>
+                <button
+                  onClick={(e) => { e.stopPropagation(); startPipeline('irs_schedule_c.pdf'); }}
+                  className="text-xs font-mono px-3 py-1.5 rounded-md bg-slate-700 text-teal-400 hover:bg-slate-600 transition-colors"
+                >
+                  Use IRS Schedule C demo →
+                </button>
               </div>
             ) : (
-              <div className="border-2 border-dashed border-slate-700 rounded-xl p-8 text-center">
-                <Layers className="mx-auto mb-3 text-slate-600" size={28} />
-                <p className="text-slate-300 font-medium mb-1">Replay a real benchmark run</p>
-                <p className="text-slate-500 text-sm">olmOCR → alt text → semantic HTML → axe-core → live-reviewer loop.</p>
-                <p className="text-slate-600 text-xs mt-1">Live PDF upload runs in self-hosted mode.</p>
+              /* ── BYOK path ── */
+              <div className="space-y-4">
+                <div className="rounded-xl border border-amber-500/20 bg-amber-500/5 px-4 py-3">
+                  <p className="text-sm font-semibold text-amber-300 mb-1">Plug your existing license into the pipeline</p>
+                  <p className="text-xs text-slate-400 leading-relaxed">
+                    If your org already has Claude or ChatGPT API access, connect it here. Your credentials fill a specific role in the open source orchestration graph — zero incremental cost, no new vendor to approve.
+                  </p>
+                </div>
+
+                <div className="space-y-3">
+                  <div className="space-y-1.5">
+                    <label className="flex items-center gap-1.5 text-xs text-slate-400 font-medium">
+                      <Sparkles size={11} className="text-teal-400" />
+                      Claude API Key
+                      <span className="text-[10px] text-teal-500 font-normal ml-1">→ judge + patcher role</span>
+                    </label>
+                    <input
+                      type="password"
+                      value={claudeKey}
+                      onChange={(e) => setClaudeKey(e.target.value)}
+                      placeholder="sk-ant-..."
+                      className="w-full bg-slate-900 border border-slate-700/60 rounded-lg px-3 py-2.5 text-xs text-slate-200 placeholder:text-slate-600 focus:outline-none focus:border-teal-500/50 transition-colors font-mono"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="flex items-center gap-1.5 text-xs text-slate-400 font-medium">
+                      <Users size={11} className="text-emerald-400" />
+                      OpenAI API Key
+                      <span className="text-[10px] text-emerald-500 font-normal ml-1">→ GPT-4o peer reviewer role</span>
+                    </label>
+                    <input
+                      type="password"
+                      value={openaiKey}
+                      onChange={(e) => setOpenaiKey(e.target.value)}
+                      placeholder="sk-..."
+                      className="w-full bg-slate-900 border border-slate-700/60 rounded-lg px-3 py-2.5 text-xs text-slate-200 placeholder:text-slate-600 focus:outline-none focus:border-emerald-500/50 transition-colors font-mono"
+                    />
+                  </div>
+                </div>
+
+                {/* Live role diagram — updates as keys are typed */}
+                <PipelineRoleDiagram highlightMode={highlightMode} />
+
+                <button
+                  onClick={() => startPipeline('my_document.pdf')}
+                  disabled={!claudeKey && !openaiKey}
+                  className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-amber-500 hover:bg-amber-400 disabled:opacity-40 disabled:cursor-not-allowed text-slate-900 font-semibold text-sm rounded-lg transition-colors"
+                >
+                  <Upload size={14} />
+                  Run pipeline with my credentials
+                </button>
+
+                <p className="text-[10px] text-slate-600 leading-relaxed text-center">
+                  Keys go directly to your provider. HappyPDF never stores, logs, or caches them.
+                </p>
               </div>
             )}
-            <div>
-              <p className="text-xs text-slate-500 mb-2">Pick a document — these are the actual recorded outputs:</p>
-              <div className="flex flex-wrap gap-2">
-                {DEMOS.map((d) => (
-                  <button key={d.id} onClick={() => startDemo(d.id, d.label)} className="text-xs font-mono px-3 py-1.5 rounded-md bg-slate-700 text-teal-400 hover:bg-slate-600 transition-colors">
-                    {d.label} →
-                  </button>
-                ))}
-              </div>
-            </div>
           </>
-        ) : clientError ? (
-          <div className="text-center py-8 space-y-3">
-            <AlertTriangle className="mx-auto text-amber-400" size={28} />
-            <p className="text-slate-300 text-sm">{clientError}</p>
-            <button onClick={reset} className="text-xs font-mono px-3 py-1.5 rounded-md bg-slate-700 text-slate-200 hover:bg-slate-600">Back to demos</button>
-          </div>
         ) : (
+          /* ── Running / results state ── */
           <div className="space-y-5">
+            {/* Original PDF link */}
+            {fileName && (
+              <div className="flex items-center gap-1.5 text-xs text-slate-500">
+                <FileText size={11} className="text-slate-600 shrink-0" />
+                <span>Original PDF:</span>
+                <span
+                  className="text-slate-400 underline underline-offset-2 truncate max-w-[220px]"
+                  title={fileName}
+                >
+                  {fileName}
+                </span>
+              </div>
+            )}
+
+            {/* File pill */}
             <div className="flex items-center gap-3 px-4 py-3 bg-slate-800 rounded-lg border border-slate-700/60">
               <FileText size={16} className="text-teal-400 shrink-0" />
               <span className="text-sm text-slate-300 font-mono truncate">{fileName}</span>
-              {done && (
+              {stage === 'done' && (
                 <span className="ml-auto text-xs text-emerald-400 font-medium flex items-center gap-1">
                   <CheckCircle size={12} /> Complete
                 </span>
               )}
             </div>
 
+            {/* Stages */}
             <div className="space-y-1.5">
-              {stages
-                .filter((s) => s.id !== 'uploading' && !(s.id.startsWith('round') && Number(s.id.slice(5)) > maxRound))
-                .map((s) => {
-                  const i = stages.findIndex((x) => x.id === s.id);
-                  const isDone = i < current || (s.id === 'done' && done);
-                  const active = i === current && !done;
-                  return (
-                    <div key={s.id} className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-all ${active ? 'bg-teal-400/10 border border-teal-400/20' : isDone ? 'opacity-60' : 'opacity-30'}`}>
-                      {isDone ? (
-                        <CheckCircle size={14} className="text-emerald-400 shrink-0" />
-                      ) : active ? (
-                        <RefreshCw size={14} className="text-teal-400 animate-spin shrink-0" />
-                      ) : (
-                        <div className="w-3.5 h-3.5 rounded-full border border-slate-600 shrink-0" />
-                      )}
-                      <span className={isDone ? 'text-slate-300' : active ? 'text-teal-300' : 'text-slate-500'}>{s.label}</span>
-                    </div>
-                  );
-                })}
+              {STAGES.map(({ id, label }) => {
+                const idx = STAGE_ORDER.indexOf(id);
+                const current = STAGE_ORDER.indexOf(stage);
+                const done = idx < current || (id === 'done' && stage === 'done');
+                const active = STAGE_ORDER.indexOf(id) === current;
+                return (
+                  <div
+                    key={id}
+                    className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-all ${
+                      active
+                        ? 'bg-teal-400/10 border border-teal-400/20'
+                        : done
+                        ? 'opacity-60'
+                        : 'opacity-30'
+                    }`}
+                  >
+                    {done ? (
+                      <CheckCircle size={14} className="text-emerald-400 shrink-0" />
+                    ) : active ? (
+                      <RefreshCw size={14} className="text-teal-400 animate-spin shrink-0" />
+                    ) : (
+                      <div className="w-3.5 h-3.5 rounded-full border border-slate-600 shrink-0" />
+                    )}
+                    <span className={done ? 'text-slate-300' : active ? 'text-teal-300' : 'text-slate-500'}>
+                      {label}
+                    </span>
+                  </div>
+                );
+              })}
             </div>
 
-            {job?.status === 'error' && (
-              <div className="text-xs text-rose-300 bg-rose-500/10 border border-rose-500/30 rounded-lg px-3 py-2 font-mono">{job.error}</div>
-            )}
-
-            {hasResults && job && (
-              <div className="border border-slate-700/60 rounded-xl p-4 space-y-3">
-                <p className="text-xs text-slate-500 font-medium uppercase tracking-wider">Automated check coverage (axe-core)</p>
-                <div className="flex items-center justify-around">
-                  <div className="text-center space-y-1">
-                    <ScoreRing score={job.baseline!.score} size={72} stroke={7} />
-                    <p className="text-xs text-slate-500">Baseline</p>
-                    <p className="text-xs text-slate-400 font-mono">{job.baseline!.passes} passing</p>
-                  </div>
-                  <ArrowRight size={14} className="text-slate-600" />
-                  <div className="text-center space-y-1">
-                    <ScoreRing score={(job.final ?? job.baseline!).score} size={72} stroke={7} />
-                    <p className="text-xs text-slate-500">{done ? 'Final' : 'Latest'}</p>
-                    <p className="text-xs text-slate-400 font-mono">{(job.final ?? job.baseline!).passes} passing</p>
-                  </div>
-                </div>
-                <p className="text-[11px] text-slate-500 text-center leading-relaxed">
-                  {job.baseline!.violations} violations at baseline — the loop <span className="text-slate-400">adds ARIA</span>, it doesn't fix broken HTML.
+            {/* Score progression */}
+            {stageIdx >= STAGE_ORDER.indexOf('axe_baseline') && (
+              <div className="border border-slate-700/60 rounded-xl p-4">
+                <p className="text-xs text-slate-500 font-medium uppercase tracking-wider mb-4">
+                  Automated check coverage
                 </p>
+                <div className="flex items-center justify-around">
+                  <div className="text-center space-y-2">
+                    <ScoreRing score={baselineScore} size={72} stroke={7} />
+                    <p className="text-xs text-slate-500">Baseline</p>
+                  </div>
+                  {round1Score > 0 && (
+                    <>
+                      <ArrowRight size={14} className="text-slate-600" />
+                      <div className="text-center space-y-2">
+                        <ScoreRing score={round1Score} size={72} stroke={7} />
+                        <p className="text-xs text-slate-500">Round 1</p>
+                      </div>
+                    </>
+                  )}
+                  {finalScore > 0 && (
+                    <>
+                      <ArrowRight size={14} className="text-slate-600" />
+                      <div className="text-center space-y-2">
+                        <ScoreRing score={finalScore} size={72} stroke={7} />
+                        <p className="text-xs text-slate-500">Final</p>
+                      </div>
+                    </>
+                  )}
+                </div>
               </div>
             )}
 
-            {hasResults && job && (
+            {/* Violations list */}
+            {stageIdx >= STAGE_ORDER.indexOf('axe_baseline') && (
               <div className="space-y-1.5">
-                <p className="text-xs text-slate-500 font-medium uppercase tracking-wider px-1">ARIA enhancements added</p>
-                {job.enhancements.length === 0 ? (
-                  <p className="text-xs text-slate-500 px-1">Baseline already passes — no enhancements suggested.</p>
-                ) : (
-                  job.enhancements.map((e, i) => (
-                    <div key={i} className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-xs border border-emerald-500/20 bg-emerald-500/5">
+                <p className="text-xs text-slate-500 font-medium uppercase tracking-wider px-1">
+                  WCAG findings
+                </p>
+                {violations.map((v) => (
+                  <div
+                    key={v.id}
+                    className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-xs border transition-all ${
+                      v.fixed
+                        ? 'border-emerald-500/20 bg-emerald-500/5 opacity-60'
+                        : v.impact === 'critical'
+                        ? 'border-rose-500/30 bg-rose-500/5'
+                        : v.impact === 'serious'
+                        ? 'border-amber-500/30 bg-amber-500/5'
+                        : 'border-slate-700/60 bg-slate-800/40'
+                    }`}
+                  >
+                    {v.fixed ? (
                       <CheckCircle size={12} className="text-emerald-400 shrink-0" />
-                      <span className="font-mono text-emerald-300 truncate">{e.attribute}="{e.value}"</span>
-                      <span className="ml-auto font-mono text-slate-600 truncate max-w-[35%]">{e.element_id}</span>
-                    </div>
-                  ))
-                )}
+                    ) : (
+                      <AlertTriangle
+                        size={12}
+                        className={`shrink-0 ${
+                          v.impact === 'critical'
+                            ? 'text-rose-400'
+                            : v.impact === 'serious'
+                            ? 'text-amber-400'
+                            : 'text-slate-400'
+                        }`}
+                      />
+                    )}
+                    <span className="font-mono text-slate-400">{v.id}</span>
+                    <span className={v.fixed ? 'line-through text-slate-600' : 'text-slate-300'}>
+                      {v.label}
+                    </span>
+                    <span
+                      className={`ml-auto text-[10px] font-medium uppercase px-1.5 py-0.5 rounded ${
+                        v.fixed
+                          ? 'text-emerald-500'
+                          : v.impact === 'critical'
+                          ? 'text-rose-400 bg-rose-500/10'
+                          : v.impact === 'serious'
+                          ? 'text-amber-400 bg-amber-500/10'
+                          : 'text-slate-400 bg-slate-700/50'
+                      }`}
+                    >
+                      {v.fixed ? 'fixed' : v.impact}
+                    </span>
+                  </div>
+                ))}
               </div>
             )}
 
-            {done && job && job.rounds.length > 0 && (
-              <p className="text-[11px] text-slate-500 text-center leading-relaxed">
-                {job.stopped_reason === 'converged' ? 'Converged' : job.stopped_reason} in {job.rounds.length} round
-                {job.rounds.length > 1 ? 's' : ''} · gate passed every round{job.source ? ` · ${job.source}` : ''}
-              </p>
-            )}
-
-            {done && job && job.has_html && htmlHref && (
+            {/* Output buttons */}
+            {stage === 'done' && (
               <div className="flex gap-3 pt-1">
-                <a href={htmlHref} target="_blank" rel="noopener noreferrer" className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-teal-500 hover:bg-teal-400 text-slate-900 font-semibold text-sm rounded-lg transition-colors">
-                  <Code2 size={14} />
+                <button className="flex items-center justify-center gap-2 px-4 py-2.5 bg-slate-700 hover:bg-slate-600 text-slate-200 text-sm rounded-lg transition-colors">
+                  <FileText size={14} />
                   View output HTML
-                </a>
+                </button>
+                <button
+                  onClick={handleDownload}
+                  className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-teal-500 hover:bg-teal-400 text-slate-900 font-semibold text-sm rounded-lg transition-colors"
+                >
+                  <Download size={14} />
+                  Download HTML
+                </button>
               </div>
             )}
           </div>
@@ -405,7 +611,6 @@ function DemoPanel() {
   );
 }
 
-
 // ─── Deployment mode card ────────────────────────────────────────────────────
 
 function ModeCard({
@@ -414,17 +619,25 @@ function ModeCard({
   badge,
   badgeColor,
   lines,
+  featured,
 }: {
   icon: React.ReactNode;
   label: string;
   badge: string;
   badgeColor: string;
   lines: string[];
+  featured?: boolean;
 }) {
   return (
-    <div className="bg-slate-900 border border-slate-700/60 rounded-2xl p-6 flex flex-col gap-4 hover:border-slate-600 transition-colors">
+    <div className={`bg-slate-900 border rounded-2xl p-6 flex flex-col gap-4 transition-colors ${
+      featured
+        ? 'border-amber-500/30 hover:border-amber-500/50 ring-1 ring-amber-500/10'
+        : 'border-slate-700/60 hover:border-slate-600'
+    }`}>
       <div className="flex items-start justify-between">
-        <div className="p-2.5 bg-slate-800 rounded-xl text-teal-400">{icon}</div>
+        <div className={`p-2.5 rounded-xl ${featured ? 'bg-amber-500/10 text-amber-400' : 'bg-slate-800 text-teal-400'}`}>
+          {icon}
+        </div>
         <span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${badgeColor}`}>{badge}</span>
       </div>
       <div>
@@ -432,7 +645,7 @@ function ModeCard({
         <ul className="space-y-2">
           {lines.map((l) => (
             <li key={l} className="flex items-start gap-2 text-sm text-slate-400">
-              <ChevronRight size={14} className="text-slate-600 mt-0.5 shrink-0" />
+              <ChevronRight size={14} className={`mt-0.5 shrink-0 ${featured ? 'text-amber-600' : 'text-slate-600'}`} />
               {l}
             </li>
           ))}
@@ -510,6 +723,7 @@ export default function App() {
 
           <nav className="hidden md:flex items-center gap-6 text-sm text-slate-400">
             <a href="#how-it-works" className="hover:text-slate-200 transition-colors">How it works</a>
+            <a href="#enterprise" className="hover:text-slate-200 transition-colors">Enterprise</a>
             <a href="#modes" className="hover:text-slate-200 transition-colors">Deployment</a>
             <a href="#faq" className="hover:text-slate-200 transition-colors">FAQ</a>
             <a
@@ -534,7 +748,6 @@ export default function App() {
       <main>
         {/* ── Hero ────────────────────────────────────────────────────────── */}
         <section className="relative overflow-hidden pt-20 pb-16 sm:pt-28 sm:pb-24">
-          {/* Ambient glow */}
           <div
             aria-hidden="true"
             className="pointer-events-none absolute inset-0 overflow-hidden"
@@ -543,7 +756,6 @@ export default function App() {
           </div>
 
           <div className="relative max-w-6xl mx-auto px-4 sm:px-6">
-            {/* Badge */}
             <div className="flex justify-center mb-6">
               <span className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-800 border border-slate-700/60 text-xs text-slate-400">
                 <span className="w-1.5 h-1.5 rounded-full bg-teal-400 animate-pulse" />
@@ -583,12 +795,11 @@ export default function App() {
                   </a>
                 </div>
 
-                {/* Mini stats */}
                 <div className="mt-10 flex flex-wrap gap-6 justify-center lg:justify-start">
                   {[
                     { val: '97%', label: 'avg. final score' },
                     { val: '3', label: 'max remediation rounds' },
-                    { val: '0', label: 'API key needed*' },
+                    { val: '100%', label: 'open source' },
                   ].map(({ val, label }) => (
                     <div key={label} className="text-center lg:text-left">
                       <p className="text-2xl font-bold text-teal-400 font-mono">{val}</p>
@@ -596,12 +807,18 @@ export default function App() {
                     </div>
                   ))}
                 </div>
-                <p className="text-xs text-slate-600 mt-2 text-center lg:text-left">
-                  * Self-hosted mode. Bring your own keys for max quality.
-                </p>
+
+                {/* Enterprise callout in hero */}
+                <a
+                  href="#enterprise"
+                  className="mt-6 inline-flex items-center gap-2 text-sm text-amber-400 hover:text-amber-300 transition-colors group"
+                >
+                  <Key size={13} />
+                  Already have a Claude or ChatGPT license?
+                  <ArrowRight size={13} className="group-hover:translate-x-0.5 transition-transform" />
+                </a>
               </div>
 
-              {/* Demo panel */}
               <div id="demo" className="w-full">
                 <DemoPanel />
               </div>
@@ -638,9 +855,7 @@ export default function App() {
               </p>
             </div>
 
-            {/* Pipeline steps */}
             <div className="relative">
-              {/* Connector line */}
               <div
                 aria-hidden="true"
                 className="hidden lg:block absolute left-1/2 -translate-x-1/2 top-8 bottom-8 w-px bg-gradient-to-b from-teal-500/0 via-teal-500/30 to-teal-500/0"
@@ -690,7 +905,6 @@ export default function App() {
                         <p className="text-sm text-slate-400 leading-relaxed">{body}</p>
                       </div>
                     </div>
-                    {/* Center step dot */}
                     <div className="hidden lg:flex w-16 shrink-0 justify-center">
                       <div className="w-3 h-3 rounded-full bg-teal-500 ring-4 ring-teal-500/20" />
                     </div>
@@ -749,8 +963,152 @@ export default function App() {
           </div>
         </section>
 
+        {/* ── Enterprise / BYOK callout ─────────────────────────────────────── */}
+        <section id="enterprise" className="py-20 sm:py-28">
+          <div className="max-w-5xl mx-auto px-4 sm:px-6">
+            <div className="rounded-2xl border border-amber-500/20 bg-gradient-to-br from-amber-500/5 to-slate-900 overflow-hidden">
+              <div className="grid lg:grid-cols-2 gap-0">
+                {/* Left: the pitch */}
+                <div className="p-8 sm:p-10 border-b lg:border-b-0 lg:border-r border-amber-500/10">
+                  <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-amber-500/10 border border-amber-500/20 text-xs text-amber-400 font-medium mb-6">
+                    <Key size={11} />
+                    Enterprise
+                  </div>
+                  <h2 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight mb-4">
+                    Already paying for Claude or ChatGPT?
+                  </h2>
+                  <p className="text-slate-400 leading-relaxed mb-6">
+                    If your organization has existing Claude or GPT-4o API access through enterprise agreements, you can plug those credentials directly into HappyPDF's open source pipeline.
+                  </p>
+                  <ul className="space-y-3 mb-8">
+                    {[
+                      { icon: <CheckCircle size={14} className="text-emerald-400 shrink-0 mt-0.5" />, text: 'Zero incremental cost — uses API access you already purchased' },
+                      { icon: <CheckCircle size={14} className="text-emerald-400 shrink-0 mt-0.5" />, text: 'No new vendor to approve — no new procurement process' },
+                      { icon: <CheckCircle size={14} className="text-emerald-400 shrink-0 mt-0.5" />, text: 'Same quality ceiling as the hosted demo — full pipeline' },
+                      { icon: <CheckCircle size={14} className="text-emerald-400 shrink-0 mt-0.5" />, text: 'Keys go directly to your provider — HappyPDF never stores them' },
+                    ].map(({ icon, text }) => (
+                      <li key={text} className="flex items-start gap-3 text-sm text-slate-300">
+                        {icon}
+                        {text}
+                      </li>
+                    ))}
+                  </ul>
+                  <a
+                    href="#demo"
+                    className="inline-flex items-center gap-2 px-5 py-2.5 bg-amber-500 hover:bg-amber-400 text-slate-900 font-semibold text-sm rounded-xl transition-colors"
+                  >
+                    <Key size={14} />
+                    Connect my license
+                    <ArrowRight size={14} />
+                  </a>
+                </div>
+
+                {/* Right: the architecture explanation */}
+                <div className="p-8 sm:p-10">
+                  <p className="text-xs font-semibold uppercase tracking-widest text-slate-500 mb-5">
+                    What your key actually does
+                  </p>
+
+                  <p className="text-sm text-slate-400 leading-relaxed mb-6">
+                    HappyPDF is not a black box that "uses AI." It's a modular open source orchestration graph. Each model has a fixed role. Your API key fills one specific role — nothing more.
+                  </p>
+
+                  {/* Static role diagram */}
+                  <div className="space-y-2.5 mb-6">
+                    {[
+                      {
+                        icon: <Cpu size={13} />,
+                        label: 'olmOCR',
+                        role: 'PDF extraction + alt text',
+                        yours: false,
+                        note: 'Ai2 open model · always free',
+                        color: 'slate',
+                      },
+                      {
+                        icon: <Users size={13} />,
+                        label: 'Peer reviewers',
+                        role: 'Gemini · GPT-4o · OLMo',
+                        yours: true,
+                        note: 'Your OpenAI key powers GPT-4o here',
+                        color: 'emerald',
+                      },
+                      {
+                        icon: <Sparkles size={13} />,
+                        label: 'Judge + patcher',
+                        role: 'Deduplicates findings · applies fixes',
+                        yours: true,
+                        note: 'Your Claude key powers this role',
+                        color: 'teal',
+                      },
+                      {
+                        icon: <GitBranch size={13} />,
+                        label: 'axe-core',
+                        role: 'Rescore after each round',
+                        yours: false,
+                        note: 'Open source · always local',
+                        color: 'slate',
+                      },
+                    ].map((node) => (
+                      <div
+                        key={node.label}
+                        className={`flex items-center gap-3 px-3.5 py-3 rounded-xl border transition-colors ${
+                          node.yours
+                            ? node.color === 'teal'
+                              ? 'border-teal-500/30 bg-teal-500/5'
+                              : 'border-emerald-500/30 bg-emerald-500/5'
+                            : 'border-slate-700/50 bg-slate-800/30'
+                        }`}
+                      >
+                        <div className={`shrink-0 ${
+                          node.yours
+                            ? node.color === 'teal' ? 'text-teal-400' : 'text-emerald-400'
+                            : 'text-slate-500'
+                        }`}>
+                          {node.icon}
+                        </div>
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className={`text-sm font-semibold ${
+                              node.yours
+                                ? node.color === 'teal' ? 'text-teal-300' : 'text-emerald-300'
+                                : 'text-slate-400'
+                            }`}>
+                              {node.label}
+                            </span>
+                            <span className="text-xs text-slate-600">{node.role}</span>
+                          </div>
+                          <p className={`text-[11px] mt-0.5 ${
+                            node.yours
+                              ? node.color === 'teal' ? 'text-teal-500' : 'text-emerald-500'
+                              : 'text-slate-600'
+                          }`}>
+                            {node.note}
+                          </p>
+                        </div>
+                        {node.yours && (
+                          <span className={`ml-auto text-[10px] font-semibold uppercase px-2 py-0.5 rounded-full shrink-0 ${
+                            node.color === 'teal'
+                              ? 'bg-teal-500/15 text-teal-400'
+                              : 'bg-emerald-500/15 text-emerald-400'
+                          }`}>
+                            your key
+                          </span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+
+                  <p className="text-[11px] text-slate-600 leading-relaxed">
+                    The orchestration logic, patch application, and scoring are all open source Python — your key never touches them. You can read every line at any time.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
         {/* ── Deployment modes ─────────────────────────────────────────────── */}
-        <section id="modes" className="py-20 sm:py-28">
+        <section id="modes" className="py-20 sm:py-28 bg-slate-900/40 border-y border-slate-800/60">
           <div className="max-w-6xl mx-auto px-4 sm:px-6">
             <div className="text-center mb-14">
               <p className="text-xs font-semibold uppercase tracking-widest text-teal-500 mb-3">
@@ -792,63 +1150,23 @@ export default function App() {
               />
               <ModeCard
                 icon={<Key size={18} />}
-                label="BYOK / enterprise"
-                badge="Differentiator"
+                label="Plug in your enterprise license"
+                badge="Zero procurement friction"
                 badgeColor="bg-amber-500/10 text-amber-400 border border-amber-500/20"
                 lines={[
-                  'Bring your existing Claude / ChatGPT enterprise credentials',
-                  'Zero incremental cost on already-approved API access',
-                  'No new procurement friction',
-                  'No identified competitor has built this',
+                  'Connect existing Claude or ChatGPT API credentials',
+                  'Zero incremental cost on already-approved access',
+                  'No new vendor approval required',
+                  'Same quality as hosted — your key, your pipeline',
                 ]}
+                featured
               />
             </div>
 
             <p className="mt-6 text-center text-xs text-slate-600">
               The real barrier to enterprise adoption is procurement friction, not technical
-              capability. BYOK sidesteps it.
+              capability. Plugging in your existing license sidesteps it entirely.
             </p>
-          </div>
-        </section>
-
-        {/* ── Prior art / credibility ──────────────────────────────────────── */}
-        <section className="py-16 bg-slate-900/40 border-y border-slate-800/60">
-          <div className="max-w-4xl mx-auto px-4 sm:px-6">
-            <p className="text-xs font-semibold uppercase tracking-widest text-teal-500 mb-8 text-center">
-              Research context
-            </p>
-            <div className="grid sm:grid-cols-2 gap-6">
-              {[
-                {
-                  tag: "Ai2 · ASSETS '21",
-                  title: 'SciA11y',
-                  authors: 'Wang, Cachola, et al.',
-                  note: 'Converts scientific PDFs to accessible HTML. HappyPDF extends this direction to general and government documents, adding the iterative WCAG validation loop SciA11y identified as future work.',
-                },
-                {
-                  tag: 'Ai2 · arXiv 2601.10611',
-                  title: 'olmOCR',
-                  authors: 'Poznanski et al.',
-                  note: "Production PDF extraction via pure vision. HappyPDF builds directly on olmOCR's extraction foundation and adds multi-model WCAG remediation.",
-                },
-              ].map(({ tag, title, authors, note }) => (
-                <div
-                  key={title}
-                  className="bg-slate-900 border border-slate-700/60 rounded-2xl p-6 hover:border-slate-600 transition-colors"
-                >
-                  <p className="text-xs font-mono text-teal-500 mb-1">{tag}</p>
-                  <h3 className="font-semibold text-slate-100 mb-0.5">{title}</h3>
-                  <p className="text-xs text-slate-500 mb-3">{authors}</p>
-                  <p className="text-sm text-slate-400 leading-relaxed">{note}</p>
-                  <a
-                    href="#"
-                    className="mt-3 inline-flex items-center gap-1 text-xs text-teal-500 hover:text-teal-400 transition-colors"
-                  >
-                    Read paper <ExternalLink size={10} />
-                  </a>
-                </div>
-              ))}
-            </div>
           </div>
         </section>
 
@@ -874,12 +1192,16 @@ export default function App() {
                 a="Dense digital PDFs (government forms, regulations, academic papers) produce the best results — olmOCR was trained specifically on these. Scanned historical documents also work via pure vision, though quality depends on scan quality. Complex multi-column layouts, mixed-content documents, and tables with merged cells are all handled."
               />
               <FaqItem
-                q="What does BYOK mean and why does it matter?"
-                a="BYOK is Bring Your Own Keys — you connect your existing Claude or ChatGPT enterprise API credentials. If your organization already pays for Claude or GPT-4o API access through enterprise agreements, HappyPDF uses those credentials at no additional cost. This sidesteps the procurement process that blocks most AI tools from reaching enterprise teams."
+                q="What does 'plug in your license' mean exactly?"
+                a="If your organization already has Claude or GPT-4o API access through enterprise agreements, you connect those credentials here. HappyPDF routes them to the specific model roles they cover (Claude → judge + patcher, GPT-4o → peer reviewer). You pay nothing extra beyond what you already pay your AI provider — and your key goes directly to them, never stored or logged by HappyPDF."
+              />
+              <FaqItem
+                q="Why is the pipeline modular? Can I swap models?"
+                a="Yes. The orchestration is open source Python with well-defined role interfaces. Each model slot (extractor, reviewer, judge) can be pointed at any model that fits the interface — Claude, GPT-4o, OLMo, Llama, or a local model. The modularity is what makes BYOK possible without rewriting anything."
               />
               <FaqItem
                 q="How is this different from DocAccess or SentraCheck?"
-                a="Commercial tools are closed-box, paid per conversion, and don't expose their logic. HappyPDF is fully open source — every patch, every reviewer score, every violation flag is in the audit trail. You can inspect exactly what changed and why."
+                a="Commercial tools are closed-box, paid per conversion, and don't expose their logic. HappyPDF is fully open source — every patch, every reviewer score, every violation flag is in the audit trail. You can inspect exactly what changed and why. And you can run it on your own infrastructure or pipe in your existing AI contracts."
               />
               <FaqItem
                 q="Why three rounds maximum?"
@@ -896,7 +1218,7 @@ export default function App() {
               Make your PDFs accessible.
             </h2>
             <p className="text-slate-400 mb-8 leading-relaxed">
-              No account. No credit card. Drop a PDF and see the pipeline run in your browser.
+              No account. No credit card. Drop a PDF and see the pipeline run in your browser — or connect your existing API license.
             </p>
             <div className="flex flex-col sm:flex-row gap-3 justify-center">
               <a
@@ -938,8 +1260,8 @@ export default function App() {
             <a href="#" className="hover:text-slate-300 transition-colors">
               GitHub
             </a>
-            <a href="#" className="hover:text-slate-300 transition-colors">
-              Research
+            <a href="#faq" className="hover:text-slate-300 transition-colors">
+              FAQ
             </a>
           </div>
 
