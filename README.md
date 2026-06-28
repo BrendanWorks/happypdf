@@ -144,6 +144,52 @@ Every block-level element gets a deterministic SHA256-based ID: `block-{page}-{h
 
 axe-core runs in a real headless Chromium browser and returns structured JSON. Score = `passes / (passes + violations)` as a percentage. This is automated check coverage, not WCAG conformance. Hard gates (no critical violations, no content loss, no reading order regressions) are the real measure.
 
+## Security
+
+### API Key Handling (BYOK Mode)
+
+happypdf uses a **zero-transmission security model** for enterprise API keys:
+
+- **Keys never reach the frontend.** Users bring their Claude or ChatGPT credentials in the BYOK UI, but these are *not sent to happypdf's servers*. Instead, they are stored in Modal's encrypted secret vault (`modal.Secret.from_name("happypdf-secrets")`).
+- **Backend-only access.** API keys are injected into the Modal container as environment variables and used directly by the backend's language model clients. The frontend never sees or transmits them.
+- **No credential logging.** Error messages are sanitized to exclude exception details that could leak API response content. Backend uses in-memory job state only (no persistent logs).
+
+### Transport Security
+
+- **HTTPS enforced.** All endpoints use Modal's default HTTPS with TLS 1.3. CORS middleware explicitly allows only `https://` origins in production (`https://happypdf.org`, `https://happypdf.netlify.app`).
+- **No intermediate proxies.** Direct HTTPS connection from frontend to Modal ASGI app; no API gateway or load balancer that could log credentials.
+
+### Data Persistence
+
+- **Ephemeral job storage.** Job state (PDF content, intermediate HTML, remediation results) lives in in-memory Python dict protected by thread locks. No database, Redis, or persistent storage.
+- **Container lifecycle.** Modal containers scale down after 20 minutes of idle time (`scaledown_window=1200`). When the container terminates, all in-memory job data is cleared.
+- **No file caching.** Temporary files (PDFs, intermediate images) are created with Python's `tempfile` module and deleted after processing completes.
+
+### Audit Results
+
+| Component | Status | Details |
+|---|---|---|
+| **HTTPS** | ✅ Enforced | Modal default + CORS validation for `https://` only |
+| **API Key Transmission** | ✅ None | Keys stored as Modal Secrets, never sent to frontend |
+| **Error Handling** | ✅ Hardened | Exception messages sanitized to exclude API response details |
+| **Data Caching** | ✅ Ephemeral | In-memory only, cleared after 20-min container idle |
+| **Logging** | ✅ Minimal | No structured logging of requests/responses; debug prints excluded from API path |
+
+### Deployment Checklist for Self-Hosting
+
+If you self-host happypdf:
+
+1. **Set Modal secrets:** Store `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, and `GOOGLE_API_KEY` in Modal's secret vault, not in `.env` or config files.
+2. **HTTPS only:** Configure TLS termination at your ingress (e.g., Let's Encrypt via nginx).
+3. **CORS origins:** Update `allow_origins` in `api/main.py` to match your frontend domain.
+4. **Container lifecycle:** Set `scaledown_window` to your SLA (default 20 min). Shorter windows = more frequent cold starts; longer = standing cost.
+5. **No persistent storage:** Do not add Redis, databases, or S3 for job state. The ephemeral in-memory model is a security feature.
+
+### Known Security Limitations
+
+- **Concurrent request logging:** If Modal's system logs capture request/response bodies (outside happypdf's control), they would include PDFs and intermediate HTML. This is a Modal platform limitation, not a code issue. For air-gapped deployments, self-host on private infrastructure.
+- **Browser console leakage:** Frontend dev tools could reveal job IDs and API endpoints. This is standard browser behavior; mitigate by keeping dev tools closed in production.
+
 ## Known Limitations
 
 - **Baseline already accessible:** Our HTML generator produces valid semantic structure from any PDF, so axe-core finds 0 violations at baseline. The loop enhances with ARIA, it doesn't fix broken HTML. If you need to measure violation-reduction, you'd need a deliberately-broken baseline or a different source (e.g., OCR without structure recovery).
