@@ -314,14 +314,19 @@ def generate_alt_text(g: Group, el: dict, provider: str | None = None) -> dict:
     Args:
         g: Issue group (contains criterion, issue, suggested_fix)
         el: Element dict (contains current alt text, tag)
-        provider: 'claude' or 'openai'. If None, auto-select based on available keys.
+        provider: 'claude' or 'openai'. If None, uses HAPPYPDF_ALT_TEXT_PROVIDER env var,
+                 then auto-selects based on available keys (Claude if both, OpenAI if only).
 
     Returns:
         dict with keys: new_value, safe, confidence, reasoning
         Raises RuntimeError if API call fails.
     """
-    # Auto-select provider if not specified
+    # Determine provider: explicit param > env var > auto-select
     if provider is None:
+        provider = os.environ.get('HAPPYPDF_ALT_TEXT_PROVIDER')
+
+    if provider is None:
+        # Auto-select: Claude if both keys available, else OpenAI
         provider = 'claude' if os.environ.get('ANTHROPIC_API_KEY') else 'openai'
 
     if provider == 'claude':
