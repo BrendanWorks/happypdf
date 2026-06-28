@@ -39,6 +39,7 @@ Run
 import argparse
 import difflib
 import json
+import os
 import re
 import sys
 from dataclasses import dataclass, field
@@ -47,9 +48,11 @@ from pathlib import Path
 
 from bs4 import BeautifulSoup
 
-MODEL = "claude-opus-4-8"
-
 ROOT = Path(__file__).resolve().parent.parent
+
+# Provider selection: determined at runtime (eventually from BYOK config)
+# For now, defaults to Claude if key available, else OpenAI
+ALT_TEXT_PROVIDER = None  # Set by caller or defaults to 'claude' if ANTHROPIC_API_KEY exists
 DEFAULT_HTML = ROOT / "output" / "syllabus_scored.html"
 DEFAULT_REVIEWS = ROOT / "tests" / "mock_reviews.json"
 OUT_MANIFEST = ROOT / "output" / "patch_manifest.json"
@@ -237,12 +240,9 @@ def classify(g: Group, el: dict | None) -> tuple[str, str, str | None, str | Non
 # ---------------------------------------------------------------------------
 # Claude: generate LLM-safe fixes (alt text) and judge safety
 # ---------------------------------------------------------------------------
-def claude_alt_fix(g: Group, el: dict) -> dict:
-    """Ask Claude to produce concise alt text and judge whether the fix is safe."""
-    import anthropic
-
-    client = anthropic.Anthropic()
-    system = (
+def _alt_text_system_prompt() -> str:
+    """Shared system prompt for both Claude and OpenAI."""
+    return (
         "You are an accessibility remediation judge. You rewrite or generate HTML "
         "image alt text to satisfy WCAG. Be specific and concise (screen-reader "
         "friendly). If the correct alt text cannot be determined safely from the "
@@ -250,28 +250,84 @@ def claude_alt_fix(g: Group, el: dict) -> dict:
         "or you would have to invent facts), set safe=false so a human can handle it. "
         "Respond with a single JSON object and nothing else."
     )
+
+
+def _alt_text_user_prompt(g: Group, el: dict) -> str:
+    """Shared user prompt for both Claude and OpenAI."""
     payload = {
         "wcag_criterion": g.wcag_criterion,
         "issue": g.issue,
         "current_alt": el.get("alt", ""),
         "suggested_fix": g.suggested_fix,
     }
-    user = (
+    return (
         "Peer reviewers flagged the alt text on an image. Context:\n"
         f"{json.dumps(payload, indent=2)}\n\n"
         'Return JSON: {"new_value": "<improved alt text>", "safe": true|false, '
         '"confidence": 0.0-1.0, "reasoning": "<why this is correct and safe>"}'
     )
-    resp = client.messages.create(
-        model=MODEL,
-        max_tokens=1024,
-        thinking={"type": "adaptive"},
-        output_config={"effort": "high"},
-        system=system,
-        messages=[{"role": "user", "content": user}],
-    )
-    text = "".join(b.text for b in resp.content if b.type == "text")
-    return _extract_json(text)
+
+
+def _generate_alt_text_claude(g: Group, el: dict) -> dict:
+    """Generate alt text using Claude API."""
+    import anthropic
+
+    try:
+        client = anthropic.Anthropic()
+        resp = client.messages.create(
+            model="claude-opus-4-8",
+            max_tokens=1024,
+            thinking={"type": "adaptive"},
+            output_config={"effort": "high"},
+            system=_alt_text_system_prompt(),
+            messages=[{"role": "user", "content": _alt_text_user_prompt(g, el)}],
+        )
+        text = "".join(b.text for b in resp.content if b.type == "text")
+        return _extract_json(text)
+    except Exception as e:
+        raise RuntimeError(f"Claude API failed: {type(e).__name__}: {str(e)}")
+
+
+def _generate_alt_text_openai(g: Group, el: dict) -> dict:
+    """Generate alt text using OpenAI API."""
+    from openai import OpenAI
+
+    try:
+        client = OpenAI()
+        resp = client.chat.completions.create(
+            model="gpt-4o",
+            max_tokens=1024,
+            system=_alt_text_system_prompt(),
+            messages=[{"role": "user", "content": _alt_text_user_prompt(g, el)}],
+        )
+        text = resp.choices[0].message.content or ""
+        return _extract_json(text)
+    except Exception as e:
+        raise RuntimeError(f"OpenAI API failed: {type(e).__name__}: {str(e)}")
+
+
+def generate_alt_text(g: Group, el: dict, provider: str | None = None) -> dict:
+    """Generate alt text and judge safety using the specified provider (Claude or OpenAI).
+
+    Args:
+        g: Issue group (contains criterion, issue, suggested_fix)
+        el: Element dict (contains current alt text, tag)
+        provider: 'claude' or 'openai'. If None, auto-select based on available keys.
+
+    Returns:
+        dict with keys: new_value, safe, confidence, reasoning
+        Raises RuntimeError if API call fails.
+    """
+    # Auto-select provider if not specified
+    if provider is None:
+        provider = 'claude' if os.environ.get('ANTHROPIC_API_KEY') else 'openai'
+
+    if provider == 'claude':
+        return _generate_alt_text_claude(g, el)
+    elif provider == 'openai':
+        return _generate_alt_text_openai(g, el)
+    else:
+        raise ValueError(f"Unknown provider: {provider}. Use 'claude' or 'openai'.")
 
 
 def _extract_json(text: str) -> dict:
@@ -391,17 +447,31 @@ def build_manifest(html: Path, reviews: Path, use_llm: bool) -> tuple[list, list
             log(f"  … llm_safe deferred [{g.element_id}] (--no-llm)")
             continue
 
-        log(f"  → calling Claude ({MODEL}) for llm_safe fix [{g.element_id}]...")
-        result = claude_alt_fix(g, el)
+        # Auto-select provider based on available credentials
+        provider = 'claude' if os.environ.get('ANTHROPIC_API_KEY') else 'openai'
+        log(f"  → calling {provider.capitalize()} for llm_safe fix [{g.element_id}]...")
+
+        try:
+            result = generate_alt_text(g, el, provider=provider)
+        except RuntimeError as e:
+            rejected.append({
+                "element_id": g.element_id, "wcag_criterion": g.wcag_criterion,
+                "status": "needs_human", "reason": str(e),
+                "flagged_by": sorted(g.reviewers),
+            })
+            record(g, "NEEDS_HUMAN", f"alt on <{el['tag']}> is valid; {str(e)}", False)
+            log(f"  ⚠ needs_human [{g.element_id}] {str(e)}")
+            continue
+
         if not result.get("safe", False):
             rejected.append({
                 "element_id": g.element_id, "wcag_criterion": g.wcag_criterion,
-                "status": "needs_human", "reason": "Claude judged the fix unsafe to auto-generate",
-                "claude": result, "flagged_by": sorted(g.reviewers),
+                "status": "needs_human", "reason": f"{provider.capitalize()} judged the fix unsafe to auto-generate",
+                "provider_response": result, "flagged_by": sorted(g.reviewers),
             })
-            record(g, "NEEDS_HUMAN", f"alt on <{el['tag']}> is valid; Claude judged fix unsafe",
+            record(g, "NEEDS_HUMAN", f"alt on <{el['tag']}> is valid; {provider.capitalize()} judged fix unsafe",
                    False, claude_call=True, claude=result)
-            log(f"  ⚠ needs_human [{g.element_id}] Claude declined to auto-fix")
+            log(f"  ⚠ needs_human [{g.element_id}] {provider.capitalize()} declined to auto-fix")
             continue
 
         conf = round(min(g.confidence, float(result.get("confidence", g.confidence))), 2)
@@ -413,11 +483,11 @@ def build_manifest(html: Path, reviews: Path, use_llm: bool) -> tuple[list, list
             "wcag_criterion": g.wcag_criterion,
             "confidence": conf,
             "llm_safe": True,
-            "reasoning": (f"LLM-safe fix accepted ({agree}). Claude ({MODEL}) generated the "
-                          f"alt text and judged it safe. Claude reasoning: "
+            "reasoning": (f"LLM-safe fix accepted ({agree}). {provider.capitalize()} generated the "
+                          f"alt text and judged it safe. Reasoning: "
                           f"{result.get('reasoning', '')}"),
         })
-        record(g, "ACCEPT", f"alt on <{el['tag']}> is valid; Claude generated + approved", True,
+        record(g, "ACCEPT", f"alt on <{el['tag']}> is valid; {provider.capitalize()} generated + approved", True,
                claude_call=True, claude=result)
         log(f"  ✓ llm_safe patch [{g.element_id}] alt=\"{result.get('new_value','')[:60]}\"")
 
