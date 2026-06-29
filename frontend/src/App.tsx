@@ -630,7 +630,7 @@ export default function App() {
             <a href="#modes" className="hover:text-slate-200 transition-colors">Deployment</a>
             <a href="#faq" className="hover:text-slate-200 transition-colors">FAQ</a>
             <a
-              href="https://github.com"
+              href="https://github.com/BrendanWorks/happypdf"
               className="flex items-center gap-1.5 hover:text-slate-200 transition-colors"
               rel="noopener noreferrer"
             >
@@ -691,7 +691,7 @@ export default function App() {
                     <ArrowRight size={16} />
                   </a>
                   <a
-                    href="https://github.com"
+                    href="https://github.com/BrendanWorks/happypdf"
                     rel="noopener noreferrer"
                     className="flex items-center justify-center gap-2 px-6 py-3 bg-slate-800 hover:bg-slate-700 text-slate-200 font-medium rounded-xl border border-slate-700/60 transition-colors"
                   >
@@ -1029,7 +1029,7 @@ export default function App() {
                 <ArrowRight size={16} />
               </a>
               <a
-                href="https://github.com"
+                href="https://github.com/BrendanWorks/happypdf"
                 rel="noopener noreferrer"
                 className="flex items-center justify-center gap-2 px-8 py-3.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl border border-slate-700/60 transition-colors font-medium"
               >
