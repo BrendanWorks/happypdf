@@ -241,6 +241,8 @@ function DemoPanel() {
   const [busy, setBusy] = useState(false);
   const [clientError, setClientError] = useState<string | null>(null);
   const [htmlUrl, setHtmlUrl] = useState<string | null>(null);
+  const [byokKeys, setByokKeys] = useState({ anthropic: '', openai: '' });
+  const [showByokSettings, setShowByokSettings] = useState(false);
   const pollRef = useRef<number | null>(null);
   const timerRef = useRef<number | null>(null);
 
@@ -319,7 +321,10 @@ function DemoPanel() {
   const apiLive = async (file: File) => {
     begin(file.name);
     try {
-      const fd = new FormData(); fd.append('file', file);
+      const fd = new FormData();
+      fd.append('file', file);
+      if (byokKeys.anthropic) fd.append('anthropic_api_key', byokKeys.anthropic);
+      if (byokKeys.openai) fd.append('openai_api_key', byokKeys.openai);
       const r = await fetch(`${API_BASE}/api/jobs/live`, { method: 'POST', body: fd });
       if (!r.ok) throw new Error();
       const { job_id } = (await r.json()) as { job_id: string };
@@ -365,6 +370,46 @@ function DemoPanel() {
       <div className="p-6 space-y-6">
         {idle ? (
           <>
+            {HAS_API && (
+              <div className="bg-slate-800/50 border border-slate-700/50 rounded-lg p-4 space-y-3">
+                <button
+                  type="button"
+                  onClick={() => setShowByokSettings(!showByokSettings)}
+                  className="text-xs text-slate-400 hover:text-slate-300 font-medium flex items-center gap-2 transition-colors"
+                >
+                  <Key size={14} />
+                  {showByokSettings ? 'Hide' : 'Add'} your own API keys (optional)
+                </button>
+                {showByokSettings && (
+                  <div className="space-y-2 pt-2 border-t border-slate-700/50">
+                    <input
+                      type="password"
+                      placeholder="Anthropic API key (optional)"
+                      value={byokKeys.anthropic}
+                      onChange={(e) => setByokKeys({ ...byokKeys, anthropic: e.target.value })}
+                      className="w-full px-3 py-2 bg-slate-900 border border-slate-600/50 rounded text-xs text-slate-300 placeholder-slate-600 focus:outline-none focus:border-teal-400/50"
+                    />
+                    <input
+                      type="password"
+                      placeholder="OpenAI API key (optional)"
+                      value={byokKeys.openai}
+                      onChange={(e) => setByokKeys({ ...byokKeys, openai: e.target.value })}
+                      className="w-full px-3 py-2 bg-slate-900 border border-slate-600/50 rounded text-xs text-slate-300 placeholder-slate-600 focus:outline-none focus:border-teal-400/50"
+                    />
+                    <p className="text-xs text-slate-500">⚠️ Keys stored locally in your browser. Not transmitted to happypdf servers.</p>
+                    {(byokKeys.anthropic || byokKeys.openai) && (
+                      <button
+                        type="button"
+                        onClick={() => setByokKeys({ anthropic: '', openai: '' })}
+                        className="text-xs text-slate-400 hover:text-slate-300 underline transition-colors"
+                      >
+                        Clear all keys
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
             {HAS_API ? (
               <div
                 onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}

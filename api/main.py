@@ -22,7 +22,7 @@ import uuid
 from datetime import datetime
 from pathlib import Path
 
-from fastapi import FastAPI, HTTPException, UploadFile, File
+from fastapi import FastAPI, HTTPException, UploadFile, File, Form
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse
 
@@ -135,12 +135,34 @@ def _replay(jid: str, name: str) -> None:
 # ---------------------------------------------------------------------------
 # Live worker — runs the real pipeline on an uploaded PDF
 # ---------------------------------------------------------------------------
-def _live(jid: str, pdf_bytes: bytes, filename: str) -> None:
+def _live(jid: str, pdf_bytes: bytes, filename: str, anthropic_api_key: str | None = None, openai_api_key: str | None = None) -> None:
     import tempfile
     import build_syllabus_slice as bss
     import reviewers
     from loop import run_loop, axe_score
-    reviewers.load_env()
+
+    # Set up BYOK keys if provided (overrides environment)
+    old_anth = os.environ.get("ANTHROPIC_API_KEY")
+    old_openai = os.environ.get("OPENAI_API_KEY")
+    try:
+        if anthropic_api_key:
+            os.environ["ANTHROPIC_API_KEY"] = anthropic_api_key
+        if openai_api_key:
+            os.environ["OPENAI_API_KEY"] = openai_api_key
+
+        reviewers.load_env()
+    except Exception as setup_err:
+        # Restore env vars before raising
+        if old_anth:
+            os.environ["ANTHROPIC_API_KEY"] = old_anth
+        else:
+            os.environ.pop("ANTHROPIC_API_KEY", None)
+        if old_openai:
+            os.environ["OPENAI_API_KEY"] = old_openai
+        else:
+            os.environ.pop("OPENAI_API_KEY", None)
+        raise setup_err
+
     try:
         _set(jid, source="live pipeline (olmOCR + Qwen2-VL + live reviewers + Claude judge)")
         _set(jid, stage="extracting")
@@ -184,6 +206,16 @@ def _live(jid: str, pdf_bytes: bytes, filename: str) -> None:
              stopped_reason=summary["stopped_reason"], status="done")
     except Exception as e:
         _set(jid, status="error", error=f"{type(e).__name__}: {e}")
+    finally:
+        # Restore original environment variables
+        if old_anth:
+            os.environ["ANTHROPIC_API_KEY"] = old_anth
+        else:
+            os.environ.pop("ANTHROPIC_API_KEY", None)
+        if old_openai:
+            os.environ["OPENAI_API_KEY"] = old_openai
+        else:
+            os.environ.pop("OPENAI_API_KEY", None)
 
 
 # ---------------------------------------------------------------------------
@@ -209,7 +241,11 @@ def start_demo(name: str):
 
 
 @app.post("/api/jobs/live")
-async def start_live(file: UploadFile = File(...)):
+async def start_live(
+    file: UploadFile = File(...),
+    anthropic_api_key: str = Form(default=None),
+    openai_api_key: str = Form(default=None),
+):
     if not (file.filename or "").lower().endswith(".pdf"):
         raise HTTPException(400, "please upload a .pdf")
     allowed, count = _rate_check()
@@ -221,7 +257,12 @@ async def start_live(file: UploadFile = File(...)):
         )
     data = await file.read()
     jid = _new_job("live", file.filename)
-    threading.Thread(target=_live, args=(jid, data, file.filename), daemon=True).start()
+    threading.Thread(
+        target=_live,
+        args=(jid, data, file.filename),
+        kwargs={"anthropic_api_key": anthropic_api_key, "openai_api_key": openai_api_key},
+        daemon=True
+    ).start()
     return {"job_id": jid}
 
 
