@@ -222,13 +222,16 @@ async def _run_one(name: str, fn, html: str, valid_ids: set[str]) -> tuple[str, 
             return name, issues
         except Exception as e:
             dt = time.time() - t0
+            # Log exception type but truncate message to avoid leaking credentials
+            error_summary = f"{type(e).__name__}"
+            if str(e) and len(str(e)) < 100:
+                error_summary += f": {str(e)[:80]}"
             if attempt < RETRIES:
                 wait = BACKOFF_BASE ** (attempt + 1)
-                log(f"{name}: FAILED in {dt:.1f}s ({type(e).__name__}: {str(e)[:80]}); "
-                    f"retrying in {wait:.0f}s")
+                log(f"{name}: FAILED in {dt:.1f}s ({error_summary}); retrying in {wait:.0f}s")
                 await asyncio.sleep(wait)
             else:
-                log(f"{name}: FAILED in {dt:.1f}s ({type(e).__name__}: {str(e)[:80]}); skipping")
+                log(f"{name}: FAILED in {dt:.1f}s ({error_summary}); skipping")
                 return name, None
 
 

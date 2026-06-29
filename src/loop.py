@@ -114,10 +114,12 @@ def run_loop(baseline_html: str, reviews_provider, *, label: str = "doc",
         try:
             reviews = reviews_provider(r, current)
         except Exception as e:
-            rounds.append({"round": r, "status": "reviewers_failed", "error": str(e),
+            # Log full error for operators; generic message for user
+            log(f"[{label}] round {r}: reviewers failed ({type(e).__name__}: {e}); stopping")
+            rounds.append({"round": r, "status": "reviewers_failed",
+                           "error": "Peer reviewers failed. Check logs for details.",
                            "seconds": round(time.time() - t0, 2)})
             stopped = "reviewers_failed"
-            log(f"[{label}] round {r}: reviewers failed ({e}); stopping")
             break
         if reviews is None:
             stopped = "no_more_reviews"
@@ -133,10 +135,12 @@ def run_loop(baseline_html: str, reviews_provider, *, label: str = "doc",
         try:
             patched, applied = applicator.apply_patches(current, patches)
         except applicator.PatchError as e:
-            rounds.append({"round": r, "status": "applicator_rollback", "error": str(e),
+            # Log full error for operators; generic message for user
+            log(f"[{label}] round {r}: applicator rolled back ({type(e).__name__}: {e}); stopping")
+            rounds.append({"round": r, "status": "applicator_rollback",
+                           "error": "Patch application failed. Check logs for details.",
                            "seconds": round(time.time() - t0, 2)})
             stopped = "applicator_rollback"
-            log(f"[{label}] round {r}: applicator rolled back ({e}); stopping")
             break
 
         gate_res = gate.run_gate(current, patched)

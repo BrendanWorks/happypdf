@@ -205,7 +205,9 @@ def _live(jid: str, pdf_bytes: bytes, filename: str, anthropic_api_key: str | No
              enhancements=enhancements_list,
              stopped_reason=summary["stopped_reason"], status="done")
     except Exception as e:
-        _set(jid, status="error", error=f"{type(e).__name__}: {e}")
+        # Log full error server-side for operators; generic message for user
+        print(f"[ERROR] Job {jid} failed: {type(e).__name__}: {e}", flush=True)
+        _set(jid, status="error", error="Conversion failed. Check your API key and try again.")
     finally:
         # Restore original environment variables
         if old_anth:

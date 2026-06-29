@@ -463,13 +463,17 @@ def build_manifest(html: Path, reviews: Path, use_llm: bool) -> tuple[list, list
         try:
             result = generate_alt_text(g, el, provider=provider)
         except RuntimeError as e:
+            # Log full error for operators; generic message for audit/user
+            error_msg = str(e)
+            log(f"  ⚠ needs_human [{g.element_id}] {type(e).__name__}: {error_msg}")
+            # Sanitize: don't expose API errors or keys
+            user_msg = f"{provider.capitalize()} API error (invalid credentials or service unavailable)"
             rejected.append({
                 "element_id": g.element_id, "wcag_criterion": g.wcag_criterion,
-                "status": "needs_human", "reason": str(e),
+                "status": "needs_human", "reason": user_msg,
                 "flagged_by": sorted(g.reviewers),
             })
-            record(g, "NEEDS_HUMAN", f"alt on <{el['tag']}> is valid; {str(e)}", False)
-            log(f"  ⚠ needs_human [{g.element_id}] {str(e)}")
+            record(g, "NEEDS_HUMAN", f"alt on <{el['tag']}> failed: {user_msg}", False)
             continue
 
         if not result.get("safe", False):
