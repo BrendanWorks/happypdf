@@ -370,12 +370,15 @@ function DemoPanel() {
                 onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
                 onDragLeave={() => setDragOver(false)}
                 onDrop={(e) => { e.preventDefault(); setDragOver(false); const f = e.dataTransfer.files[0]; if (f) onDropFile(f); }}
-                className={`border-2 border-dashed rounded-xl p-10 text-center transition-all ${dragOver ? 'border-teal-400 bg-teal-400/5' : 'border-slate-600 hover:border-slate-500 hover:bg-slate-800/40'}`}
+                className={`border-2 border-dashed rounded-xl p-10 text-center transition-all cursor-pointer ${dragOver ? 'border-teal-400 bg-teal-400/5' : 'border-slate-600 hover:border-slate-500 hover:bg-slate-800/40'}`}
+                onClick={() => document.getElementById('pdf-upload')?.click()}
               >
                 <Upload className="mx-auto mb-3 text-slate-500" size={32} />
                 <p className="text-slate-300 font-medium mb-1">Drop a PDF to run the live pipeline</p>
                 <p className="text-slate-500 text-sm mb-1">olmOCR → alt text → semantic HTML → axe-core → live-reviewer loop</p>
                 <p className="text-slate-600 text-xs">Live runs take a few minutes and call real models.</p>
+                <p className="text-slate-500 text-xs mt-3"><button type="button" className="text-teal-400 hover:text-teal-300 underline" onClick={(e) => { e.stopPropagation(); document.getElementById('pdf-upload')?.click(); }}>or click to upload from your computer</button></p>
+                <input id="pdf-upload" type="file" accept=".pdf" className="hidden" onChange={(e) => { if (e.target.files?.[0]) onDropFile(e.target.files[0]); }} />
               </div>
             ) : (
               <div className="border-2 border-dashed border-slate-700 rounded-xl p-8 text-center">
@@ -684,7 +687,7 @@ export default function App() {
                     href="#demo"
                     className="flex items-center justify-center gap-2 px-6 py-3 bg-teal-500 hover:bg-teal-400 text-slate-900 font-semibold rounded-xl transition-colors"
                   >
-                    Try it free
+                    Try your own pdf!
                     <ArrowRight size={16} />
                   </a>
                   <a
