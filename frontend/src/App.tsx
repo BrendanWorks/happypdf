@@ -345,7 +345,7 @@ function DemoPanel() {
   const done = job?.status === 'done';
   const hasResults = !!job?.baseline;
   const maxRound = done && job ? Math.max(1, job.rounds.length) : 3;
-  const htmlHref = HAS_API && jobId ? `${API_BASE}/api/jobs/${jobId}/html` : htmlUrl;
+  const htmlHref = HAS_API && jobId && job?.kind === 'live' ? `${API_BASE}/api/jobs/${jobId}/html` : htmlUrl;
 
   return (
     <div className="bg-slate-900 rounded-2xl border border-slate-700/60 overflow-hidden">
