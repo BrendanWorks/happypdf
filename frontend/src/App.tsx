@@ -486,29 +486,11 @@ function DemoPanel() {
             )}
 
             {done && job && job.has_html && htmlHref && (
-              <div className="space-y-3 pt-1">
-                <div className="flex gap-2">
-                  <a href={htmlHref} target="_blank" rel="noopener noreferrer" className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-teal-500 hover:bg-teal-400 text-slate-900 font-semibold text-sm rounded-lg transition-colors">
-                    <Code2 size={14} />
-                    View output HTML
-                  </a>
-                  <button onClick={() => {
-                    const a = document.createElement('a');
-                    a.href = htmlHref;
-                    a.download = `${fileName?.replace(/\.[^/.]+$/, '') || 'output'}.html`;
-                    document.body.appendChild(a);
-                    a.click();
-                    document.body.removeChild(a);
-                  }} className="flex items-center justify-center gap-2 px-4 py-2.5 bg-slate-700 hover:bg-slate-600 text-slate-200 text-sm rounded-lg transition-colors">
-                    <Download size={14} />
-                    Download
-                  </button>
-                </div>
-                {job.kind === 'replay' && (
-                  <a href={`https://github.com/BrendanWorks/happypdf/raw/main/benchmark/${job.id === 'syllabus' ? 'syllabus_NOTaccessible' : job.id === 'navy_bulletin' ? 'navy_bulletin' : 'irs_schedule_c'}.pdf`} target="_blank" rel="noopener noreferrer" className="block text-xs text-slate-400 hover:text-slate-300 transition-colors text-center">
-                    ↓ Download original PDF
-                  </a>
-                )}
+              <div className="flex gap-3 pt-1">
+                <a href={htmlHref} target="_blank" rel="noopener noreferrer" className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-teal-500 hover:bg-teal-400 text-slate-900 font-semibold text-sm rounded-lg transition-colors">
+                  <Code2 size={14} />
+                  View output HTML
+                </a>
               </div>
             )}
           </div>
