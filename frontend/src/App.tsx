@@ -326,10 +326,17 @@ function DemoPanel() {
       if (byokKeys.anthropic) fd.append('anthropic_api_key', byokKeys.anthropic);
       if (byokKeys.openai) fd.append('openai_api_key', byokKeys.openai);
       const r = await fetch(`${API_BASE}/api/jobs/live`, { method: 'POST', body: fd });
-      if (!r.ok) throw new Error();
+      if (!r.ok) {
+        const errData = await r.json().catch(() => ({ detail: 'Unknown error' }));
+        throw new Error(errData.detail || 'Request failed');
+      }
       const { job_id } = (await r.json()) as { job_id: string };
       setJobId(job_id); poll(job_id);
-    } catch { setBusy(false); setClientError(`Couldn't start a live job at ${API_BASE}.`); }
+    } catch (e) {
+      setBusy(false);
+      const msg = e instanceof Error ? e.message : 'Unknown error';
+      setClientError(msg);
+    }
   };
 
   // Demos always replay the bundled snapshots client-side — free, instant, and
