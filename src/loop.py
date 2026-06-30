@@ -96,7 +96,7 @@ def run_loop(baseline_html: str, reviews_provider, *, label: str = "doc",
              use_llm: bool = True, max_rounds: int = MAX_ROUNDS,
              threshold: float = SCORE_THRESHOLD, on_round=None) -> dict:
     """Drive the remediation loop. `reviews_provider(round, current_html)` returns
-    a reviews dict for the round, or None to stop. `on_round(entry, patched_html)`
+    a reviews dict for the round, or None to stop. `on_round(entry, patched_html, reviewer_health)`
     is an optional progress hook called after each accepted round. Returns a
     summary dict."""
     base_axe = axe_score(baseline_html)
@@ -108,11 +108,24 @@ def run_loop(baseline_html: str, reviews_provider, *, label: str = "doc",
     rounds: list[dict] = []
     stopped = "max_rounds_reached"
     prev_violations = base_axe["violations"]
+    reviewer_health: dict = {}  # Track reviewer success/failure across rounds
 
     for r in range(1, max_rounds + 1):
         t0 = time.time()
         try:
-            reviews = reviews_provider(r, current)
+            reviews, round_health = reviews_provider(r, current)
+            # Merge round health into overall tracker
+            if round_health:
+                for reviewer, status in round_health.items():
+                    if reviewer not in reviewer_health:
+                        reviewer_health[reviewer] = status
+                    else:
+                        # Update existing entry if this round had different status
+                        if status.get("status") == "success":
+                            reviewer_health[reviewer]["status"] = "success"
+                            if "rounds_ran" not in reviewer_health[reviewer]:
+                                reviewer_health[reviewer]["rounds_ran"] = 0
+                            reviewer_health[reviewer]["rounds_ran"] += 1
         except Exception as e:
             # Log full error for operators; generic message for user
             log(f"[{label}] round {r}: reviewers failed ({type(e).__name__}: {e}); stopping")
@@ -179,7 +192,7 @@ def run_loop(baseline_html: str, reviews_provider, *, label: str = "doc",
         entry["status"] = "accepted"
         rounds.append(entry)
         if on_round:
-            on_round(entry, patched)
+            on_round(entry, patched, reviewer_health)
 
         if (axe["score"] >= threshold and hard_gates_pass(gate_res, axe) and len(applied) == 0):
             stopped = "converged"
@@ -188,7 +201,8 @@ def run_loop(baseline_html: str, reviews_provider, *, label: str = "doc",
 
     return {"label": label, "baseline": base_axe, "rounds": rounds,
             "rounds_accepted": len([r for r in rounds if r.get("status") == "accepted"]),
-            "stopped_reason": stopped, "final": axe_score(final), "final_html": final}
+            "stopped_reason": stopped, "final": axe_score(final), "final_html": final,
+            "reviewer_health": reviewer_health}
 
 
 # ---------------------------------------------------------------------------
@@ -196,7 +210,12 @@ def run_loop(baseline_html: str, reviews_provider, *, label: str = "doc",
 # ---------------------------------------------------------------------------
 def _file_provider(r: int, _current_html: str):
     p = ROOT / "tests" / f"mock_reviews_r{r}.json"
-    return json.loads(p.read_text()) if p.exists() else None
+    if p.exists():
+        reviews = json.loads(p.read_text())
+        # Return (reviews, health_info) - mark all reviewers as successful for file-based testing
+        health = {name: {"status": "success", "round": r} for name in reviews.keys()}
+        return reviews, health
+    return None, {}
 
 
 def main() -> int:

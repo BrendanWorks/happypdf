@@ -26,6 +26,33 @@ from fastapi import FastAPI, HTTPException, UploadFile, File, Form
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse
 
+
+# ---------------------------------------------------------------------------
+# API Key Validation
+# ---------------------------------------------------------------------------
+def validate_anthropic_key(key: str) -> tuple[bool, str]:
+    """Validate Anthropic API key with a quick auth call. Returns (valid, error_msg)."""
+    try:
+        import anthropic
+        client = anthropic.Anthropic(api_key=key)
+        # Minimal auth check: list models (cheap, no usage)
+        client.models.list()
+        return True, ""
+    except Exception as e:
+        return False, f"Anthropic key invalid: {type(e).__name__}"
+
+
+def validate_openai_key(key: str) -> tuple[bool, str]:
+    """Validate OpenAI API key with a quick auth call. Returns (valid, error_msg)."""
+    try:
+        from openai import OpenAI
+        client = OpenAI(api_key=key)
+        # Minimal auth check: list models (cheap, no usage)
+        client.models.list()
+        return True, ""
+    except Exception as e:
+        return False, f"OpenAI key invalid: {type(e).__name__}"
+
 ROOT = Path(__file__).resolve().parent.parent
 SRC = ROOT / "src"
 SNAPSHOTS = ROOT / "api" / "snapshots"
@@ -88,6 +115,7 @@ def _new_job(kind: str, name: str) -> str:
             "stage": "uploading", "stages": STAGES, "baseline": None,
             "rounds": [], "final": None, "enhancements": [], "final_html": None,
             "error": None, "source": None, "started": time.time(),
+            "reviewer_health": {},
         }
     return jid
 
@@ -182,7 +210,7 @@ def _live(jid: str, pdf_bytes: bytes, filename: str, anthropic_api_key: str | No
         _set(jid, stage="axe_baseline")
         _set(jid, baseline=axe_score(baseline_html))
 
-        def on_round(entry, _patched):
+        def on_round(entry, _patched, reviewer_health=None):
             _set(jid, stage=f"round{entry['round']}")
             with JOBS_LOCK:
                 JOBS[jid]["rounds"].append({
@@ -191,6 +219,8 @@ def _live(jid: str, pdf_bytes: bytes, filename: str, anthropic_api_key: str | No
                     "violations": entry["violations"], "gate_passed": entry["gate_passed"],
                     "gate_checks": entry.get("gate_checks", []),
                 })
+                if reviewer_health:
+                    JOBS[jid]["reviewer_health"] = reviewer_health
 
         summary = run_loop(baseline_html, reviewers.live_provider,
                            label=filename, use_llm=True, on_round=on_round)
@@ -203,7 +233,8 @@ def _live(jid: str, pdf_bytes: bytes, filename: str, anthropic_api_key: str | No
             enhancements_list = []
         _set(jid, stage="done", final=summary["final"], final_html=final_html,
              enhancements=enhancements_list,
-             stopped_reason=summary["stopped_reason"], status="done")
+             stopped_reason=summary["stopped_reason"], status="done",
+             reviewer_health=summary.get("reviewer_health", {}))
     except Exception as e:
         # Log full error server-side for operators; generic message for user
         print(f"[ERROR] Job {jid} failed: {type(e).__name__}: {e}", flush=True)
@@ -257,6 +288,17 @@ async def start_live(
             f"Daily live-conversion limit reached ({DAILY_LIMIT}/day). "
             f"Try the instant replay demos, or self-host for unlimited runs.",
         )
+
+    # Validate BYOK keys upfront (fail fast)
+    if anthropic_api_key:
+        valid, err = validate_anthropic_key(anthropic_api_key)
+        if not valid:
+            raise HTTPException(400, err)
+    if openai_api_key:
+        valid, err = validate_openai_key(openai_api_key)
+        if not valid:
+            raise HTTPException(400, err)
+
     data = await file.read()
     jid = _new_job("live", file.filename)
     threading.Thread(

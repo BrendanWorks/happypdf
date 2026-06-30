@@ -235,8 +235,8 @@ async def _run_one(name: str, fn, html: str, valid_ids: set[str]) -> tuple[str, 
                 return name, None
 
 
-async def get_live_reviews(html: str, round_num: int) -> dict[str, list[dict]]:
-    """Call OLMo, Gemini, GPT in parallel; return {reviewer: [issues]}.
+async def get_live_reviews(html: str, round_num: int) -> tuple[dict[str, list[dict]], dict[str, dict]]:
+    """Call OLMo, Gemini, GPT in parallel; return ({reviewer: [issues]}, {reviewer: health_info}).
 
     Reviewers without credentials are skipped with a warning. Raises
     AllReviewersFailed if no reviewer produced a result."""
@@ -251,17 +251,20 @@ async def get_live_reviews(html: str, round_num: int) -> dict[str, list[dict]]:
 
     results = await asyncio.gather(*[_run_one(n, f, html, valid_ids) for n, f in active.items()])
 
-    reviews, failures = {}, 0
+    reviews, health, failures = {}, {}, 0
     for name, issues in results:
         if issues is None:
             failures += 1
+            health[name] = {"status": "failed", "round": round_num}
         else:
             reviews[name] = issues
+            health[name] = {"status": "success", "round": round_num}
     if active and failures == len(active):
         raise AllReviewersFailed(f"all {failures} reviewer(s) failed in round {round_num}")
-    return reviews
+    return reviews, health
 
 
-def live_provider(round_num: int, html: str) -> dict[str, list[dict]]:
-    """Synchronous adapter matching the loop's reviews_provider(round, html)."""
+def live_provider(round_num: int, html: str) -> tuple[dict[str, list[dict]], dict[str, dict]]:
+    """Synchronous adapter matching the loop's reviews_provider(round, html).
+    Returns (reviews, health_info)."""
     return asyncio.run(get_live_reviews(html, round_num))
