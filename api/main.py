@@ -39,7 +39,9 @@ def validate_anthropic_key(key: str) -> tuple[bool, str]:
         client.models.list()
         return True, ""
     except Exception as e:
-        return False, f"Anthropic key invalid: {type(e).__name__}"
+        # Log full error for operators; return friendly message for users
+        print(f"[VALIDATION] Anthropic key validation failed: {type(e).__name__}: {e}", flush=True)
+        return False, "Your Anthropic API key is invalid or expired. Please check your key and try again."
 
 
 def validate_openai_key(key: str) -> tuple[bool, str]:
@@ -51,7 +53,9 @@ def validate_openai_key(key: str) -> tuple[bool, str]:
         client.models.list()
         return True, ""
     except Exception as e:
-        return False, f"OpenAI key invalid: {type(e).__name__}"
+        # Log full error for operators; return friendly message for users
+        print(f"[VALIDATION] OpenAI key validation failed: {type(e).__name__}: {e}", flush=True)
+        return False, "Your OpenAI API key is invalid or expired. Please check your key and try again."
 
 ROOT = Path(__file__).resolve().parent.parent
 SRC = ROOT / "src"
