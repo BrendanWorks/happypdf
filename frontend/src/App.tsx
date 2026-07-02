@@ -62,6 +62,7 @@ type Job = {
   has_html: boolean;
   source: string | null;
   stopped_reason?: string;
+  reviewer_health?: { [key: string]: { status: string; round?: number; rounds_ran?: number } };
   error: string | null;
 };
 type Snapshot = {
@@ -493,6 +494,37 @@ function DemoPanel() {
 
             {job?.status === 'error' && (
               <div className="text-xs text-rose-300 bg-rose-500/10 border border-rose-500/30 rounded-lg px-3 py-2 font-mono">{job.error}</div>
+            )}
+
+            {done && job?.reviewer_health && Object.keys(job.reviewer_health).length > 0 && (
+              <div className="border border-slate-700/60 rounded-xl p-4 space-y-2">
+                <p className="text-xs text-slate-500 font-medium uppercase tracking-wider">Peer reviewers</p>
+                <div className="space-y-1.5">
+                  {Object.entries(job.reviewer_health).map(([model, health]) => (
+                    <div key={model} className="flex items-center gap-2 text-xs">
+                      {health.status === 'success' ? (
+                        <>
+                          <CheckCircle size={12} className="text-emerald-400 shrink-0" />
+                          <span className="text-slate-300 capitalize font-medium">{model}</span>
+                          {health.rounds_ran && <span className="text-slate-500 ml-auto">ran {health.rounds_ran} round{health.rounds_ran > 1 ? 's' : ''}</span>}
+                        </>
+                      ) : health.status === 'failed' ? (
+                        <>
+                          <div className="w-3 h-3 rounded-full bg-rose-500/60 shrink-0" />
+                          <span className="text-slate-400 capitalize font-medium">{model}</span>
+                          {health.round && <span className="text-slate-600 ml-auto">failed in round {health.round}</span>}
+                        </>
+                      ) : (
+                        <>
+                          <div className="w-3 h-3 rounded-full bg-slate-600 shrink-0" />
+                          <span className="text-slate-500 capitalize">{model}</span>
+                          <span className="text-slate-600 ml-auto">skipped</span>
+                        </>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
             )}
 
             {hasResults && job && (
