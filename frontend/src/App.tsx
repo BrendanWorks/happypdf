@@ -273,6 +273,7 @@ function DemoPanel() {
       id, kind: 'replay', name: snap.label, status: 'running', stage: 'uploading',
       stage_index: 0, stages: STAGES, baseline: null, rounds: [], final: null,
       enhancements: [], has_html: false, source: snap.source, error: null,
+      reviewer_health: snap.reviewer_health,
     };
     const steps: { stage: string; delay: number; apply?: () => void }[] = [
       { stage: 'uploading', delay: 350 },
