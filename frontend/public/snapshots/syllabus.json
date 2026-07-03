@@ -34,6 +34,20 @@
     "critical_serious": 0
   },
   "stopped_reason": "converged",
+  "reviewer_health": {
+    "olmo": {
+      "status": "success",
+      "rounds_ran": 2
+    },
+    "gpt": {
+      "status": "success",
+      "rounds_ran": 2
+    },
+    "claude": {
+      "status": "success",
+      "rounds_ran": 1
+    }
+  },
   "enhancements": [
     {
       "element_id": "block-1-bf39d72d",
