@@ -82,21 +82,34 @@ class OLMoWCAGReviewer:
             Raw model output (should be JSON)
         """
         import torch
+        import re
 
-        # Build conversation using OLMo chat template
+        # Build conversation with system role if OLMo supports it, else prepend
         messages = [
             {
+                "role": "system",
+                "content": system_prompt
+            },
+            {
                 "role": "user",
-                "content": f"{system_prompt}\n\nHTML to review:\n{html_chunk}"
+                "content": f"HTML to review:\n{html_chunk}"
             }
         ]
 
         # Apply chat template
-        formatted_prompt = self.tokenizer.apply_chat_template(
-            messages,
-            tokenize=False,
-            add_generation_prompt=True
-        )
+        try:
+            formatted_prompt = self.tokenizer.apply_chat_template(
+                messages,
+                tokenize=False,
+                add_generation_prompt=True
+            )
+        except Exception:
+            # Fallback: if system role fails, use original approach
+            formatted_prompt = self.tokenizer.apply_chat_template(
+                [{"role": "user", "content": f"{system_prompt}\n\nHTML to review:\n{html_chunk}"}],
+                tokenize=False,
+                add_generation_prompt=True
+            )
 
         print(f"[OLMoReviewer] Generating review (max_tokens={max_tokens})...")
         print(f"[OLMoReviewer] Prompt length: {len(formatted_prompt)} chars")
@@ -123,6 +136,15 @@ class OLMoWCAGReviewer:
         generated_text = self.tokenizer.decode(generated_ids, skip_special_tokens=True)
 
         print(f"[OLMoReviewer] Generated {len(generated_text)} chars")
+
+        # Post-process: if output doesn't start with JSON, try to extract it
+        generated_text = generated_text.strip()
+        if generated_text and not generated_text.startswith(("{", "[")):
+            # Try to extract JSON from the text
+            json_match = re.search(r'\{.*\}|\[.*\]', generated_text, re.DOTALL)
+            if json_match:
+                generated_text = json_match.group(0)
+                print(f"[OLMoReviewer] Extracted JSON from output")
 
         return generated_text
 
