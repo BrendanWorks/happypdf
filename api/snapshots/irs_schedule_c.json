@@ -132,6 +132,16 @@
   },
   "stopped_reason": "converged",
   "total_seconds": 145.04,
+  "reviewer_health": {
+    "olmo": {
+      "status": "success",
+      "rounds_ran": 1
+    },
+    "gpt": {
+      "status": "success",
+      "rounds_ran": 1
+    }
+  },
   "enhancements": [
     {
       "element_id": "block-1-86be9228",
