@@ -497,30 +497,19 @@ function DemoPanel() {
             )}
 
             {done && job?.reviewer_health && Object.keys(job.reviewer_health).length > 0 && (
-              <div className="border border-slate-700/60 rounded-xl p-4 space-y-2">
-                <p className="text-xs text-slate-500 font-medium uppercase tracking-wider">Peer reviewers</p>
-                <div className="space-y-1.5">
+              <div className="border border-slate-700/60 rounded-xl p-4">
+                <p className="text-xs text-slate-500 font-medium uppercase tracking-wider mb-3">Peer reviewers</p>
+                <div className="space-y-2">
                   {Object.entries(job.reviewer_health).map(([model, health]) => (
-                    <div key={model} className="flex items-center gap-2 text-xs">
-                      {health.status === 'success' ? (
-                        <>
-                          <CheckCircle size={12} className="text-emerald-400 shrink-0" />
-                          <span className="text-slate-300 capitalize font-medium">{model}</span>
-                          {health.rounds_ran && <span className="text-slate-500 ml-auto">ran {health.rounds_ran} round{health.rounds_ran > 1 ? 's' : ''}</span>}
-                        </>
-                      ) : health.status === 'failed' ? (
-                        <>
-                          <div className="w-3 h-3 rounded-full bg-rose-500/60 shrink-0" />
-                          <span className="text-slate-400 capitalize font-medium">{model}</span>
-                          {health.round && <span className="text-slate-600 ml-auto">failed in round {health.round}</span>}
-                        </>
-                      ) : (
-                        <>
-                          <div className="w-3 h-3 rounded-full bg-slate-600 shrink-0" />
-                          <span className="text-slate-500 capitalize">{model}</span>
-                          <span className="text-slate-600 ml-auto">skipped</span>
-                        </>
-                      )}
+                    <div key={model} className="flex items-center justify-between text-sm">
+                      <span className="text-slate-300 capitalize">{model === 'gpt' ? 'ChatGPT' : model === 'olmo' ? 'OLMo' : 'Claude'}</span>
+                      <span className={`font-medium ${
+                        health.status === 'success' ? 'text-emerald-400' :
+                        health.status === 'failed' ? 'text-rose-400' :
+                        'text-slate-500'
+                      }`}>
+                        {health.status === 'success' ? 'OK' : health.status === 'failed' ? 'Failed' : 'Skipped'}
+                      </span>
                     </div>
                   ))}
                 </div>
