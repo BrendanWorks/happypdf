@@ -195,7 +195,12 @@ async def _call_olmo(html: str) -> str:
             data = r.json()
             if not data.get("success"):
                 raise RuntimeError(data.get("error", "OLMo review failed"))
-            return data["raw_output"]
+            raw_output = data.get("raw_output", "")
+            # Verify it looks like JSON, not plain text prose
+            if raw_output and not raw_output.strip().startswith(("{", "[")):
+                # OLMo is returning plain text instead of JSON - likely not following the instruction
+                raise RuntimeError(f"OLMo returned non-JSON text: {raw_output[:100]}")
+            return raw_output
 
     return await asyncio.to_thread(_sync)
 
