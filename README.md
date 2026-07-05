@@ -44,11 +44,10 @@ axe-core baseline WCAG scoring
 WCAG-validated HTML + review manifest
 ```
 
-The vertical slice (steps 1-5) is complete and working. The multi-round remediation loop (rounds 1-3) is implemented and validated across three document types — see below.
 
 ## What the Loop Actually Does
 
-The vertical slice produces semantically valid HTML from any PDF — our generator builds proper landmarks, heading hierarchy, and alt text from olmOCR's markdown, so the baseline already scores **0 WCAG violations** on axe-core.
+The application produces semantically valid HTML from any PDF — our generator builds proper landmarks, heading hierarchy, and alt text from olmOCR's markdown, so the baseline already scores **0 WCAG violations** on axe-core.
 
 The multi-round loop doesn't *fix* violations. It *enhances* accessible structure by adding ARIA attributes (labels, roles, descriptions) where reviewers identify opportunities. Here's what happens:
 
