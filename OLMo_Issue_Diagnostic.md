@@ -1,11 +1,88 @@
 # OLMo Reviewer JSON Output Issue - Technical Diagnostic
 
-## Overview
-The OLMo-2-1124-7B-Instruct peer reviewer is failing to produce usable output in the HappyPDF v1.1 live pipeline, even after fixes to improve JSON formatting. While Gemini and GPT reviewers work correctly, OLMo fails with RuntimeError on both initial attempt and retry.
+## Project Context: HappyPDF v1.1
+
+### What is HappyPDF?
+HappyPDF is a **WCAG 2.2 accessibility auditor** that converts inaccessible PDFs into accessible semantic HTML. It's a portfolio project demonstrating multi-model AI orchestration, running on **Modal A100-40GB GPU infrastructure**.
+
+**Goal:** Take a PDF document and automatically:
+1. Extract text and images using OCR
+2. Generate alt text for images
+3. Create semantic HTML structure
+4. Identify accessibility violations
+5. Synthesize multi-model AI reviews into actionable patches
+6. Output a fully accessible HTML document
+
+**Live Demo:** https://pointcheck.org
+
+---
+
+### The Pipeline: How It Works
+
+The HappyPDF pipeline is a **multi-round, multi-model orchestration** system:
+
+```
+User uploads PDF
+    ↓
+[Stage 1] olmOCR extraction (Qwen2-VL on A10G)
+    → Extracts text, detects images, OCR
+    ↓
+[Stage 2] Alt text generation (Qwen2-VL on A10G)
+    → Generates alt text for images
+    ↓
+[Stage 3] Semantic HTML generation (Claude)
+    → Creates well-formed HTML structure
+    ↓
+[Stage 4] axe-core baseline scan
+    → Measures baseline accessibility violations
+    ↓
+[Rounds 1-3] Peer Review Loop
+    → THREE PARALLEL PEER REVIEWERS (each round):
+        • OLMo-2-1124-7B-Instruct (Allen AI, Modal A10G)
+        • Gemini-2.5-Flash (Google)
+        • GPT-4o-mini (OpenAI)
+    → Each reviewer analyzes HTML for WCAG issues
+    → Each returns structured JSON: {"violations": [{"issue_id", "element_id", "suggested_fix", ...}]}
+    → Claude Judge synthesizes reviews into patches
+    → Patches applied if they pass quality gates
+    ↓
+[Final] Output accessibility report + fixed HTML
+```
+
+### Why Multi-Model Peer Review?
+- **Diversity:** Different models catch different issues (OLMo excels at reasoning, GPT at practical fixes, Gemini at compliance rules)
+- **Resilience:** If one reviewer fails, others continue (redundancy)
+- **Credibility:** Demonstrates working AI orchestration for portfolio
+- **Convergence:** System stops when reviews converge (3 rounds max)
+
+---
+
+### The Role of OLMo
+OLMo is the **open-source peer reviewer** in this system:
+
+| Reviewer | Model | Provider | Cost | Speed | Specialty |
+|----------|-------|----------|------|-------|-----------|
+| **OLMo** | OLMo-2-1124-7B-Instruct | Allen AI / Modal | $0.10/hour (A10G) | ~90s per review | Reasoning, explanations |
+| Gemini | Gemini-2.5-Flash | Google | $0.075/M input tokens | ~5s per review | Rule-based compliance |
+| GPT | GPT-4o-mini | OpenAI | $0.15/M input tokens | ~10s per review | Practical fixes |
+
+**Why OLMo matters:**
+1. **Cost-effective:** Runs on Modal, scales automatically
+2. **Open-source:** Can be self-hosted or optimized
+3. **Portfolio value:** Shows multi-cloud, multi-model orchestration
+4. **Demonstrates reasoning:** 7B parameters can explain accessibility fixes
+
+---
+
+## Current Status: The Issue
+
+### Overview
+The OLMo-2-1124-7B-Instruct peer reviewer is **failing to produce usable output** in the HappyPDF v1.1 live pipeline, even after fixes to improve JSON formatting. While Gemini and GPT reviewers work correctly, OLMo fails with RuntimeError on both initial attempt and retry.
 
 **Project:** HappyPDF v1.1 (WCAG 2.2 accessibility auditor)  
 **Date:** July 3-4, 2026  
-**Status:** Blocking OLMo peer reviewer integration; system remains functional via Gemini/GPT fallback
+**Status:** OLMo peer reviewer failing; system remains functional via Gemini/GPT fallback (converges in 1 round instead of 3)  
+**Impact:** Reduces model diversity and portfolio value; limits cost-effectiveness demonstration
 
 ---
 
