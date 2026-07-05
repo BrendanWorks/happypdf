@@ -83,6 +83,11 @@ class OLMoWCAGReviewer:
         """
         import torch
         import re
+        import traceback
+
+        print(f"[OLMoReviewer] === REVIEW START ===")
+        print(f"[OLMoReviewer] HTML chunk length: {len(html_chunk)} chars")
+        print(f"[OLMoReviewer] System prompt length: {len(system_prompt)} chars")
 
         # Build conversation with system role if OLMo supports it, else prepend
         messages = [
@@ -103,49 +108,70 @@ class OLMoWCAGReviewer:
                 tokenize=False,
                 add_generation_prompt=True
             )
-        except Exception:
+            print(f"[OLMoReviewer] Used system role path")
+        except Exception as e:
             # Fallback: if system role fails, use original approach
+            print(f"[OLMoReviewer] System role failed ({type(e).__name__}), using fallback")
             formatted_prompt = self.tokenizer.apply_chat_template(
                 [{"role": "user", "content": f"{system_prompt}\n\nHTML to review:\n{html_chunk}"}],
                 tokenize=False,
                 add_generation_prompt=True
             )
 
-        print(f"[OLMoReviewer] Generating review (max_tokens={max_tokens})...")
-        print(f"[OLMoReviewer] Prompt length: {len(formatted_prompt)} chars")
+        print(f"[OLMoReviewer] Formatted prompt length: {len(formatted_prompt)} chars (~{len(formatted_prompt)//4} tokens)")
 
-        # Tokenize
-        inputs = self.tokenizer(formatted_prompt, return_tensors="pt")
-        inputs = {k: v.to(self.device) for k, v in inputs.items()}
+        # Tokenize - explicitly handle device mapping
+        try:
+            inputs = self.tokenizer(formatted_prompt, return_tensors="pt")
+            inputs = {k: v.to(self.device) for k, v in inputs.items()}
+            input_length = inputs["input_ids"].shape[1]
+            print(f"[OLMoReviewer] Tokenized to {input_length} tokens")
+        except Exception as e:
+            print(f"[OLMoReviewer] TOKENIZATION ERROR: {type(e).__name__}: {str(e)}")
+            print(traceback.format_exc())
+            raise
 
-        input_length = inputs["input_ids"].shape[1]
-
-        # Generate
-        with torch.no_grad():
-            output_ids = self.model.generate(
-                **inputs,
-                max_new_tokens=max_tokens,
-                temperature=0.3,
-                top_p=0.95,
-                do_sample=False,
-                pad_token_id=self.tokenizer.eos_token_id,
-            )
+        # Generate - use cleaner parameters (greedy decoding ignores temperature)
+        print(f"[OLMoReviewer] Starting generation (max_new_tokens={max_tokens})...")
+        try:
+            with torch.no_grad():
+                output_ids = self.model.generate(
+                    input_ids=inputs["input_ids"],
+                    attention_mask=inputs.get("attention_mask"),
+                    max_new_tokens=max_tokens,
+                    do_sample=False,  # Greedy decoding
+                    temperature=0.0,  # Explicit deterministic
+                    pad_token_id=self.tokenizer.eos_token_id if self.tokenizer.eos_token_id is not None else 1,
+                )
+            print(f"[OLMoReviewer] Generation complete, output shape: {output_ids.shape}")
+        except Exception as e:
+            print(f"[OLMoReviewer] GENERATION ERROR: {type(e).__name__}: {str(e)}")
+            print(f"[OLMoReviewer] Full traceback:")
+            print(traceback.format_exc())
+            raise
 
         # Extract generated text only (not prompt)
-        generated_ids = output_ids[0, input_length:]
-        generated_text = self.tokenizer.decode(generated_ids, skip_special_tokens=True)
-
-        print(f"[OLMoReviewer] Generated {len(generated_text)} chars")
+        try:
+            generated_ids = output_ids[0, input_length:]
+            generated_text = self.tokenizer.decode(generated_ids, skip_special_tokens=True).strip()
+            print(f"[OLMoReviewer] Decoded {len(generated_text)} chars")
+        except Exception as e:
+            print(f"[OLMoReviewer] DECODE ERROR: {type(e).__name__}: {str(e)}")
+            print(traceback.format_exc())
+            raise
 
         # Post-process: if output doesn't start with JSON, try to extract it
-        generated_text = generated_text.strip()
         if generated_text and not generated_text.startswith(("{", "[")):
-            # Try to extract JSON from the text
+            print(f"[OLMoReviewer] Output doesn't start with JSON, attempting extraction...")
+            print(f"[OLMoReviewer] First 100 chars: {generated_text[:100]}")
             json_match = re.search(r'\{.*\}|\[.*\]', generated_text, re.DOTALL)
             if json_match:
                 generated_text = json_match.group(0)
-                print(f"[OLMoReviewer] Extracted JSON from output")
+                print(f"[OLMoReviewer] Extracted JSON ({len(generated_text)} chars)")
+            else:
+                print(f"[OLMoReviewer] No JSON found in output")
 
+        print(f"[OLMoReviewer] === REVIEW COMPLETE ===")
         return generated_text
 
 
@@ -195,10 +221,17 @@ def api():
             )
             return ReviewResponse(raw_output=output, success=True)
         except Exception as e:
+            import traceback
+            error_msg = str(e)
+            tb = traceback.format_exc()
+            print(f"\n[OLMo Endpoint] EXCEPTION CAUGHT")
+            print(f"[OLMo Endpoint] Type: {type(e).__name__}")
+            print(f"[OLMo Endpoint] Message: {error_msg}")
+            print(f"[OLMo Endpoint] Traceback:\n{tb}\n")
             return ReviewResponse(
                 raw_output="",
                 success=False,
-                error=str(e)
+                error=f"{type(e).__name__}: {error_msg[:200]}"
             )
 
     @app.get("/health")

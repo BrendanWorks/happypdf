@@ -40,7 +40,7 @@ OLMO_URL = os.environ.get(
     "https://brendanworks--olmo-wcag-reviewer-api.modal.run",
 )
 
-MAX_HTML_CHARS = 20000  # cap prompt size / cost on large documents
+MAX_HTML_CHARS = 8000  # OLMo has 4k token context; 8k chars ≈ 2k tokens leaves room for prompt
 RETRIES = 1             # one retry after the first failure
 BACKOFF_BASE = 2.0      # seconds: 2, 4, ...
 
@@ -229,8 +229,15 @@ async def _run_one(name: str, fn, html: str, valid_ids: set[str]) -> tuple[str, 
             dt = time.time() - t0
             # Log exception type but truncate message to avoid leaking credentials
             error_summary = f"{type(e).__name__}"
-            if str(e) and len(str(e)) < 100:
-                error_summary += f": {str(e)[:80]}"
+            if str(e) and len(str(e)) < 200:
+                error_summary += f": {str(e)[:150]}"
+
+            # Always log full exception for diagnostic purposes (OLMo debugging)
+            if name == "olmo":
+                import traceback
+                log(f"{name}: FAILED in {dt:.1f}s ({error_summary})")
+                log(f"{name}: Full traceback: {traceback.format_exc()[:500]}")
+
             if attempt < RETRIES:
                 wait = BACKOFF_BASE ** (attempt + 1)
                 log(f"{name}: FAILED in {dt:.1f}s ({error_summary}); retrying in {wait:.0f}s")
