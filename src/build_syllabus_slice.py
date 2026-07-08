@@ -163,6 +163,39 @@ class HtmlBuilder:
         # Attribute-safe: also escape the double-quote that delimits the value.
         return cls._esc(t).replace('"', "&quot;")
 
+    @staticmethod
+    def _convert_markdown_images(text: str) -> str:
+        """Convert markdown image syntax ![alt](src) to HTML <img> tags."""
+        def replace_image(match):
+            alt = match.group(1)
+            src = match.group(2)
+            # Escape alt text for HTML attribute
+            alt_escaped = alt.replace('"', '&quot;').replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
+            return f'<img src="{src}" alt="{alt_escaped}">'
+        # Match markdown image syntax: ![alt text](image.png)
+        return re.sub(r'!\[([^\]]*)\]\(([^\)]+)\)', replace_image, text)
+
+    @staticmethod
+    def _fix_table_html(tbl: str) -> str:
+        """Fix HTML entities in table content that should be actual HTML tags.
+
+        Handles cases where table cells are escaped as HTML entities:
+        - &lt;td&gt; becomes <td>
+        - &lt;th&gt; becomes <th>
+        - &lt;/td&gt; becomes </td>
+        - &lt;/th&gt; becomes </th>
+        """
+        # Unescape HTML entities that represent table tags
+        tbl = tbl.replace('&lt;th ', '<th ')
+        tbl = tbl.replace('&lt;/th&gt;', '</th>')
+        tbl = tbl.replace('&lt;td ', '<td ')
+        tbl = tbl.replace('&lt;/td&gt;', '</td>')
+        tbl = tbl.replace('&lt;/tr&gt;', '</tr>')
+        tbl = tbl.replace('&lt;tr&gt;', '<tr>')
+        tbl = tbl.replace('&gt;', '>')
+        tbl = tbl.replace('&lt;', '<')
+        return tbl
+
     def _heading(self, line: str):
         m = re.match(r"^(#+)\s+(.+)$", line)
         return (len(m.group(1)), m.group(2)) if m else (0, line)
@@ -211,6 +244,10 @@ class HtmlBuilder:
                     i += 1
                 i = i + 1 if i < len(self.lines) else i
                 tbl = "\n".join(self.lines[start:i])
+
+                # Parse and reconstruct table to fix HTML entities and empty cells
+                tbl = self._fix_table_html(tbl)
+
                 tbl = re.sub(r"<table", f'<table data-ir-id="{self._id("table:" + tbl[:60])}"', tbl, count=1)
                 body.append("    " + tbl.replace("\n", "\n    "))
                 continue
@@ -222,7 +259,21 @@ class HtmlBuilder:
                 continue
 
             flush_list()
-            body.append(f'    <p data-ir-id="{self._id(raw)}">{self._esc(raw)}</p>')
+            # Convert markdown images to HTML img tags
+            content = self._convert_markdown_images(raw)
+
+            # If markdown images were converted, keep the HTML; otherwise escape
+            if '!['  in raw and '<img' in content:
+                # Images converted successfully, keep the generated HTML
+                pass
+            elif '&lt;' in raw and ('&lt;th' in raw or '&lt;td' in raw or '&lt;tr' in raw):
+                # OLMo output HTML entities for table tags; unescape them
+                content = raw.replace('&lt;', '<').replace('&gt;', '>').replace('&amp;', '&')
+            else:
+                # Regular text - escape special characters for HTML
+                content = self._esc(raw)
+
+            body.append(f'    <p data-ir-id="{self._id(raw)}">{content}</p>')
             i += 1
         flush_list()
 
