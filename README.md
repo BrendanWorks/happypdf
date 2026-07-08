@@ -1,123 +1,141 @@
 # happypdf
 
-**Convert any PDF to WCAG 2.2 validated HTML in 3–6 minutes.** Multi-model peer review + iterative remediation with zero violations.
+Convert PDFs into WCAG 2.2 validated HTML with multi-model review, iterative accessibility enhancement, and auditable patch manifests.
 
-## The Problem
+**Live demo:** https://happypdf.org
 
-PDFs are everywhere in government, education, and enterprise — and most of them are inaccessible. Screen readers fail on untagged content, images carry no alt text, and tables have no structural markup, so the data inside them is invisible to assistive technology. Manual remediation is slow, expensive, and does not scale.
+happypdf turns inaccessible PDFs into semantic HTML5. It extracts content with vision-based OCR, generates alt text, builds accessible structure, scores the result with axe-core in Chromium, then runs a multi-round review loop that safely adds accessibility enhancements without losing document content.
 
-## The Solution
+## Why this exists
 
-happypdf automates remediation end-to-end using open models and multi-agent peer review:
+PDFs are still everywhere in government, education, healthcare, and enterprise workflows. Many are difficult or impossible to use with assistive technology because they lack tags, alt text, headings, landmarks, or table structure.
 
-1. **Extract:** olmOCR (Ai2's vision-based system) recovers markdown + images from any PDF
-2. **Generate alt text:** Qwen2-VL creates descriptions for every image (1-2 sec each)
-3. **Build HTML:** MarkdownHTMLConverter produces semantic HTML5 with proper landmarks, heading hierarchy, and table structure
-4. **Score baseline:** axe-core WCAG audit (real headless Chromium)
-5. **Enhance:** 3 rounds of peer review (OLMo, Gemini, GPT) + Claude judge synthesizes patches + applicator applies ARIA attributes
-6. **Validate:** Preservation gate ensures no content is lost; loop stops when converged
+Manual remediation works, but it is slow, expensive, and hard to scale. happypdf automates the parts that can be automated, keeps every change auditable, and uses preservation checks so remediation is additive rather than destructive.
 
-**Result:** 0 WCAG violations, 95%+ axe-core passes, deterministic remediation that's auditable and reproducible.
+## What happypdf does
 
-## Three Deployment Modes
+happypdf processes a PDF through a reproducible pipeline:
 
-The orchestration is identical across all three modes — only the model backends are swapped. That pluggability is the whole point.
+1. **Extract content** using olmOCR, Ai2's vision-based PDF extraction system.
+2. **Generate image descriptions** with Qwen2-VL.
+3. **Build semantic HTML5** with landmarks, headings, tables, images, and stable element IDs.
+4. **Score accessibility** with axe-core in a real headless Chromium browser.
+5. **Review and enhance** the HTML using peer reviewers and a judge model.
+6. **Apply safe patches** such as ARIA labels, roles, and descriptions.
+7. **Validate preservation** so text, images, headings, and tables are not lost.
+8. **Export results** as remediated HTML plus a JSON manifest of all changes.
 
-| Mode | Models | Cost | When to use |
-|------|--------|------|-------------|
-| **Self-hosted / Open-weight** | OLMo peer review + local inference on your own hardware or Modal account | Zero marginal cost, lower quality | Cost-sensitive, offline, or air-gapped environments |
-| **Demo / Hosted** | happypdf provisions Claude as judge/fixer with OLMo as peer reviewer | Per-conversion (scales with document size and review rounds) | Try it Now! |
-| **BYOK / Enterprise** | User brings their own Claude / ChatGPT enterprise credentials; same code as demo mode | Zero incremental cost to happypdf | Enterprises that already hold model contracts |
+The result is WCAG-scored HTML with a clear record of what changed and why.
 
-**BYOK is the differentiator.** No competitor has built it. The barrier to enterprise accessibility tooling is procurement friction, not technical capability — organizations already have model contracts but cannot easily route a third-party SaaS tool through them. BYOK sidesteps that entirely: the customer points happypdf at credentials they already own and pay for.
+## Demo
 
-## Try It Now
+Try it at **https://happypdf.org**.
 
-**Live at https://happypdf.org** — upload any PDF and watch the full pipeline in real-time:
+The web app includes:
 
-- Drag-and-drop interface
-- Real-time progress tracking (extraction → alt text → HTML → peer review rounds)
-- Live HTML preview with WCAG scoring and enhancement details
-- Download remediated HTML + JSON manifest with all patches applied
+- Drag-and-drop PDF upload
+- Real-time pipeline progress
+- Live HTML preview
+- WCAG scoring and enhancement details
+- Downloadable HTML output
+- Downloadable JSON patch manifest
 
-The backend runs on Modal A100 GPUs. Try with complex documents: forms, tables, images, OCR'd scans, dense government PDFs.
+The hosted demo runs on Modal GPUs and is designed for testing complex PDFs such as forms, tables, scanned documents, image-heavy reports, and government publications.
 
-## How It Works
+## Deployment modes
 
+The same orchestration layer works across three deployment modes. Only the model backends change.
+
+| Mode | Models | Cost model | Best for |
+|---|---|---|---|
+| **Self-hosted / open-weight** | OLMo peer review plus local or Modal-hosted inference | Compute only | Offline, air-gapped, or cost-sensitive environments |
+| **Hosted demo** | happypdf-provisioned models, including Claude as judge and OLMo as reviewer | Per conversion | Trying the product quickly |
+| **BYOK / enterprise** | Customer-provided Claude, ChatGPT, or Gemini credentials | Paid through the customer's existing model contracts | Enterprises with existing AI procurement |
+
+BYOK is a core design goal. Many organizations already have approved model contracts, but cannot easily route a third-party accessibility tool through those credentials. happypdf lets teams use credentials they already own while keeping the remediation pipeline consistent.
+
+## How the pipeline works
+
+```text
+PDF input
+  |
+  v
+olmOCR extraction
+Markdown + images
+  |
+  v
+Qwen2-VL alt text generation
+  |
+  v
+Semantic HTML5
+Landmarks, heading hierarchy, tables, images, data-ir-id attributes
+  |
+  v
+axe-core baseline scoring
+Headless Chromium
+  |
+  v
+Review rounds 1-3
+Peer review -> judge -> patch manifest -> applicator -> preservation gate -> rescore
+  |
+  v
+Convergence check
+0 violations, target score reached, no unsafe changes
+  |
+  v
+WCAG-scored HTML + JSON manifest
 ```
-PDF Input
-  |
-  v
-olmOCR (vision-based extraction, Ai2) -> Markdown + images
-  |
-  v
-Qwen2-VL alt text generation (per image, ~1-2s)
-  |
-  v
-Semantic HTML5 (landmarks, heading hierarchy, proper tables, data-ir-id attributes)
-  |
-  v
-axe-core baseline WCAG scoring (real headless Chromium)
-  |
-  v
-Rounds 1-3: [Peer review (OLMo, Gemini, GPT in parallel)
-            + Claude judge (deduplicate, validate, classify patches)
-            + Applicator (apply ARIA/alt-text fixes by element ID)
-            + Preservation gate (text coverage ≥ 95%, image count, heading order, tables)
-            + Rescore (axe-core)]
-  |
-  v
-[Converged when: 0 violations + score ≥ 95% + no new patches]
-  |
-  v
-WCAG-validated HTML + JSON manifest (patches, enhancement summary)
-```
 
+## What the review loop does
 
-## What the Loop Actually Does
+The initial HTML generator is designed to produce valid semantic structure, so the baseline can already score **0 axe-core violations** for many documents. The review loop is not only a violation fixer. It is an accessibility enhancement loop.
 
-The application produces semantically valid HTML from any PDF — our generator builds proper landmarks, heading hierarchy, and alt text from olmOCR's markdown, so the baseline already scores **0 WCAG violations** on axe-core.
+Each round follows the same pattern:
 
-The multi-round loop doesn't *fix* violations. It *enhances* accessible structure by adding ARIA attributes (labels, roles, descriptions) where reviewers identify opportunities. Here's what happens:
+1. Peer reviewers scan the current HTML and suggest improvements.
+2. The judge model deduplicates suggestions, rejects unsafe changes, and classifies patches.
+3. The applicator applies deterministic patches by stable element ID.
+4. The preservation gate verifies that content was not lost or reordered.
+5. axe-core rescans the updated HTML.
+6. The loop stops when the output has converged.
 
-**Round 1:** Peer reviewers (OLMo, Gemini, GPT) scan the HTML and suggest enhancements (e.g., "add aria-label to table," "add role to navigation"). Claude judges which are safe and deterministic. The applicator adds them. axe-core rescores — passes typically increase (26 → 31), violations stay at 0.
+Typical enhancements include ARIA labels for tables, roles for navigational regions, clearer image descriptions, and safer relationships between document sections.
 
-**Round 2:** Reviewers scan the patched HTML and suggest remaining enhancements. Fewer suggestions than round 1. Loop continues if new patches apply; otherwise converges.
+## Benchmark results
 
-**Round 3:** By round 3, most structural enhancement is complete. If no new patches are actionable, the loop stops.
+The benchmark suite includes clean digital PDFs, dense forms, and OCR-heavy prose.
 
-**Convergence:** The loop stops when:
-- Score ≥ 95% AND
-- Content preservation gate passes (text coverage, image count, heading order, tables) AND
-- Zero new patches suggested
-
-This ensures remediation is additive, never destructive.
-
-### Real Results: Benchmark Suite
-
-Three documents, three document types:
-
-| Document | Type | Baseline | R1 | R2 | R3 | Final | Stop Reason |
-|---|---|---|---|---|---|---|---|
+| Document | Type | Baseline | Round 1 | Round 2 | Round 3 | Final | Stop reason |
+|---|---|---:|---:|---:|---:|---:|---|
 | AccessComputing Syllabus | Clean digital | 0 viol / 23 pass | +5 pass | +4 pass | 0 new | 0 viol / 32 pass | Converged |
-| IRS Schedule C | Dense form | 0 viol / 23 pass | +5 pass | 0 new | — | 0 viol / 28 pass | Converged |
-| Navy Bulletin 1943 | OCR'd prose | 0 viol / 17 pass | 0 new | — | — | 0 viol / 17 pass | Converged |
+| IRS Schedule C | Dense form | 0 viol / 23 pass | +5 pass | 0 new | - | 0 viol / 28 pass | Converged |
+| Navy Bulletin 1943 | OCR'd prose | 0 viol / 17 pass | 0 new | - | - | 0 viol / 17 pass | Converged |
 
-**Key finding:** All three converge within 2 rounds. Structure-driven enhancement scales with how much structure olmOCR recovers (syllabus tables → more patches; Navy prose-only → no patches). The preservation gate passes every round, confirming content is never lost.
+Key observations:
 
-**Remediation effect:** The loop's work is *visible in the passes count climbing and ARIA attributes added*, not in violation reduction (there are none to reduce). This is enhancement, not fixing.
+- All benchmark documents converge within two rounds.
+- The preservation gate passes every round.
+- Documents with more recoverable structure tend to receive more useful enhancements.
+- The main effect is visible in additional axe-core passes and applied ARIA attributes, not only in violation reduction.
 
-Reproduce: `python src/benchmark.py` (see [benchmark/BENCHMARK.md](benchmark/BENCHMARK.md)).
+Run the benchmark suite with:
 
-## Quick Start
+```bash
+python src/benchmark.py
+```
+
+See [`benchmark/BENCHMARK.md`](benchmark/BENCHMARK.md) for detailed logs and outputs.
+
+## Quick start
 
 ### Prerequisites
 
 - Python 3.10+
 - Node.js 18+
-- Modal account (for extraction and remediation)
+- Modal account
+- Playwright Chromium
 
-### Setup
+### Install
 
 ```bash
 git clone https://github.com/BrendanWorks/happypdf.git
@@ -126,198 +144,175 @@ cd happypdf
 # Python dependencies
 pip install -r requirements.txt
 
-# Node dependencies (axe-core for WCAG scoring)
+# Node dependencies for axe-core scoring
 npm install
 
-# Chromium for headless browser (required by Playwright)
+# Chromium for Playwright
 playwright install chromium
 
-# Set Modal credentials
+# Modal credentials
 export MODAL_TOKEN_ID=your_token_id
 export MODAL_TOKEN_SECRET=your_token_secret
 ```
 
-### Use the Deployed Web UI
-
-happypdf runs live at **https://happypdf.org** with:
-
-- Drag-and-drop PDF upload
-- Real-time pipeline progress (extraction → alt text → HTML → WCAG baseline → peer review rounds)
-- Live HTML preview with WCAG violations and enhancements
-- Download remediated HTML + JSON manifest
-
-No local setup needed for testing. The backend runs on Modal A100 GPUs.
-
-### Run Locally (Development)
-
-For development or self-hosting:
+### Run the web app locally
 
 ```bash
-# Start the backend (Modal-deployed)
+# Deploy the backend
 modal deploy src/modal_api.py
 
-# Start the frontend (Next.js)
+# Start the frontend
 cd frontend
 npm install
 npm run dev
 ```
 
-Or run the benchmark suite locally:
+### Run benchmarks
 
 ```bash
 python src/benchmark.py
 ```
 
-Outputs:
+Benchmark outputs are written to `output/` and include:
 
-- `output/` directory with `{doc}_scored.html` and `{doc}_manifest.json` per benchmark document
-- WCAG baseline scores and multi-round enhancement history
-- Gate pass/fail logs and convergence details
+- `{doc}_scored.html`
+- `{doc}_manifest.json`
+- WCAG baseline and final scores
+- Enhancement history by round
+- Preservation gate logs
+- Convergence details
 
 ## Architecture
 
-### Element ID System
+### Stable element IDs
 
-Every block-level element gets a deterministic SHA256-based ID: `block-{page}-{hash}` where `hash = SHA256(normalized_text)[:8]` and `normalized_text` is the element's text with whitespace collapsed and capped at 200 characters. This enables stable cross-run patching: if you regenerate the HTML from the same PDF, the same elements get the same IDs.
+Every block-level element receives a deterministic ID:
 
-### Three Deployment Modes (Technical)
+```text
+block-{page}-{hash}
+```
 
-**Self-hosted:** Open-weight models run on your own Modal account or hardware. You control compute, data stays local, cost is per-GPU-second.
+The hash is generated from normalized element text:
 
-**Demo/Hosted:** happypdf runs the endpoints and brokers API calls to Claude, Gemini, GPT, and OLMo. You pay per-conversion. Data is transient (not stored).
+```text
+SHA256(normalized_text)[:8]
+```
 
-**BYOK/Enterprise:** Same code as demo mode. You pass your own Claude or ChatGPT enterprise API key. happypdf routes the work through your credentials, never touching the API keys directly.
+This lets the remediation loop patch specific elements safely across reruns. If the same PDF produces the same HTML, the same elements receive the same IDs.
 
-### Modal Infrastructure
+### Review loop
 
-- **olmOCR extraction:** H100, ~3–4 min cold start (model download), ~30 sec warm. Returns markdown with YAML front-matter.
-- **Qwen2-VL alt text:** H100, ~1.5 min per image (includes model download on first call).
-- **OLMo peer review:** H100, structured WCAG violations JSON with hallucination detection.
+The loop is review-source agnostic. It consumes structured review output and produces a deterministic patch manifest.
 
-### Scoring
+Per round, `run_loop` does the following:
 
-axe-core runs in a real headless Chromium browser and returns structured JSON. Score = `passes / (passes + violations)` as a percentage. This is automated check coverage, not WCAG conformance. Hard gates (no critical violations, no content loss, no reading order regressions) are the real measure.
+1. **Judge**: synthesizes peer reviews, deduplicates issues, flags hallucinations, and classifies fixes as deterministic, LLM-safe, or requiring human review.
+2. **Applicator**: applies patches by `data-ir-id` with all-or-nothing rollback.
+3. **Preservation gate**: compares pre-patch and post-patch HTML for text coverage, image count, heading order, and table structure.
+4. **axe-core rescore**: reruns accessibility scoring in Chromium.
+5. **Stop condition**: stops when no new patches apply, the score threshold is met, and the preservation gate passes.
+
+Example provider interface:
+
+```python
+def reviews_provider(round_number, current_html):
+    return merge(
+        call_olmo(current_html),
+        call_gemini(current_html),
+        call_gpt(current_html),
+    )
+```
+
+The judge, applicator, gate, and scoring logic stay the same regardless of where the reviews come from.
+
+### Modal infrastructure
+
+- **olmOCR extraction:** H100, approximately 3-4 minutes cold start, approximately 30 seconds warm.
+- **Qwen2-VL alt text:** H100, approximately 1-2 seconds per image after model startup.
+- **OLMo peer review:** H100, structured JSON output with hallucination detection.
+- **Backend:** FastAPI ASGI app deployed through Modal.
+- **Frontend:** Next.js interface with upload, progress tracking, preview, and download.
 
 ## Security
 
-### API Key Handling (BYOK Mode)
+### BYOK API key handling
 
-happypdf uses a **zero-transmission security model** for enterprise API keys:
+happypdf is designed so enterprise API keys do not pass through the browser or get written to application logs.
 
-- **Keys never reach the frontend.** Users bring their Claude or ChatGPT credentials in the BYOK UI, but these are *not sent to happypdf's servers*. Instead, they are stored in Modal's encrypted secret vault (`modal.Secret.from_name("happypdf-secrets")`).
-- **Backend-only access.** API keys are injected into the Modal container as environment variables and used directly by the backend's language model clients. The frontend never sees or transmits them.
-- **No credential logging.** Error messages are sanitized to exclude exception details that could leak API response content. Backend uses in-memory job state only (no persistent logs).
+- Keys are stored in Modal's encrypted secret vault.
+- Keys are injected into backend containers as environment variables.
+- The frontend never receives provider credentials.
+- Error messages are sanitized to avoid leaking API responses or credentials.
+- Job state is stored in memory, not in a database.
 
-### Transport Security
+### Transport security
 
-- **HTTPS enforced.** All endpoints use Modal's default HTTPS with TLS 1.3. CORS middleware explicitly allows only `https://` origins in production (`https://happypdf.org`, `https://happypdf.netlify.app`).
-- **No intermediate proxies.** Direct HTTPS connection from frontend to Modal ASGI app; no API gateway or load balancer that could log credentials.
+- Production endpoints use HTTPS.
+- CORS is restricted to approved `https://` origins.
+- The frontend connects directly to the Modal ASGI app.
 
-### Data Persistence
+### Data persistence
 
-- **Ephemeral job storage.** Job state (PDF content, intermediate HTML, remediation results) lives in in-memory Python dict protected by thread locks. No database, Redis, or persistent storage.
-- **Container lifecycle.** Modal containers scale down after 20 minutes of idle time (`scaledown_window=1200`). When the container terminates, all in-memory job data is cleared.
-- **No file caching.** Temporary files (PDFs, intermediate images) are created with Python's `tempfile` module and deleted after processing completes.
+- PDF content, intermediate HTML, and remediation results live in in-memory job state.
+- No database, Redis, or persistent storage is required for jobs.
+- Temporary files are created with Python's `tempfile` module and deleted after processing.
+- Modal containers scale down after idle periods, clearing in-memory state.
 
-### Audit Results
+### Self-hosting checklist
 
-| Component | Status | Details |
-|---|---|---|
-| **HTTPS** | ✅ Enforced | Modal default + CORS validation for `https://` only |
-| **API Key Transmission** | ✅ None | Keys stored as Modal Secrets, never sent to frontend |
-| **Error Handling** | ✅ Hardened | Exception messages sanitized to exclude API response details |
-| **Data Caching** | ✅ Ephemeral | In-memory only, cleared after 20-min container idle |
-| **Logging** | ✅ Minimal | No structured logging of requests/responses; debug prints excluded from API path |
+For self-hosted deployments:
 
-### Deployment Checklist for Self-Hosting
+1. Store `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, and `GOOGLE_API_KEY` in Modal Secrets or your own secret manager.
+2. Enforce HTTPS at the ingress layer.
+3. Restrict CORS origins to your production frontend domains.
+4. Choose a container scale-down window that matches your security and latency needs.
+5. Avoid persistent job storage unless your organization explicitly requires it.
 
-If you self-host happypdf:
+## Known limitations
 
-1. **Set Modal secrets:** Store `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, and `GOOGLE_API_KEY` in Modal's secret vault, not in `.env` or config files.
-2. **HTTPS only:** Configure TLS termination at your ingress (e.g., Let's Encrypt via nginx).
-3. **CORS origins:** Update `allow_origins` in `api/main.py` to match your frontend domain.
-4. **Container lifecycle:** Set `scaledown_window` to your SLA (default 20 min). Shorter windows = more frequent cold starts; longer = standing cost.
-5. **No persistent storage:** Do not add Redis, databases, or S3 for job state. The ephemeral in-memory model is a security feature.
+- **axe-core is not full WCAG conformance.** Automated tools can only test part of WCAG. happypdf reports axe-core results and routes uncertain cases to human review.
+- **Baseline output is often already valid.** Because the HTML generator creates semantic structure up front, the review loop often improves passes and structure rather than reducing violations.
+- **Heading detection is heuristic.** Some section labels from OCR are promoted to headings, but complex document structures may still need manual review.
+- **Duplicate IDs can occur on repeated visual artifacts.** Repeated separator lines or similar artifacts can produce identical hashes. The applicator fails safe when patches are ambiguous.
+- **OCR quality affects output quality.** Scanned pages, low-resolution images, and complex vector graphics can reduce extraction quality.
+- **Reviewer output can fail.** If a reviewer emits malformed JSON or times out, that reviewer is skipped for the round and the loop continues with available reviews.
 
-### Known Security Limitations
+## Related work
 
-- **Concurrent request logging:** If Modal's system logs capture request/response bodies (outside happypdf's control), they would include PDFs and intermediate HTML. This is a Modal platform limitation, not a code issue. For air-gapped deployments, self-host on private infrastructure.
-- **Browser console leakage:** Frontend dev tools could reveal job IDs and API endpoints. This is standard browser behavior; mitigate by keeping dev tools closed in production.
+- **SciA11y**: Ai2 research on converting scientific paper PDFs to accessible HTML. happypdf extends the idea to broader document types and adds iterative multi-model validation. [Paper](https://doi.org/10.1145/3441852.3471212)
+- **olmOCR**: Ai2's vision-based PDF extraction system built on Qwen2.5-VL. happypdf uses it as the primary extraction engine. [Paper](https://arxiv.org/abs/2502.18443)
 
-## Known Limitations
+## Project status
 
-- **Baseline already accessible:** Our HTML generator produces valid semantic structure from any PDF, so axe-core finds 0 violations at baseline. The loop enhances with ARIA, it doesn't fix broken HTML. This is by design: we extract *correctly*, not remediate broken extraction. Violation reduction via ARIA occurs only if the original HTML was malformed; our baseline is structurally sound.
-- **Duplicate element IDs from visual artifacts:** olmOCR treats PDF visual separator lines (rows of dashes) as content and assigns them IDs. On documents with many visual separators, duplicate hashes can occur. This is documented and doesn't block remediation (applicator uses all-or-nothing per ID, so duplicates fail safe).
-- **Heading hierarchy:** olmOCR returns section labels as paragraphs, not headings. We heuristically promote short standalone lines to `<h2>`. Works well in practice but isn't perfect for complex heading structures. Manual fixes can override via the patch manifest.
-- **axe-core coverage:** axe-core detects ~30–40% of WCAG requirements (AA and AAA). The other 60% require human review or custom logic. happypdf handles the automatable portion via peer review suggestions; hard cases route to `needs_human` for manual triage.
-- **Reviewer consensus:** OLMo (7B), Gemini, and GPT (openai) run in parallel with retry/backoff. If all three fail or skip, the round uses only the previous round's patches. Validated end-to-end: all three benchmark documents converge within 2 rounds, gate passes every round, 0 violations throughout. OLMo (7B) occasionally emits malformed JSON on very large documents (>10k words) and is gracefully skipped for that round; Gemini and GPT continue.
-- **Image extraction:** Images are extracted as separate files and linked via `<img>` tags with alt text. If the original PDF has raster images (e.g., screenshots), quality depends on olmOCR's extraction. Vector graphics in PDFs are converted to raster; fidelity is high but not lossless.
+The main pipeline is implemented and deployed:
 
-## Related Work
+- Extraction with olmOCR
+- Alt text generation with Qwen2-VL
+- Semantic HTML generation
+- axe-core scoring in Chromium
+- Multi-round review and judging
+- Patch application with rollback
+- Preservation gate
+- Live peer reviewers with retry and fallback
+- Next.js frontend
+- Modal deployment
+- Security review for hosted and BYOK modes
 
-**SciA11y** (Wang, Cachola, et al., ASSETS '21) — Ai2 team converted scientific paper PDFs to accessible HTML. Evaluated ~86% success rate on readability; flagged alt-text and table accessibility as open problems. happypdf extends this work to general and government PDFs and adds iterative multi-model WCAG validation. [Paper](https://doi.org/10.1145/3441852.3471212)
-
-**olmOCR** (Poznanski et al., Ai2, arXiv:2502.18443) — Ai2's vision-based PDF extraction system built on Qwen2.5-VL. happypdf uses olmOCR as the primary extraction engine and adds the remediation and validation pipeline. [Paper](https://arxiv.org/abs/2502.18443)
-
-## Status
-
-✅ **Production-ready pipeline.** All components tested and deployed:
-
-- ✅ Extraction (olmOCR) — fully integrated, markdown with YAML front-matter
-- ✅ Alt text (Qwen2-VL) — replaces Molmo-7B-D after extensive testing, 1-2s per image
-- ✅ HTML generation (MarkdownHTMLConverter) — proper semantic HTML5, tables, images, landmark structure
-- ✅ WCAG scoring (axe-core) — real headless Chromium, structured JSON results
-- ✅ Claude judge (`src/judge.py`) — synthesizes reviews, classifies patches, deduplicates
-- ✅ Multi-round loop (`src/loop.py`) — early stopping, convergence detection
-- ✅ Content preservation gate (`src/gate.py`) — text coverage, image count, heading order, tables
-- ✅ Live peer reviewers (OLMo, Gemini, GPT) — wired with retry/backoff, graceful fallback
-- ✅ Next.js frontend — drag-and-drop upload, real-time progress, HTML preview
-- ✅ Modal deployment (`src/modal_api.py`) — ASGI FastAPI app, max_containers=1, warm keepalive
-- ✅ Security audit — zero-transmission BYOK mode, ephemeral job storage, HTTPS enforced
-
-### Running Tests
+## Testing
 
 ```bash
-# Run full benchmark on all test documents
+# Run the full benchmark suite
 python src/benchmark.py
 
-# Inspect specific document output
+# Inspect generated output
 cat output/syllabus_scored.html
 cat output/syllabus_manifest.json
 ```
 
-See [benchmark/BENCHMARK.md](benchmark/BENCHMARK.md) for full benchmark results and gate pass/fail logs.
+## Contributing
 
-## How the Loop Works (For Developers)
-
-The loop is review-source agnostic. It consumes structured reviews (issues with element IDs, WCAG criteria, suggested fixes) and produces a deterministic patch manifest.
-
-**Per round** (`run_loop` in `src/loop.py`):
-
-1. **Judge** (`src/judge.py`): synthesize peer reviews → deduplicate, flag hallucinations, classify (deterministic vs. LLM-safe vs. needs_human) → patch manifest. LLM-safe fixes (alt text) go to Claude Opus 4.8; everything else is decided without an API call.
-2. **Applicator** (`src/applicator.py`): apply patches by `data-ir-id`, all-or-nothing with rollback on any failure.
-3. **Preservation gate** (`src/gate.py`): compare the round's input HTML to the patched output (text coverage ≥ 95%, image count, heading order, tables). If it fails, the round is reverted and the loop stops. The gate is a pre/post comparison, so it runs *after* the applicator, not before.
-4. **axe-core rescore:** run in real headless Chromium, collect structured results.
-5. **Stop condition:** converged when no new patches were applied AND score ≥ threshold AND the gate passes.
-
-**Swapping review sources.** `run_loop(baseline_html, reviews_provider, ...)` takes a provider function; the judge, applicator, gate, and loop logic stay identical:
-
-```python
-# Current (mock files, per round):
-def reviews_provider(round, current_html):
-    return json.load(open(f"tests/mock_reviews_r{round}.json"))
-
-# Future (live reviewers on the current HTML):
-def reviews_provider(round, current_html):
-    return merge(call_olmo(current_html), call_gemini(current_html), call_gpt(current_html))
-```
-
-**Element IDs:** every block-level element gets a stable SHA256-based ID (`block-{page}-{hash}`). This enables safe patching across reruns and is the foundation for the applicator's all-or-nothing model.
+Pull requests are welcome. For major changes, please open an issue first so the design can be discussed.
 
 ## License
 
 MIT
-
-## Contributing
-
-PRs welcome. For major changes, open an issue first.
