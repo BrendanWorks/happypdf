@@ -1,6 +1,6 @@
 # happypdf
 
-Convert PDFs into WCAG 2.2 validated HTML with multi-model review, iterative accessibility enhancement, and auditable patch manifests.
+Convert PDFs into WCAG 2.2 validated HTML with multi-model review and iterative accessibility enhancement.
 
 **Live demo:** https://happypdf.org
 
@@ -23,9 +23,8 @@ happypdf processes a PDF through a reproducible pipeline:
 5. **Review and enhance** the HTML using peer reviewers and a judge model.
 6. **Apply safe patches** such as ARIA labels, roles, and descriptions.
 7. **Validate preservation** so text, images, headings, and tables are not lost.
-8. **Export results** as remediated HTML plus a JSON manifest of all changes.
 
-The result is WCAG-scored HTML with a clear record of what changed and why.
+The result is remediated HTML, scored against WCAG criteria, with a detailed enhancement summary showing what changed and why.
 
 ## Demo
 
@@ -38,7 +37,6 @@ The web app includes:
 - Live HTML preview
 - WCAG scoring and enhancement details
 - Downloadable HTML output
-- Downloadable JSON patch manifest
 
 The hosted demo runs on Modal GPUs and is designed for testing complex PDFs such as forms, tables, scanned documents, image-heavy reports, and government publications.
 
