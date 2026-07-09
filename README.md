@@ -66,35 +66,8 @@ The result is a production system that scales PDF remediation from manual hours-
 
 ## How the pipeline works
 
-```text
-PDF input
-  |
-  v
-olmOCR extraction
-Markdown + images
-  |
-  v
-Qwen2-VL alt text generation
-  |
-  v
-Semantic HTML5
-Landmarks, heading hierarchy, tables, images, data-ir-id attributes
-  |
-  v
-axe-core baseline scoring
-Headless Chromium
-  |
-  v
-Review rounds 1-3
-Peer review -> judge -> patch manifest -> applicator -> preservation gate -> rescore
-  |
-  v
-Convergence check
-0 violations, target score reached, no unsafe changes
-  |
-  v
-WCAG-scored HTML + JSON manifest
-```
+<img width="1024" height="559" alt="image" src="https://github.com/user-attachments/assets/02eb379a-07e3-4942-b24f-e05dff51d3a0" />
+
 
 ## What the review loop does
 
