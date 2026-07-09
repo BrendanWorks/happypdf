@@ -66,7 +66,7 @@ The result is a production system that scales PDF remediation from manual hours-
 
 ## How the pipeline works
 
-<img width="1024" height="559" alt="image" src="https://github.com/user-attachments/assets/02eb379a-07e3-4942-b24f-e05dff51d3a0" />
+<img width="1024" height="559" alt="image" src="https://github.com/user-attachments/assets/c0b277e8-6cd3-4cd6-a5c0-c2fb53fdc7cd" />
 
 
 ## What the review loop does
