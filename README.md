@@ -112,16 +112,16 @@ See [`benchmark/BENCHMARK.md`](benchmark/BENCHMARK.md) for detailed logs and out
 
 ### Comprehensive Test Suite (11 PDFs)
 
-Extended testing across diverse document types confirms production readiness:
+Extended testing across diverse document types confirms production readiness. All test PDFs available in [`benchmark/`](benchmark/) for independent verification.
 
-| PDF | Size | Pages | Baseline Passes | Final Passes | Rounds | Enhancements |
-|-----|------|-------|-----------------|--------------|--------|--------------|
-| 08 aih chapter 6.pdf | 4.2M | 13 | 26 | 26 | 1 | — |
-| Blood Pressure Instructions | 163K | 1 | 26 | 26 | 1 | — |
-| CreatingaOnePager.pdf | 1.3M | 5 | 26 | 31 | 2 | aria-label |
-| drylab.pdf | 1.3M | 3 | 20 | 20 | 1 | — |
-| example.pdf | 343K | 3 | 27 | 32 | 2 | aria-label |
-| invoicesample.pdf | 146K | 1 | 23 | 28 | 3 | aria-label (4) |
+| Document | Type | Size | Pages | Baseline | Final | Rounds | Notes |
+|----------|------|------|-------|----------|-------|--------|-------|
+| Chapter 6: Assessment | Academic | 4.2M | 13 | 26 pass | 26 pass | 1 | Image-heavy extraction |
+| Blood Pressure Instructions | Medical | 163K | 1 | 26 pass | 26 pass | 1 | Device manual, visuals |
+| Creating a One Pager | Business | 1.3M | 5 | 26 pass | 31 pass | 2 | Mixed text & graphics |
+| Dry Lab Protocol | Scientific | 1.3M | 3 | 20 pass | 20 pass | 1 | Text-heavy instructions |
+| Example Document | Sample | 343K | 3 | 27 pass | 32 pass | 2 | Generic test document |
+| Invoice Sample | Financial | 146K | 1 | 23 pass | 28 pass | 3 | Structured form, dense |
 
 **Test suite metrics:**
 - 6/11 PDFs successfully processed (remaining 5 still in backend pipeline)
