@@ -752,8 +752,9 @@ export default function App() {
                   <span className="text-slate-400">Open.</span>
                 </h1>
                 <p className="text-slate-400 text-lg leading-relaxed mb-8 max-w-xl mx-auto lg:mx-0">
-                  HappyPDF converts inaccessible PDFs into WCAG 2.2 AA&ndash;validated HTML using a
-                  multi-model iterative remediation pipeline — powered entirely by open Ai2 models.
+                  HappyPDF converts inaccessible PDFs into WCAG 2.2 AA–validated HTML using a
+                  multi-model iterative remediation pipeline. Built on Ai2's olmOCR extraction and
+                  OLMo peer review, with optional support for Claude, Gemini, and GPT-4o.
                 </p>
 
                 <div className="flex flex-col sm:flex-row gap-3 justify-center lg:justify-start">
