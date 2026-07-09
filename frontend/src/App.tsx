@@ -977,13 +977,13 @@ export default function App() {
               <ModeCard
                 icon={<Key size={18} />}
                 label="BYOK / enterprise"
-                badge="Differentiator"
+                badge="Enterprise"
                 badgeColor="bg-amber-500/10 text-amber-400 border border-amber-500/20"
                 lines={[
                   'Bring your existing Claude / ChatGPT enterprise credentials',
                   'Zero incremental cost on already-approved API access',
                   'No new procurement friction',
-                  'No identified competitor has built this',
+                  'Most flexible open remediation pipeline',
                 ]}
               />
             </div>
