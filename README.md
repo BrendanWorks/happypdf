@@ -114,21 +114,22 @@ See [`benchmark/BENCHMARK.md`](benchmark/BENCHMARK.md) for detailed logs and out
 
 Extended testing across diverse document types confirms production readiness:
 
-| PDF | Type | Baseline | Final | Rounds | Stop Reason | Key Improvements |
-|-----|------|----------|-------|--------|-------------|------------------|
-| 08 aih chapter 6.pdf | Academic | 100% | 100% | 1 | Converged | Semantic structure |
-| Blood Pressure Instructions.pdf | Medical | 100% | 100% | 1 | Converged | Semantic structure |
-| CreatingaOnePager.pdf | Business | 100% | 100% | 2 | Converged | aria-label (1) |
-| drylab.pdf | Scientific | 100% | 100% | 1 | Converged | Semantic structure |
-| example.pdf | Sample | 100% | 100% | 2 | Converged | aria-label (1) |
-| invoicesample.pdf | Financial | 100% | 100% | 3 | Converged | aria-label (4) |
+| PDF | Size | Pages | Baseline Passes | Final Passes | Rounds | Enhancements |
+|-----|------|-------|-----------------|--------------|--------|--------------|
+| 08 aih chapter 6.pdf | 4.2M | 13 | 26 | 26 | 1 | — |
+| Blood Pressure Instructions | 163K | 1 | 26 | 26 | 1 | — |
+| CreatingaOnePager.pdf | 1.3M | 5 | 26 | 31 | 2 | aria-label |
+| drylab.pdf | 1.3M | 3 | 20 | 20 | 1 | — |
+| example.pdf | 343K | 3 | 27 | 32 | 2 | aria-label |
+| invoicesample.pdf | 146K | 1 | 23 | 28 | 3 | aria-label (4) |
 
 **Test suite metrics:**
 - 6/11 PDFs successfully processed (remaining 5 still in backend pipeline)
-- Baseline: 100% WCAG compliance (0 violations, all semantic)
-- Final: 100% WCAG compliance across all tested documents
+- Document range: 146 KB to 4.2 MB | 1–13 pages
+- Baseline passes: 20–27 (0 violations across all)
+- Final passes: 20–32 (multi-round enhancements)
 - Average rounds to convergence: 1.7 rounds
-- Total ARIA enhancements applied: 6
+- Total ARIA enhancements applied: 6 attributes
 - Multi-model reviewer health: 100% success rate (all reviewers completed all rounds)
 
 All tested documents demonstrate the pipeline's ability to:
