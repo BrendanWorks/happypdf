@@ -78,6 +78,30 @@ def strip_front_matter(md: str) -> str:
     return "\n\n".join(kept).strip()
 
 
+def extract_title_from_markdown(md: str) -> str:
+    """Extract document title from markdown. Looks for:
+    1. First line of text (often the document title)
+    2. First H1/H2 heading marked with # or ##
+    Returns a sensible default if nothing is found."""
+    lines = md.strip().split("\n")
+    for line in lines:
+        line = line.strip()
+        if not line:
+            continue
+        # Skip metadata or common non-title markers
+        if line.startswith("|") or line.startswith("-") or line.startswith("*"):
+            continue
+        # Extract markdown heading (# or ##)
+        if line.startswith("# "):
+            return line[2:].strip()
+        if line.startswith("## "):
+            return line[3:].strip()
+        # First non-empty, non-marker line is likely the title
+        if len(line) > 3:
+            return line
+    return "Document"
+
+
 # ---------------------------------------------------------------------------
 # Step 3: image extraction (PyMuPDF)
 # ---------------------------------------------------------------------------
@@ -426,7 +450,8 @@ def main() -> int:
         CACHE_ALT.write_text(json.dumps(alt_map, indent=2))
 
     log("HTML: building semantic HTML5...")
-    builder = HtmlBuilder(markdown, images, alt_map)
+    title = extract_title_from_markdown(markdown)
+    builder = HtmlBuilder(markdown, images, alt_map, title=title)
     html = builder.build()
 
     OUT_HTML.write_text(html)  # write once so axe can load it

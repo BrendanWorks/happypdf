@@ -209,7 +209,8 @@ def _live(jid: str, pdf_bytes: bytes, filename: str, anthropic_api_key: str | No
         pdf_path.unlink(missing_ok=True)
 
         _set(jid, stage="html")
-        baseline_html = bss.HtmlBuilder(markdown, images, alt_map, title=filename).build()
+        title = bss.extract_title_from_markdown(markdown)
+        baseline_html = bss.HtmlBuilder(markdown, images, alt_map, title=title).build()
 
         _set(jid, stage="axe_baseline")
         _set(jid, baseline=axe_score(baseline_html))
