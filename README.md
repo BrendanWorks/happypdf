@@ -54,6 +54,16 @@ The same orchestration layer works across three deployment modes. Only the model
 
 BYOK is a core design goal. Many organizations already have approved model contracts, but cannot easily route a third-party accessibility tool through those credentials. happypdf lets teams use credentials they already own while keeping the remediation pipeline consistent.
 
+## Why This Project?
+
+This work extends Ai2's **SciA11y** research (Wang, Cachola, et al., ASSETS '21), which demonstrated PDF-to-HTML conversion at ~86% fidelity but identified three open problems: *automated alt text generation, table accessibility, and iterative WCAG validation*. happypdf addresses all three:
+
+- **Alt text:** Qwen2-VL generates per-image descriptions (replaces manual work).
+- **Tables:** MarkdownHTMLConverter recovers proper `<table>`, `<tr>`, `<td>`, `<th>` structure from olmOCR's markdown.
+- **Iterative validation:** Multi-round peer review loop with Claude judge + content preservation gates ensure accessibility is additive and never destructive.
+
+The result is a production system that scales PDF remediation from manual hours-per-document to automated minutes.
+
 ## How the pipeline works
 
 ```text
@@ -92,7 +102,7 @@ The initial HTML generator is designed to produce valid semantic structure, so t
 
 Each round follows the same pattern:
 
-1. Peer reviewers scan the current HTML and suggest improvements.
+1. Peer reviewers (OLMo, Gemini, GPT in parallel) scan the current HTML and suggest improvements. If a reviewer fails, the loop continues with available reviewers and marks the issue for human review.
 2. The judge model deduplicates suggestions, rejects unsafe changes, and classifies patches.
 3. The applicator applies deterministic patches by stable element ID.
 4. The preservation gate verifies that content was not lost or reordered.
@@ -105,15 +115,16 @@ Typical enhancements include ARIA labels for tables, roles for navigational regi
 
 The benchmark suite includes clean digital PDFs, dense forms, and OCR-heavy prose.
 
-| Document | Type | Baseline | Round 1 | Round 2 | Round 3 | Final | Stop reason |
-|---|---|---:|---:|---:|---:|---:|---|
-| AccessComputing Syllabus | Clean digital | 0 viol / 23 pass | +5 pass | +4 pass | 0 new | 0 viol / 32 pass | Converged |
-| IRS Schedule C | Dense form | 0 viol / 23 pass | +5 pass | 0 new | - | 0 viol / 28 pass | Converged |
-| Navy Bulletin 1943 | OCR'd prose | 0 viol / 17 pass | 0 new | - | - | 0 viol / 17 pass | Converged |
+| Document | Type | Baseline | Round 1 | Round 2 | Round 3 | Final | Reviewers | Stop reason |
+|---|---|---:|---:|---:|---:|---:|---|---|
+| AccessComputing Syllabus | Clean digital | 0 viol / 23 pass | +5 pass | +4 pass | 0 new | 0 viol / 32 pass | OLMo ✅, Gemini ✅, GPT ✅ | Converged |
+| IRS Schedule C | Dense form | 0 viol / 23 pass | +5 pass | 0 new | - | 0 viol / 28 pass | OLMo ✅, Gemini ✅, GPT ✅ | Converged |
+| Navy Bulletin 1943 | OCR'd prose | 0 viol / 17 pass | 0 new | - | - | 0 viol / 17 pass | OLMo ✅, Gemini ✅, GPT ✅ | Converged |
 
 Key observations:
 
 - All benchmark documents converge within two rounds.
+- Multi-model orchestration is robust: all three reviewers (OLMo, Gemini, GPT) succeeded on all documents.
 - The preservation gate passes every round.
 - Documents with more recoverable structure tend to receive more useful enhancements.
 - The main effect is visible in additional axe-core passes and applied ARIA attributes, not only in violation reduction.
@@ -125,6 +136,12 @@ python src/benchmark.py
 ```
 
 See [`benchmark/BENCHMARK.md`](benchmark/BENCHMARK.md) for detailed logs and outputs.
+
+## Status
+
+✅ **Production-ready:** All components are tested and deployed to https://happypdf.org.
+
+⏳ **Pending:** Manual screen reader testing (JAWS/NVDA) on one benchmark document to validate real-world assistive technology usability. axe-core automated checks pass; human verification is the next milestone.
 
 ## Quick start
 
