@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>USENIX Example Paper</title>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; line-height: 1.6; color: #1a1a1a; }
+    .skip-link { position: absolute; top: -40px; left: 0; background: #000; color: #fff; padding: 8px; text-decoration: none; }
+    .skip-link:focus { top: 0; }
+    table { border-collapse: collapse; width: 100%; margin: 1em 0; }
+    th, td { border: 1px solid #767676; padding: 8px; text-align: left; }
+    th { background: #eee; }
+    img { max-width: 100%; height: auto; }
+    figure { margin: 1.5em 0; }
+  </style>
+</head>
+<body>
+  <a href="#main-content" class="skip-link">Skip to main content</a>
+  <main id="main-content">
+    <h1 data-ir-id="block-1-e5621685">USENIX Example Paper</h1>
+    <p data-ir-id="block-1-d79d31a0">Pekka Nikander        Jane-Ellen Long</p>
+    <p data-ir-id="block-1-27c8a0b9">Aalto University      USENIX Association</p>
+    <p data-ir-id="block-1-d21b4a64">Abstract</p>
+    <p data-ir-id="block-1-8f0db57b">This is an example for a USENIX paper, in the form of an HTML/CSS template. Being heavily self-referential, this template illustrates the features included in this template. It is expected that the prospective authors using HTML/CSS would create a new document based on this template, remove the content, and start writing their paper.</p>
+    <p data-ir-id="block-1-d8244ece">Note that in this template, you may have a multi-paragraph abstract. However, that it is not necessarily a good practice. Try to keep your abstract in one paragraph, and remember that the optimal length for an abstract is 200-300 words.</p>
+    <p data-ir-id="block-1-c9234967">1 Introduction</p>
+    <p data-ir-id="block-1-c2066115">For the purposes of USENIX conference publications, the authors, not the USENIX staff, are solely responsible for the content and formatting of their paper. The purpose of this template is to help those authors that want to use HTML/CSS to write their papers. This template has been prepared by Håkon Wium Lie, and is based on a guide to using FrameMaker for USENIX papers, written by Pekka Nikander with the help of Jane-Ellen Long.</p>
+    <p data-ir-id="block-1-0e7d1549">The rest of this paper is organized as follows. Section 2 gives a brief overview of related work, such as other templates and style manuals. Section 3 discusses the details of this template, and Section 4 contains our conclusions.</p>
+    <p data-ir-id="block-1-23cc58a1">2 Related Work</p>
+    <p data-ir-id="block-1-c5da8293">Preparing good-looking publications is not easy. It requires understanding of style and typography. The purpose of the templates provided by the USENIX organization is to lift the burden of caring about typography from the authors. However, the authors still remain, and will always remain, responsible for the style.</p>
+    <p data-ir-id="block-1-5a4f95a8">2.1 Word and LaTeX templates</p>
+    <p data-ir-id="block-1-343436b9">The USENIX website includes a template for Microsoft Word, as well as LaTeX templates. Many of the settings in the CSS style sheet of this template have been copied from the LaTeX templates.</p>
+    <p data-ir-id="block-1-bc6262de">Figure 1: This figure is showed for illustrational purposes only; floppy disks are not required to use this template.</p>
+    <p data-ir-id="block-1-1fe939c7">2.2 Style manuals</p>
+    <p data-ir-id="block-1-b7a07bbb">Besides typography, style is the second element of preparing easy-to-read publications. There are tens of good style manuals available. To mention just a couple, The Elements of Style by Strunk and White [1] is a classic, and has remained a bestseller since its introduction in 1930's. From the more contemporary ones, Writing for Computer Science by Justin Zobel [2] seems appropriate.</p>
+    <p data-ir-id="block-1-9714346d">3 Implementation</p>
+    <p data-ir-id="block-1-c8a9aee7">In this section we cover the features included in this template. Our goal has been that the authors do not need to make modifications to the template; instead, they should be able to concentrate on the content and style. With this in mind, this template</p>
+    <p data-ir-id="block-1-8905995a">Figure 2: This figure floats to the top of the page, spanning both columns.</p>
+    <p data-ir-id="block-1-2738c63b">includes a number of features. On the other hand, we have also tried to keep this document simple and easy to maintain.</p>
+    <p data-ir-id="block-1-4159524f">This template is written in HTML, with CSS to provide styling, and a small JavaScript to help format references.</p>
+    <p data-ir-id="block-1-21a8f56b">3.1 HTML5</p>
+    <p data-ir-id="block-1-c405aea0">This template uses HTML5 elements to aid in representing the document structure. The section element is used to split the text into sections, and the header element holds the headlines. The figure element is used to include figures and their corresponding captions live inside the figcaption element. The cite element holds all references.</p>
+    <p data-ir-id="block-1-f901ae4f">A small microformat, based on a convention of class names, is used to encode the name and affiliation of the authors.</p>
+    <p data-ir-id="block-1-15107bb8">3.2 CSS</p>
+    <p data-ir-id="block-1-fd4572f5">A CSS style sheet describes how to format the HTML document into a PDF file. CSS is a declarative language which attaches property values to HTML elements and documents. Many aspects of CSS is used to achieve the presentation of USENIX papers, including:</p>
+    <ul data-ir-id="block-1-9bf895ad">
+      <li data-ir-id="block-1-8d82b216">multi-column layout</li>
+      <li data-ir-id="block-1-9caca8ac">footnotes</li>
+      <li data-ir-id="block-1-cdafc6b7">page and column floats</li>
+      <li data-ir-id="block-1-b4d5ae53">multi-level counters</li>
+    </ul>
+    <p data-ir-id="block-1-dc7e25f6">Some commonly used features are absent from the above list: page numbers and running headers should not be specified by USENIX authors, these are added by those who compile the Proceedings.</p>
+    <p data-ir-id="block-1-c56b340e">3.3 JavaScript</p>
+    <p data-ir-id="block-1-e1286650">This template uses JavaScript to process references. References are added at the point where they appear, and a script is later used to move the references to the end of the paper, leaving behind a numeric marker.</p>
+    <p data-ir-id="block-1-9197af3c">3.4 PDF</p>
+    <p data-ir-id="block-1-6b5f460e">(This section has been added by Håkon Wium Lie)</p>
+    <p data-ir-id="block-1-ea2184b6">In order to convert the document to PDF, a formatter is needed. Common browsers support HTML and CSS, but they do not support all the CSS functionality for page-based formatting. For example, browsers do not support footnotes or page floats. This paper has been formatted with Prince,[a] a purpose-built program for converting HTML and XML documents into PDF by way of CSS. Prince is a commercial product, but can be downloaded and used for free for non-commercial purposes.</p>
+    <p data-ir-id="block-1-ef38d79c">In order for Prince to process the script included in this template, a command line option must be specified:</p>
+    <p data-ir-id="block-1-5e320e31">$ prince --javascript example.html</p>
+    <p data-ir-id="block-1-de880664">4 Tables</p>
+    <p data-ir-id="block-1-5ecaeaee">The table below lists recipients of the USENIX Lifetime Achievement Award in the 1900s. Notice how notes inside the table are moved to the end of the table.</p>
+    <table data-ir-id="block-1-a6c1ee83" aria-label="The table below lists recipients of the USENIX Lifetime Achievement Award in the 1900s. Notice how notes inside the table are moved to the end of the table.">
+      <tr>
+        <th>Name</th>
+        <th>Award</th>
+        <th>Year</th>
+      </tr>
+      <tr>
+        <td>John McCarthy</td>
+        <td>USENIX Lifetime Achievement Award</td>
+        <td>1998</td>
+      </tr>
+      <tr>
+        <td>Ken Thompson</td>
+        <td>USENIX Lifetime Achievement Award</td>
+        <td>1999</td>
+      </tr>
+      <tr>
+        <td>Rob Pike</td>
+        <td>USENIX Lifetime Achievement Award</td>
+        <td>2000</td>
+      </tr>
+    </table>
+    <p data-ir-id="block-1-ebad6590">[a] www.princexml.com</p>
+    <table data-ir-id="block-1-bd35d85d">
+      <tr>
+        <th>Year</th>
+        <th>Recipient</th>
+      </tr>
+      <tr>
+        <td>1999</td>
+        <td><a href="https://en.wikipedia.org/wiki/X_Window_System">X Window System</a>*</td>
+      </tr>
+      <tr>
+        <td>1998</td>
+        <td><a href="https://en.wikipedia.org/wiki/Tim_Berners-Lee">Tim Berners-Lee</a></td>
+      </tr>
+      <tr>
+        <td>1997</td>
+        <td><a href="https://en.wikipedia.org/wiki/Brian_W._Kernighan">Brian W. Kernighan</a></td>
+      </tr>
+      <tr>
+        <td>1996</td>
+        <td><a href="https://en.wikipedia.org/wiki/The_Software_Tools_Project">The Software Tools Project</a></td>
+      </tr>
+      <tr>
+        <td>1995</td>
+        <td>The Creation of <a href="https://en.wikipedia.org/wiki/USENET">USENET</a> **</td>
+      </tr>
+      <tr>
+        <td>1994</td>
+        <td>Networking Technologies</td>
+      </tr>
+      <tr>
+        <td>1993</td>
+        <td><a href="https://en.wikipedia.org/wiki/Berkeley_UNIX">Berkeley UNIX</a></td>
+      </tr>
+    </table>
+    <ul data-ir-id="block-1-ef928702">
+      <li data-ir-id="block-1-d16e071b">Given to the Community at Large</li>
+    </ul>
+    <p data-ir-id="block-1-991970b5">** Given to Jim Ellis and Tom Truscott</p>
+    <p data-ir-id="block-1-4be0f860">Acknowledgments</p>
+    <p data-ir-id="block-1-8c3edf84">A polite author always includes acknowledgments. Thank everyone, especially those who funded the work.</p>
+    <p data-ir-id="block-1-12f67f85">Availability</p>
+    <p data-ir-id="block-1-2e106335">Please include a section at the end of your paper providing availability information. If the system you describe is available to others, and if more information (reports, etc.) may be obtained, indicate terms and contact information.</p>
+    <p data-ir-id="block-1-69824d3b">References</p>
+    <p data-ir-id="block-1-bc2e7baf">[1] Strunk, W. Jr., and White, E.B. The Elements of Style, 4th Ed, Allyn and Bacon, August, 1999, ISBN 020530902X</p>
+    <p data-ir-id="block-1-160ee48d">[2] Zobel, J. Writing for Computer Science, Springer-Verlag, December 1997, ISBN 9813083220</p>
+    <p data-ir-id="block-1-348cf04a">5 Conclusions</p>
+    <p data-ir-id="block-1-49123fad">Each good paper concludes the most significant findings in the end.</p>
+    <figure data-ir-id="block-1-f8b7cb32">
+      <img data-ir-id="block-1-844ada8f" src="data:image/png;base64,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" alt="A gray square with rounded corners.">
+    </figure>
+  </main>
+</body>
+</html>

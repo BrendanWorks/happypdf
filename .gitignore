@@ -26,8 +26,7 @@ output/
 frontend/dist/
 
 # benchmark generated artifacts (inputs .pdf/.md + BENCHMARK.md are tracked above)
-benchmark/*_baseline.html
-benchmark/*_final.html
+# Note: benchmark HTML files ARE tracked to allow users to inspect final output
 
 # Secrets
 .env
