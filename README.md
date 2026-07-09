@@ -323,6 +323,14 @@ The main pipeline is implemented and deployed:
 - Modal deployment
 - Security review for hosted and BYOK modes
 
+## Roadmap
+
+Planned improvements for future releases:
+
+- **Audit trail and patch manifest**: Export a detailed JSON manifest of all patches applied, including reviewer assessments, judge decisions, and the reasoning for each ARIA attribute or structural change added. This will enable external audit, compliance documentation, and detailed change tracking for enterprise workflows.
+- **Screen reader testing**: Validation against JAWS and NVDA to confirm real-world assistive technology usability beyond axe-core automated checks.
+- **Persistent job storage**: Optional Supabase integration for organizations that need to archive and retrieve remediation results.
+
 ## Testing
 
 ```bash
