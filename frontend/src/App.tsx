@@ -801,19 +801,6 @@ export default function App() {
           </div>
         </section>
 
-        {/* ── Caveat banner ────────────────────────────────────────────────── */}
-        <div className="bg-amber-500/10 border-y border-amber-500/20">
-          <div className="max-w-6xl mx-auto px-4 sm:px-6 py-3 flex items-start gap-3 text-sm text-amber-300">
-            <AlertTriangle size={16} className="mt-0.5 shrink-0" />
-            <span>
-              axe-core automated checks cover&nbsp;
-              <strong className="text-amber-200">30–40% of WCAG requirements.</strong> HappyPDF
-              reports automated check coverage, not certified WCAG conformance. Manual review is
-              still required for full compliance.
-            </span>
-          </div>
-        </div>
-
         {/* ── How it works ─────────────────────────────────────────────────── */}
         <section id="how-it-works" className="py-20 sm:py-28">
           <div className="max-w-6xl mx-auto px-4 sm:px-6">
@@ -1008,47 +995,6 @@ export default function App() {
           </div>
         </section>
 
-        {/* ── Prior art / credibility ──────────────────────────────────────── */}
-        <section className="py-16 bg-slate-900/40 border-y border-slate-800/60">
-          <div className="max-w-4xl mx-auto px-4 sm:px-6">
-            <p className="text-xs font-semibold uppercase tracking-widest text-teal-500 mb-8 text-center">
-              Research context
-            </p>
-            <div className="grid sm:grid-cols-2 gap-6">
-              {[
-                {
-                  tag: "Ai2 · ASSETS '21",
-                  title: 'SciA11y',
-                  authors: 'Wang, Cachola, et al.',
-                  note: 'Converts scientific PDFs to accessible HTML. HappyPDF extends this direction to general and government documents, adding the iterative WCAG validation loop SciA11y identified as future work.',
-                },
-                {
-                  tag: 'Ai2 · arXiv 2601.10611',
-                  title: 'olmOCR',
-                  authors: 'Poznanski et al.',
-                  note: "Production PDF extraction via pure vision. HappyPDF builds directly on olmOCR's extraction foundation and adds multi-model WCAG remediation.",
-                },
-              ].map(({ tag, title, authors, note }) => (
-                <div
-                  key={title}
-                  className="bg-slate-900 border border-slate-700/60 rounded-2xl p-6 hover:border-slate-600 transition-colors"
-                >
-                  <p className="text-xs font-mono text-teal-500 mb-1">{tag}</p>
-                  <h3 className="font-semibold text-slate-100 mb-0.5">{title}</h3>
-                  <p className="text-xs text-slate-500 mb-3">{authors}</p>
-                  <p className="text-sm text-slate-400 leading-relaxed">{note}</p>
-                  <a
-                    href="#"
-                    className="mt-3 inline-flex items-center gap-1 text-xs text-teal-500 hover:text-teal-400 transition-colors"
-                  >
-                    Read paper <ExternalLink size={10} />
-                  </a>
-                </div>
-              ))}
-            </div>
-          </div>
-        </section>
-
         {/* ── FAQ ─────────────────────────────────────────────────────────── */}
         <section id="faq" className="py-20 sm:py-28">
           <div className="max-w-2xl mx-auto px-4 sm:px-6">
@@ -1115,6 +1061,19 @@ export default function App() {
           </div>
         </section>
       </main>
+
+      {/* ── Caveat banner ────────────────────────────────────────────────── */}
+      <div className="bg-amber-500/10 border-y border-amber-500/20">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-3 flex items-start gap-3 text-sm text-amber-300">
+          <AlertTriangle size={16} className="mt-0.5 shrink-0" />
+          <span>
+            axe-core automated checks cover&nbsp;
+            <strong className="text-amber-200">30–40% of WCAG requirements.</strong> HappyPDF
+            reports automated check coverage, not certified WCAG conformance. Manual review is
+            still required for full compliance.
+          </span>
+        </div>
+      </div>
 
       {/* ── Footer ──────────────────────────────────────────────────────────── */}
       <footer className="border-t border-slate-800/60 py-10">
