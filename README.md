@@ -6,9 +6,9 @@ Convert PDFs into WCAG 2.2 validated HTML with multi-model review and iterative 
 
 happypdf turns inaccessible PDFs into semantic HTML5. It extracts content with vision-based OCR, generates alt text, builds accessible structure, scores the result with axe-core in Chromium, then runs a multi-round review loop that safely adds accessibility enhancements without losing document content.
 
-## Why this exists
+## Why I made this
 
-PDFs are still everywhere in government, education, healthcare, and enterprise workflows. Many are difficult or impossible to use with assistive technology because they lack tags, alt text, headings, landmarks, or table structure.
+I needed to take big PDF and make it accessible. But then I started thinking: PDFs are still everywhere in government, education, healthcare, and enterprise workflows. Many are difficult or impossible to use with assistive technology because they lack tags, alt text, headings, landmarks, or table structure. I'm not the only person who needs to do this. AI can make it easier.
 
 Manual remediation works, but it is slow, expensive, and hard to scale. happypdf automates the parts that can be automated, keeps every change auditable, and uses preservation checks so remediation is additive rather than destructive.
 
