@@ -1,0 +1,8 @@
+<svg viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg">
+  <!-- Document background -->
+  <rect x="4" y="2" width="24" height="28" rx="2" fill="#0f172a"/>
+  <rect x="4" y="2" width="24" height="28" rx="2" fill="none" stroke="#14b8a6" stroke-width="1.5"/>
+
+  <!-- Checkmark inside document (accessibility/validation theme) -->
+  <path d="M10 14 L14 18 L22 10" stroke="#14b8a6" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
