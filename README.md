@@ -30,7 +30,7 @@ The result is remediated HTML, scored against WCAG criteria, with a detailed enh
 
 Most accessibility tools force a choice: pay per conversion, or build it yourself. happypdf does neither.
 
-**Bring Your Own Keys (BYOK)** lets you connect your existing Claude, ChatGPT, or Gemini API credentials. If your organization already pays for AI model access through enterprise agreements, happypdf uses those credentials at no additional cost.
+**Bring Your Own Keys (BYOK)** lets you connect your existing Claude, ChatGPT, or Gemini API credentials. If your organization already pays for AI model access through enterprise agreements, happypdf uses those credentials at no additional cost. You can try your own keys on our live site, securely!
 
 Why this matters:
 
