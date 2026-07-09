@@ -26,6 +26,21 @@ happypdf processes a PDF through a reproducible pipeline:
 
 The result is remediated HTML, scored against WCAG criteria, with a detailed enhancement summary showing what changed and why.
 
+## The Secret Sauce: BYOK Enterprise Advantage
+
+Most accessibility tools force a choice: pay per conversion, or build it yourself. happypdf does neither.
+
+**Bring Your Own Keys (BYOK)** lets you connect your existing Claude, ChatGPT, or Gemini API credentials. If your organization already pays for AI model access through enterprise agreements, happypdf uses those credentials at no additional cost.
+
+Why this matters:
+
+- **You already own the license.** Enterprise teams often have approved AI procurement (Claude contracts, ChatGPT enterprise seats). happypdf routes remediation through credentials you already own.
+- **Procurement friction disappears.** Traditional accessibility SaaS requires new vendor approval, new budget line, new security review, new contract. BYOK sidesteps all of it — you're using tools already approved.
+- **Cost scales with your problem, not vendor margins.** Per-conversion pricing means small PDFs subsidize large ones; BYOK means you pay only for the compute you actually use.
+- **The same pipeline runs everywhere.** Hosted demo, self-hosted, BYOK — the orchestration is identical. Switching between them is a configuration change, not a rewrite.
+
+This is why happypdf works at scale in enterprises: you deploy where your customers already are.
+
 ## Demo
 
 Try it at **https://happypdf.org**.
