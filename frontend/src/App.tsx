@@ -921,8 +921,8 @@ export default function App() {
               />
               <FeatureRow
                 icon={<Layers size={18} />}
-                title="Typed patch manifest"
-                body="Every change is logged as deterministic, llm_safe, or needs_human. The audit trail is a first-class output — not a side effect."
+                title="Safe patch application"
+                body="Patches target elements by stable ID. A content preservation gate verifies that text, images, headings, and tables are never lost or reordered."
               />
               <FeatureRow
                 icon={<Code2 size={18} />}
@@ -944,7 +944,7 @@ export default function App() {
                 Three ways to run it
               </h2>
               <p className="mt-4 text-slate-400 max-w-xl mx-auto">
-                The same orchestration code, the same audit trail. Choose the model layer that fits
+                The same orchestration code and preservation gate. Choose the model layer that fits
                 your budget and procurement reality.
               </p>
             </div>
@@ -1022,7 +1022,7 @@ export default function App() {
               />
               <FaqItem
                 q="How is this different from DocAccess or SentraCheck?"
-                a="Commercial tools are closed-box, paid per conversion, and don't expose their logic. HappyPDF is fully open source — every patch, every reviewer score, every violation flag is in the audit trail. You can inspect exactly what changed and why."
+                a="Commercial tools are closed-box, paid per conversion, and don't expose their logic. HappyPDF is fully open source — the pipeline, scoring formula, and patch logic are all public. The enhancements summary shows every ARIA attribute added and why."
               />
               <FaqItem
                 q="Why three rounds maximum?"
