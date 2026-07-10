@@ -14,7 +14,7 @@ happypdf turns inaccessible PDFs into clean, semantic HTML5. It uses vision-base
 - [Deployment Modes](#deployment-modes)
 - [Why This Project?](#why-this-project)
 - [How the Pipeline Works](#how-the-pipeline-works)
-- [Review Loop](#review-loop)
+- [The Enhancement & Optimization Loop](#the-enhancement--optimization-loop)
 - [Benchmark Results](#benchmark-results)
 - [Project Status & Roadmap](#project-status--roadmap)
 - [Quick Start](#quick-start)
@@ -34,8 +34,8 @@ Manual remediation is effective but slow, expensive, and difficult to scale. hap
 
 happypdf processes PDFs through a reproducible pipeline:
 
-1. **Extract content** using olmOCR (Ai2's vision-based PDF extraction system).
-2. **Generate alt text** with Qwen2-VL.
+1. **Extract content** using olmOCR (Ai2's vision-based PDF extraction system, powered by Qwen2-VL).
+2. **Generate context-aware alt text** by re-prompting Qwen2-VL on each extracted image, preserving page layout context.
 3. **Build semantic HTML5** with landmarks, headings, tables, images, and stable element IDs.
 4. **Score accessibility** using axe-core in a real headless Chromium browser.
 5. **Review & enhance** via multi-model peer reviewers + judge model.
@@ -74,11 +74,11 @@ The demo runs on Modal GPUs and excels with complex documents: forms, tables, sc
 
 The same orchestration layer works across all modes — only the model backends change.
 
-| Mode                        | Models                                      | Cost Model                  | Best For                              |
-|-----------------------------|---------------------------------------------|-----------------------------|---------------------------------------|
-| **Self-hosted / open-weight** | OLMo + local/Modal inference               | Compute only                | Offline, air-gapped, cost-sensitive   |
-| **Hosted Demo**             | happypdf-provisioned (Claude judge + reviewers) | Per conversion             | Quick testing                         |
-| **BYOK / Enterprise**       | Your Claude, OpenAI, or Gemini keys         | Your existing contracts     | Organizations with approved AI access |
+| Mode | Models | Cost Model | Best For |
+| :--- | :--- | :--- | :--- |
+| **Self-hosted / open-weight** | OLMo + local/Modal inference | Compute only | Offline, air-gapped, cost-sensitive |
+| **Hosted Demo** | happypdf-provisioned (Claude judge + reviewers) | Per conversion | Quick testing |
+| **BYOK / Enterprise** | Your Claude, OpenAI, or Gemini keys | Your existing contracts | Organizations with approved AI access |
 
 ## Why This Project?
 
@@ -92,19 +92,45 @@ This work extends Ai2's **SciA11y** research (Wang, Cachola, et al., ASSETS '21)
 
 <img width="1024" height="559" alt="image" src="https://github.com/user-attachments/assets/c0b277e8-6cd3-4cd6-a5c0-c2fb53fdc7cd" />
 
-## Review Loop
+## The Enhancement & Optimization Loop
 
-The initial HTML generator frequently produces **zero axe-core violations**. The review loop therefore focuses on meaningful enhancement.
+The initial HTML generator frequently produces **zero axe-core violations**. But automated tools can only detect what is *wrong*, not what is *right*. The review loop goes deeper: it verifies semantic correctness, optimizes structure, and ensures that generated descriptions (e.g., alt text) truly match the visual and contextual intent of each page.
 
 **Each round:**
-1. Peer reviewers (OLMo, Gemini, GPT-4o, etc.) analyze the HTML in parallel.
+1. Peer reviewers (OLMo, Gemini, GPT-4o, etc.) analyze the HTML in parallel for improvement opportunities.
 2. Judge model deduplicates suggestions, rejects unsafe changes, and classifies patches.
 3. Deterministic applicator updates elements by stable `data-ir-id`.
-4. Preservation gate verifies content integrity.
-5. axe-core rescans.
+4. Preservation gate verifies content integrity and no text/image loss.
+5. axe-core rescans for any regressions.
 6. Loop stops on convergence.
 
 Typical enhancements include ARIA labels for tables, navigational roles, improved image descriptions, and better section relationships.
+
+```
+[Clean HTML] ──→ (Parallel Reviewers: OLMo / Gemini / GPT-4o)
+                           │
+                           ↓
+                    (Proposed Patches)
+                           │
+                           ↓
+                      (Judge Model)
+                 (Deduplicates, Validates Safety)
+                           │
+                           ↓
+                  (Apply Patches via data-ir-id)
+                           │
+                           ↓
+              (Preservation Gate: Check Integrity)
+                      ├─→ FAIL → [Rollback]
+                      │
+                      └─→ PASS
+                           │
+                           ↓
+                   (axe-core Rescore)
+                           │
+                           ↓
+                    (Converged? Stop or Loop)
+```
 
 ## Benchmark Results
 
@@ -159,9 +185,17 @@ All documents converge quickly with zero content loss.
 ```bash
 git clone https://github.com/BrendanWorks/happypdf.git
 cd happypdf
+
+# Install backend dependencies
 pip install -r requirements.txt
-npm install
-playwright install chromium
+
+# Install frontend dependencies
+cd frontend && npm install && cd ..
+
+# Install Chromium for Playwright
+python -m playwright install chromium
+
+# Set up Modal credentials
 export MODAL_TOKEN_ID=your_token_id
 export MODAL_TOKEN_SECRET=your_token_secret
 ```
