@@ -24,7 +24,7 @@ from pathlib import Path
 
 from fastapi import FastAPI, HTTPException, UploadFile, File, Form
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, Response
 
 
 # ---------------------------------------------------------------------------
@@ -359,10 +359,17 @@ def job_manifest(jid: str):
         "enhancements": job.get("enhancements", []),
         "reviewer_health": job.get("reviewer_health", {}),
     }
-    return manifest
+
+    # Return with download headers
+    json_str = json.dumps(manifest, indent=2, default=str)
+    return Response(
+        content=json_str,
+        media_type="application/json",
+        headers={"Content-Disposition": f'attachment; filename="{jid}_manifest.json"'}
+    )
 
 
-@app.get("/api/jobs/{jid}/report", response_class=HTMLResponse)
+@app.get("/api/jobs/{jid}/report")
 def job_report(jid: str):
     """Return a formatted HTML report of the remediation process."""
     import sys
@@ -388,7 +395,11 @@ def job_report(jid: str):
     }
 
     html = generate_html_report(manifest)
-    return HTMLResponse(html)
+    return Response(
+        content=html,
+        media_type="text/html",
+        headers={"Content-Disposition": f'attachment; filename="{jid}_report.html"'}
+    )
 
 
 if __name__ == "__main__":
