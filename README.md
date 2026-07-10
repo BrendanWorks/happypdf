@@ -90,7 +90,9 @@ This work extends Ai2's **SciA11y** research (Wang, Cachola, et al., ASSETS '21)
 
 ## How the Pipeline Works
 
-<img width="1024" height="559" alt="image" src="https://github.com/user-attachments/assets/c0b277e8-6cd3-4cd6-a5c0-c2fb53fdc7cd" />
+<img width="784" height="1168" alt="image" src="https://github.com/user-attachments/assets/52bec40c-efab-4191-9bc3-1264b908f537" />
+
+
 
 ## The Enhancement & Optimization Loop
 
@@ -107,29 +109,7 @@ The initial HTML generator frequently produces **zero axe-core violations**. But
 Typical enhancements include ARIA labels for tables, navigational roles, improved image descriptions, and better section relationships.
 
 ```
-[Clean HTML] ──→ (Parallel Reviewers: OLMo / Gemini / GPT-4o)
-                           │
-                           ↓
-                    (Proposed Patches)
-                           │
-                           ↓
-                      (Judge Model)
-                 (Deduplicates, Validates Safety)
-                           │
-                           ↓
-                  (Apply Patches via data-ir-id)
-                           │
-                           ↓
-              (Preservation Gate: Check Integrity)
-                      ├─→ FAIL → [Rollback]
-                      │
-                      └─→ PASS
-                           │
-                           ↓
-                   (axe-core Rescore)
-                           │
-                           ↓
-                    (Converged? Stop or Loop)
+
 ```
 
 ## Benchmark Results
