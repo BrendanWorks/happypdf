@@ -341,8 +341,8 @@ function DemoPanel() {
     }
   };
 
-  // Demos always replay the bundled snapshots client-side — free, instant, and
-  // independent of the (paid) live API. Only PDF uploads use the API.
+  // Demos replay the bundled snapshots client-side — free, instant, and independent of the
+  // (paid) live API. For demos, manifest/report use the snapshot ID directly (special handling in API).
   const startDemo = (id: string, label: string) => clientReplay(id, label);
   const onDropFile = (file: File) => {
     if (HAS_API) { apiLive(file); }

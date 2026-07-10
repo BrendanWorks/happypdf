@@ -341,24 +341,44 @@ def job_manifest(jid: str):
     """Return complete remediation manifest with all patches, decisions, and audit trail."""
     with JOBS_LOCK:
         job = JOBS.get(jid)
-    if not job:
-        raise HTTPException(404, "job not found")
 
-    # Build manifest from available job data
-    manifest = {
-        "id": job.get("id"),
-        "name": job.get("name"),
-        "status": job.get("status"),
-        "source": job.get("source"),
-        "started": job.get("started"),
-        "baseline": job.get("baseline", {}),
-        "final": job.get("final", {}),
-        "rounds": job.get("rounds", []),
-        "rounds_accepted": job.get("rounds_accepted", 0),
-        "stopped_reason": job.get("stopped_reason"),
-        "enhancements": job.get("enhancements", []),
-        "reviewer_health": job.get("reviewer_health", {}),
-    }
+    # If not found in JOBS, check if it's a demo snapshot ID
+    if not job:
+        try:
+            snap = _load_snapshot(jid)
+            # Build manifest from snapshot data (demo mode)
+            manifest = {
+                "id": jid,
+                "name": snap.get("name", jid),
+                "status": "done",
+                "source": snap["source"],
+                "started": None,
+                "baseline": snap.get("baseline", {}),
+                "final": snap.get("final", {}),
+                "rounds": snap.get("rounds", []),
+                "rounds_accepted": len(snap.get("rounds", [])),
+                "stopped_reason": snap.get("stopped_reason", "converged"),
+                "enhancements": snap.get("enhancements", []),
+                "reviewer_health": snap.get("reviewer_health", {}),
+            }
+        except HTTPException:
+            raise HTTPException(404, "job not found")
+    else:
+        # Build manifest from backend job data
+        manifest = {
+            "id": job.get("id"),
+            "name": job.get("name"),
+            "status": job.get("status"),
+            "source": job.get("source"),
+            "started": job.get("started"),
+            "baseline": job.get("baseline", {}),
+            "final": job.get("final", {}),
+            "rounds": job.get("rounds", []),
+            "rounds_accepted": job.get("rounds_accepted", 0),
+            "stopped_reason": job.get("stopped_reason"),
+            "enhancements": job.get("enhancements", []),
+            "reviewer_health": job.get("reviewer_health", {}),
+        }
 
     # Return with download headers
     json_str = json.dumps(manifest, indent=2, default=str)
@@ -378,21 +398,38 @@ def job_report(jid: str):
 
     with JOBS_LOCK:
         job = JOBS.get(jid)
-    if not job:
-        raise HTTPException(404, "job not found")
 
-    # Build manifest
-    manifest = {
-        "id": job.get("id"),
-        "name": job.get("name"),
-        "baseline": job.get("baseline", {}),
-        "final": job.get("final", {}),
-        "rounds": job.get("rounds", []),
-        "rounds_accepted": job.get("rounds_accepted", 0),
-        "stopped_reason": job.get("stopped_reason"),
-        "enhancements": job.get("enhancements", []),
-        "reviewer_health": job.get("reviewer_health", {}),
-    }
+    # If not found in JOBS, check if it's a demo snapshot ID
+    if not job:
+        try:
+            snap = _load_snapshot(jid)
+            # Build manifest from snapshot data (demo mode)
+            manifest = {
+                "id": jid,
+                "name": snap.get("name", jid),
+                "baseline": snap.get("baseline", {}),
+                "final": snap.get("final", {}),
+                "rounds": snap.get("rounds", []),
+                "rounds_accepted": len(snap.get("rounds", [])),
+                "stopped_reason": snap.get("stopped_reason", "converged"),
+                "enhancements": snap.get("enhancements", []),
+                "reviewer_health": snap.get("reviewer_health", {}),
+            }
+        except HTTPException:
+            raise HTTPException(404, "job not found")
+    else:
+        # Build manifest from backend job data
+        manifest = {
+            "id": job.get("id"),
+            "name": job.get("name"),
+            "baseline": job.get("baseline", {}),
+            "final": job.get("final", {}),
+            "rounds": job.get("rounds", []),
+            "rounds_accepted": job.get("rounds_accepted", 0),
+            "stopped_reason": job.get("stopped_reason"),
+            "enhancements": job.get("enhancements", []),
+            "reviewer_health": job.get("reviewer_health", {}),
+        }
 
     html = generate_html_report(manifest)
     return Response(
