@@ -859,7 +859,7 @@ export default function App() {
                   {
                     step: '05',
                     title: 'Output package',
-                    body: 'Accessible HTML + human-readable review manifest + plain-English summary of every fix, verification, and unresolved finding.',
+                    body: 'Remediated HTML + JSON manifest (all patches with reasoning) + formatted report showing baseline vs. final scores, per-round progression, and reviewer health.',
                     side: 'left',
                   },
                 ].map(({ step, title, body, side }) => (
