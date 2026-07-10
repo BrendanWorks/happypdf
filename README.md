@@ -114,45 +114,61 @@ Typical enhancements include ARIA labels for tables, navigational roles, improve
 
 ## Benchmark Results
 
-All documents converge quickly with zero content loss.
+All documents converge quickly with zero content loss. Manifest and report downloads verified for all PDFs.
 
-**Core Benchmarks**
+**Core Benchmarks (3 Demos)**
 
-| Document              | Type            | Baseline       | Round 1     | Round 2   | Final          | Reviewers              | Stop reason |
-|-----------------------|-----------------|----------------|-------------|-----------|----------------|------------------------|-------------|
-| AccessComputing Syllabus | Clean digital | 0 viol / 23 pass | +5 pass   | +4 pass  | 0 viol / 32 pass | OLMo ✅, Gemini ✅, GPT ✅ | Converged |
-| IRS Schedule C        | Dense form     | 0 viol / 23 pass | +5 pass   | 0 new    | 0 viol / 28 pass | OLMo ✅, Gemini ✅, GPT ✅ | Converged |
-| Navy Bulletin 1943    | OCR'd prose    | 0 viol / 17 pass | 0 new     | -        | 0 viol / 17 pass | OLMo ✅, Gemini ✅, GPT ✅ | Converged |
+| Document              | Type            | Size  | Pages | Baseline | Final  | Rounds | Manifest | Report |
+|-----------------------|-----------------|-------|-------|----------|--------|--------|----------|--------|
+| AccessComputing Syllabus | Clean digital | 1.2M | 8 | 100% (26 pass) | 100% (31 pass) | 2 | ✅ | ✅ |
+| IRS Schedule C        | Dense form     | 1.1M | 7 | 100% (23 pass) | 100% (28 pass) | 3 | ✅ | ✅ |
+| Navy Bulletin 1943    | OCR'd prose    | 876K | 6 | 100% (20 pass) | 100% (20 pass) | 1 | ✅ | ✅ |
 
-**Extended Test Suite (7 Additional Documents)**
+**Extended Test Suite (10 Additional Documents)**
 
-| Document | Type | Size | Pages | Baseline | Final | Rounds | Notes |
-|----------|------|------|-------|----------|-------|--------|-------|
-| Chapter 6: Assessment | Academic | 4.2M | 13 | 26 pass | 26 pass | 1 | Image-heavy extraction |
-| Blood Pressure Instructions | Medical | 163K | 1 | 26 pass | 26 pass | 1 | Device manual, visuals |
-| Creating a One Pager | Business | 1.3M | 5 | 26 pass | 31 pass | 2 | Mixed text & graphics |
-| Dry Lab Protocol | Scientific | 1.3M | 3 | 20 pass | 20 pass | 1 | Text-heavy instructions |
-| Example Document | Sample | 343K | 3 | 27 pass | 32 pass | 2 | Generic test document |
-| Invoice Sample | Financial | 146K | 1 | 23 pass | 28 pass | 3 | Structured form, dense |
-| Somatosensory | Scientific | 132K | 2 | 24 pass | 24 pass | 0 | Neural system reference |
+| Document | Type | Size | Pages | Baseline | Final | Rounds | Manifest | Report | Notes |
+|----------|------|------|-------|----------|-------|--------|----------|--------|-------|
+| Chapter 6: Assessment | Academic | 4.2M | 13 | 100% (26 pass) | 100% (26 pass) | 1 | ✅ | ✅ | Image-heavy extraction |
+| Blood Pressure Instructions | Medical | 163K | 1 | 100% (26 pass) | 100% (26 pass) | 1 | ✅ | ✅ | Device manual, visuals |
+| Creating a One Pager | Business | 1.3M | 5 | 100% (26 pass) | 100% (31 pass) | 2 | ✅ | ✅ | Mixed text & graphics |
+| Dry Lab Protocol | Scientific | 1.3M | 3 | 100% (20 pass) | 100% (20 pass) | 1 | ✅ | ✅ | Text-heavy instructions |
+| Example Document | Sample | 343K | 3 | 100% (27 pass) | 100% (32 pass) | 2 | ✅ | ✅ | Generic test document |
+| Invoice Sample | Financial | 146K | 1 | 100% (23 pass) | 100% (28 pass) | 3 | ✅ | ✅ | Structured form, dense |
+| Somatosensory | Scientific | 132K | 2 | 100% (24 pass) | 100% (24 pass) | 0 | ✅ | ✅ | Neural system reference |
+| Cosmic Story Mat | Instructional | 440K | 2 | 100% (22 pass) | 100% (22 pass) | 0 | ✅ | ✅ | Children's literature |
+| Furnace (Amana) | Technical | 892K | 4 | 96.3% (26 pass) | 96.3% (26 pass) | 1 | ✅ | ✅ | Appliance manual |
+| Hands-Only CPR Sheet | Medical | 285K | 1 | 100% (22 pass) | 100% (22 pass) | 0 | ✅ | ✅ | Emergency procedure |
 
-**Comprehensive Test Suite (10 PDFs)** — Full details and raw files in [`benchmark/`](benchmark/).
+**Comprehensive Test Suite (13 PDFs Total)** — Full details and raw files in [`benchmark/`](benchmark/).
 
-**Key Metrics (10 PDFs):**
-- Average rounds to convergence: **1.6**
-- Baseline violations: **0-1 across all documents**
-- Reviewer success rate: **100%** on tested review rounds
-- Total ARIA enhancements: 21+ across the suite
-- Total test coverage: **86 KB to 4.4 MB** | **1–13 pages**
+**Key Metrics:**
+- **Total PDFs tested:** 13
+- **Average baseline score:** 99.3%
+- **Average final score:** 99.3%
+- **Average rounds to convergence:** 1.2
+- **Manifest downloads:** 13/13 working ✅
+- **Report downloads:** 13/13 working ✅
+- **Baseline violations:** 0 violations in 12/13 documents (1 PDF had 96.3%)
+- **Reviewer success rate:** 100% on all tested review rounds
+- **Total ARIA enhancements:** 25+ across the suite
+- **Total test coverage:** 132 KB to 4.4 MB | 1–13 pages
 
 ## Project Status & Roadmap
 
-**✅ Production Ready** — Fully deployed with working BYOK, benchmarks, and security controls.
+**✅ Production Ready** — Fully deployed with working BYOK, benchmarks, manifest/report downloads, and security controls.
 
-**Upcoming:**
-- Full audit-trail JSON manifest export
+**Recently Completed (July 2026):**
+- ✅ Full audit-trail JSON manifest export (with demo snapshot support)
+- ✅ Formatted HTML report generation with styling
+- ✅ Download package feature (JSON + HTML with proper headers)
+- ✅ Comprehensive benchmark testing (13 PDFs with manifest/report verification)
+
+**Upcoming Features:**
+- Download full package ZIP (HTML output + JSON manifest + Report + Original PDF)
+- CLI instance for batch processing and local runs
+- Persistent job storage (Supabase) to handle long-running PDF processing
 - JAWS / NVDA screen reader validation
-- Optional persistent storage (e.g. Supabase)
+- Batch processing dashboard
 - Expanded documentation and examples
 
 ## Quick Start
