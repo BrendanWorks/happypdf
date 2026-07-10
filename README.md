@@ -144,7 +144,7 @@ All documents converge quickly with zero content loss.
 | IRS Schedule C        | Dense form     | 0 viol / 23 pass | +5 pass   | 0 new    | 0 viol / 28 pass | OLMo ✅, Gemini ✅, GPT ✅ | Converged |
 | Navy Bulletin 1943    | OCR'd prose    | 0 viol / 17 pass | 0 new     | -        | 0 viol / 17 pass | OLMo ✅, Gemini ✅, GPT ✅ | Converged |
 
-**Extended Test Suite (6 Additional Documents)**
+**Extended Test Suite (7 Additional Documents)**
 
 | Document | Type | Size | Pages | Baseline | Final | Rounds | Notes |
 |----------|------|------|-------|----------|-------|--------|-------|
@@ -154,14 +154,16 @@ All documents converge quickly with zero content loss.
 | Dry Lab Protocol | Scientific | 1.3M | 3 | 20 pass | 20 pass | 1 | Text-heavy instructions |
 | Example Document | Sample | 343K | 3 | 27 pass | 32 pass | 2 | Generic test document |
 | Invoice Sample | Financial | 146K | 1 | 23 pass | 28 pass | 3 | Structured form, dense |
+| Somatosensory | Scientific | 132K | 2 | 24 pass | 24 pass | 0 | Neural system reference |
 
-**Comprehensive Test Suite (9 PDFs)** — Full details and raw files in [`benchmark/`](benchmark/).
+**Comprehensive Test Suite (10 PDFs)** — Full details and raw files in [`benchmark/`](benchmark/).
 
-**Key Metrics:**
-- Average rounds to convergence: **1.9**
-- Baseline violations: **0 across all documents**
-- Reviewer success rate: **100%**
+**Key Metrics (10 PDFs):**
+- Average rounds to convergence: **1.6**
+- Baseline violations: **0-1 across all documents**
+- Reviewer success rate: **100%** on tested review rounds
 - Total ARIA enhancements: 21+ across the suite
+- Total test coverage: **86 KB to 4.4 MB** | **1–13 pages**
 
 ## Project Status & Roadmap
 
