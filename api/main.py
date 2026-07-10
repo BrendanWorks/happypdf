@@ -336,6 +336,59 @@ def job_html(jid: str):
     return HTMLResponse(job["final_html"])
 
 
+@app.get("/api/jobs/{jid}/manifest")
+def job_manifest(jid: str):
+    """Return complete remediation manifest with all patches, decisions, and audit trail."""
+    with JOBS_LOCK:
+        job = JOBS.get(jid)
+    if not job:
+        raise HTTPException(404, "job not found")
+
+    # Build manifest from available job data
+    manifest = {
+        "id": job.get("id"),
+        "name": job.get("name"),
+        "status": job.get("status"),
+        "source": job.get("source"),
+        "started": job.get("started"),
+        "baseline": job.get("baseline", {}),
+        "final": job.get("final", {}),
+        "rounds": job.get("rounds", []),
+        "rounds_accepted": job.get("rounds_accepted", 0),
+        "stopped_reason": job.get("stopped_reason"),
+        "enhancements": job.get("enhancements", []),
+        "reviewer_health": job.get("reviewer_health", {}),
+    }
+    return manifest
+
+
+@app.get("/api/jobs/{jid}/report", response_class=HTMLResponse)
+def job_report(jid: str):
+    """Return a formatted HTML report of the remediation process."""
+    from src.report_generator import generate_html_report
+
+    with JOBS_LOCK:
+        job = JOBS.get(jid)
+    if not job:
+        raise HTTPException(404, "job not found")
+
+    # Build manifest
+    manifest = {
+        "id": job.get("id"),
+        "name": job.get("name"),
+        "baseline": job.get("baseline", {}),
+        "final": job.get("final", {}),
+        "rounds": job.get("rounds", []),
+        "rounds_accepted": job.get("rounds_accepted", 0),
+        "stopped_reason": job.get("stopped_reason"),
+        "enhancements": job.get("enhancements", []),
+        "reviewer_health": job.get("reviewer_health", {}),
+    }
+
+    html = generate_html_report(manifest)
+    return HTMLResponse(html)
+
+
 if __name__ == "__main__":
     import uvicorn
     sys.path.insert(0, str(ROOT / "api"))
