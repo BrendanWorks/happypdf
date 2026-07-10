@@ -118,6 +118,17 @@ All documents converge quickly with zero content loss.
 | IRS Schedule C        | Dense form     | 0 viol / 23 pass | +5 pass   | 0 new    | 0 viol / 28 pass | OLMo ✅, Gemini ✅, GPT ✅ | Converged |
 | Navy Bulletin 1943    | OCR'd prose    | 0 viol / 17 pass | 0 new     | -        | 0 viol / 17 pass | OLMo ✅, Gemini ✅, GPT ✅ | Converged |
 
+**Extended Test Suite (6 Additional Documents)**
+
+| Document | Type | Size | Pages | Baseline | Final | Rounds | Notes |
+|----------|------|------|-------|----------|-------|--------|-------|
+| Chapter 6: Assessment | Academic | 4.2M | 13 | 26 pass | 26 pass | 1 | Image-heavy extraction |
+| Blood Pressure Instructions | Medical | 163K | 1 | 26 pass | 26 pass | 1 | Device manual, visuals |
+| Creating a One Pager | Business | 1.3M | 5 | 26 pass | 31 pass | 2 | Mixed text & graphics |
+| Dry Lab Protocol | Scientific | 1.3M | 3 | 20 pass | 20 pass | 1 | Text-heavy instructions |
+| Example Document | Sample | 343K | 3 | 27 pass | 32 pass | 2 | Generic test document |
+| Invoice Sample | Financial | 146K | 1 | 23 pass | 28 pass | 3 | Structured form, dense |
+
 **Comprehensive Test Suite (9 PDFs)** — Full details and raw files in [`benchmark/`](benchmark/).
 
 **Key Metrics:**
