@@ -15,12 +15,12 @@ def generate_html_report(manifest: dict, output_path: str = None) -> str:
         HTML string
     """
 
-    baseline = manifest.get("baseline", {})
-    final = manifest.get("final", {})
-    rounds = manifest.get("rounds", [])
-    enhancements = manifest.get("enhancements", [])
-    reviewer_health = manifest.get("reviewer_health", {})
-    stopped_reason = manifest.get("stopped_reason", "unknown")
+    baseline = manifest.get("baseline") or {}
+    final = manifest.get("final") or {}
+    rounds = manifest.get("rounds") or []
+    enhancements = manifest.get("enhancements") or []
+    reviewer_health = manifest.get("reviewer_health") or {}
+    stopped_reason = manifest.get("stopped_reason") or "in_progress"
 
     # Build rounds summary
     rounds_html = ""
@@ -45,8 +45,8 @@ def generate_html_report(manifest: dict, output_path: str = None) -> str:
             </div>
             <p class="status">Status: <strong>{r.get('status', 'unknown')}</strong> ({r.get('seconds', 0)}s)</p>
             <p class="gate">Gate: <strong>{'PASSED' if r.get('gate_passed') else 'FAILED'}</strong></p>
-            {"".join(f'<p class="check">✓ {c["name"]}</p>' for c in r.get("gate_checks", []) if c.get("passed"))}
-            {"".join(f'<p class="check-fail">✗ {c["name"]}: {c.get("detail", "")}</p>' for c in r.get("gate_checks", []) if not c.get("passed"))}
+            {"".join(f'<p class="check">✓ {c.get("name", "Check")}</p>' for c in (r.get("gate_checks") or []) if c and c.get("passed"))}
+            {"".join(f'<p class="check-fail">✗ {c.get("name", "Check")}: {c.get("detail", "")}</p>' for c in (r.get("gate_checks") or []) if c and not c.get("passed"))}
         </div>
         """
 

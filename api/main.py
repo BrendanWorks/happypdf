@@ -365,7 +365,9 @@ def job_manifest(jid: str):
 @app.get("/api/jobs/{jid}/report", response_class=HTMLResponse)
 def job_report(jid: str):
     """Return a formatted HTML report of the remediation process."""
-    from src.report_generator import generate_html_report
+    import sys
+    sys.path.insert(0, str(SRC))
+    from report_generator import generate_html_report
 
     with JOBS_LOCK:
         job = JOBS.get(jid)
