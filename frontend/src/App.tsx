@@ -582,6 +582,14 @@ function DemoPanel() {
                     Download
                   </button>
                 </div>
+                <div className="flex gap-2 text-xs">
+                  <a href={`/api/jobs/${sessionToken}/manifest`} download className="flex-1 text-center px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded transition-colors">
+                    📋 Manifest (JSON)
+                  </a>
+                  <a href={`/api/jobs/${sessionToken}/report`} target="_blank" rel="noopener noreferrer" className="flex-1 text-center px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded transition-colors">
+                    📊 Report (HTML)
+                  </a>
+                </div>
                 {job.kind === 'replay' && (
                   <a href={`https://github.com/BrendanWorks/happypdf/raw/main/benchmark/${job.id === 'syllabus' ? 'syllabus_NOTaccessible' : job.id === 'navy_bulletin' ? 'navy_bulletin' : 'irs_schedule_c'}.pdf`} target="_blank" rel="noopener noreferrer" className="block text-center text-xs text-slate-400 hover:text-slate-300 transition-colors">
                     ↓ Download original PDF
