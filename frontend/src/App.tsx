@@ -583,10 +583,10 @@ function DemoPanel() {
                   </button>
                 </div>
                 <div className="flex gap-2 text-xs">
-                  <a href={`/api/jobs/${job.id}/manifest`} download className="flex-1 text-center px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded transition-colors">
+                  <a href={`${API_BASE}/api/jobs/${job.id}/manifest`} download className="flex-1 text-center px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded transition-colors">
                     📋 Manifest (JSON)
                   </a>
-                  <a href={`/api/jobs/${job.id}/report`} target="_blank" rel="noopener noreferrer" className="flex-1 text-center px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded transition-colors">
+                  <a href={`${API_BASE}/api/jobs/${job.id}/report`} target="_blank" rel="noopener noreferrer" className="flex-1 text-center px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded transition-colors">
                     📊 Report (HTML)
                   </a>
                 </div>
