@@ -201,6 +201,9 @@ cd frontend && npm install && cd ..
 # Install Chromium for Playwright
 python -m playwright install chromium
 
+# Install axe-core (path_resolver.py looks for it at the repo root)
+npm install --legacy-peer-deps
+
 # Set up Modal credentials
 export MODAL_TOKEN_ID=your_token_id
 export MODAL_TOKEN_SECRET=your_token_secret
