@@ -2,6 +2,15 @@
 
 This project doesn't use formal semantic versioning yet — entries are grouped by date. See [GitHub Releases](https://github.com/BrendanWorks/happypdf/releases) for downloadable demo assets (currently [v1.0](https://github.com/BrendanWorks/happypdf/releases/tag/v1.0)).
 
+## 2026-07-11 — Docker self-hosting, repo polish
+
+- Added Docker self-hosting: a backend Dockerfile (orchestrator, Playwright, axe-core) and a multi-stage frontend Dockerfile, tied together with `docker-compose.yml`. Scoped honestly in the docs — this containerizes the orchestration layer, not the pipeline's GPU inference, which still runs as remote Modal calls in every deployment mode.
+- Verified it for real: built and ran both containers, confirmed the frontend correctly bakes in the backend URL, then submitted an actual PDF to the Dockerized backend with real credentials and let the full pipeline run to completion (real olmOCR extraction, all three live reviewers, real Claude judge patches, 100% final axe score).
+- Added a `docker-build` CI job — caught two real bugs on its first two runs: the frontend's final stage was silently fetching a different Vite version via `npx` instead of the one actually pinned, and the root `package-lock.json` had never been committed at all (caught by the exact same blanket-gitignore bug pattern as `.prettierrc.json` earlier in the day). Verified the fix against a genuine fresh clone before pushing.
+- Added `SECURITY.md`, `CHANGELOG.md`, and GitHub issue/PR templates.
+- Added Dependabot config (pip, both npm roots, GitHub Actions, both Dockerfiles) and repository Topics for discoverability.
+- Expanded the Makefile (`dev-backend`, `dev-frontend`, `docker-build`, `docker-up`, `docker-down`) and updated `CONTRIBUTING.md` to document both the local and Docker setup paths.
+
 ## 2026-07-11 — Launch validation
 
 - Audited every claim in the README against reality and corrected what didn't hold up: BYOK privacy copy that said keys "never touch the browser" (backwards — that's how BYOK works), a benchmark average that didn't match its own table, a "self-hosted OLMo-only mode" claimed in docs that doesn't exist in code.
