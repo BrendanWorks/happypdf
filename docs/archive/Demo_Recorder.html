@@ -1,0 +1,837 @@
+{\rtf1\ansi\ansicpg1252\cocoartf2870
+\cocoatextscaling0\cocoaplatform0{\fonttbl\f0\fswiss\fcharset0 Helvetica;\f1\fnil\fcharset0 LucidaGrande;\f2\fnil\fcharset0 Menlo-Regular;
+}
+{\colortbl;\red255\green255\blue255;}
+{\*\expandedcolortbl;;}
+\margl1440\margr1440\vieww11520\viewh8400\viewkind0
+\pard\tx720\tx1440\tx2160\tx2880\tx3600\tx4320\tx5040\tx5760\tx6480\tx7200\tx7920\tx8640\pardirnatural\partightenfactor0
+
+\f0\fs24 \cf0 <!DOCTYPE html>\
+<html lang="en">\
+<head>\
+  <meta charset="UTF-8">\
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">\
+  <title>happypdf \'97 demo recording</title>\
+  <style>\
+    *, *::before, *::after \{ margin: 0; padding: 0; box-sizing: border-box; \}\
+\
+    :root \{\
+      --teal:   #14b8a6;\
+      --teal-d: #0d9488;\
+      --slate-950: #020617;\
+      --slate-900: #0f172a;\
+      --slate-800: #1e293b;\
+      --slate-700: #334155;\
+      --slate-600: #475569;\
+      --slate-500: #64748b;\
+      --slate-400: #94a3b8;\
+      --slate-300: #cbd5e1;\
+      --slate-200: #e2e8f0;\
+      --amber:  #f59e0b;\
+      --rose:   #f43f5e;\
+      --green:  #22c55e;\
+    \}\
+\
+    html, body \{\
+      width: 1280px;\
+      height: 800px;\
+      overflow: hidden;\
+      background: var(--slate-950);\
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;\
+      -webkit-font-smoothing: antialiased;\
+      color: var(--slate-200);\
+    \}\
+\
+    /* \uc0\u9472 \u9472  Scenes \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472  */\
+    .scene \{\
+      position: absolute;\
+      inset: 0;\
+      opacity: 0;\
+      pointer-events: none;\
+      transition: opacity 0.55s ease;\
+    \}\
+    .scene.active \{ opacity: 1; pointer-events: auto; \}\
+\
+    /* \uc0\u9472 \u9472  Scene 1: Brand splash \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472  */\
+    #s1 \{\
+      display: flex;\
+      flex-direction: column;\
+      align-items: center;\
+      justify-content: center;\
+      gap: 0;\
+      background: var(--slate-950);\
+    \}\
+    .splash-logo \{\
+      display: flex;\
+      align-items: center;\
+      gap: 14px;\
+      margin-bottom: 22px;\
+      transform: translateY(12px);\
+      opacity: 0;\
+      transition: transform 0.7s cubic-bezier(.22,1,.36,1), opacity 0.7s ease;\
+    \}\
+    .splash-logo.in \{ transform: translateY(0); opacity: 1; \}\
+    .splash-icon \{\
+      width: 52px; height: 52px;\
+      background: var(--teal);\
+      border-radius: 14px;\
+      display: flex; align-items: center; justify-content: center;\
+    \}\
+    .splash-wordmark \{\
+      font-size: 2.6rem;\
+      font-weight: 800;\
+      letter-spacing: -0.04em;\
+      color: #fff;\
+    \}\
+    .splash-wordmark span \{ color: var(--teal); \}\
+    .wcag-tag \{\
+      font-family: ui-monospace, monospace;\
+      font-size: 0.7rem;\
+      font-weight: 600;\
+      color: var(--slate-500);\
+      background: var(--slate-800);\
+      border: 1px solid var(--slate-700);\
+      padding: 3px 8px;\
+      border-radius: 5px;\
+      letter-spacing: 0.05em;\
+      align-self: flex-end;\
+      margin-bottom: 8px;\
+    \}\
+    .splash-tagline \{\
+      font-size: 1.3rem;\
+      color: var(--slate-400);\
+      font-weight: 400;\
+      letter-spacing: -0.01em;\
+      opacity: 0;\
+      transform: translateY(8px);\
+      transition: transform 0.6s cubic-bezier(.22,1,.36,1) 0.25s, opacity 0.6s ease 0.25s;\
+    \}\
+    .splash-tagline.in \{ transform: translateY(0); opacity: 1; \}\
+    .splash-tagline strong \{ color: #fff; font-weight: 700; \}\
+    .splash-sub \{\
+      margin-top: 10px;\
+      font-size: 0.9rem;\
+      color: var(--slate-600);\
+      opacity: 0;\
+      transition: opacity 0.5s ease 0.55s;\
+    \}\
+    .splash-sub.in \{ opacity: 1; \}\
+\
+    /* \uc0\u9472 \u9472  Scene 2: Demo panel upload \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472  */\
+    #s2 \{\
+      display: flex;\
+      align-items: center;\
+      justify-content: center;\
+      background: var(--slate-950);\
+    \}\
+    .panel-wrap \{\
+      width: 520px;\
+    \}\
+    .panel-nav \{\
+      display: flex;\
+      align-items: center;\
+      gap: 10px;\
+      margin-bottom: 16px;\
+    \}\
+    .nav-logo \{\
+      display: flex; align-items: center; gap: 8px;\
+    \}\
+    .nav-icon \{\
+      width: 26px; height: 26px;\
+      background: var(--teal);\
+      border-radius: 7px;\
+      display: flex; align-items: center; justify-content: center;\
+    \}\
+    .nav-wordmark \{\
+      font-size: 1.05rem; font-weight: 800; letter-spacing: -0.03em; color: #fff;\
+    \}\
+    .nav-wordmark span \{ color: var(--teal); \}\
+    .nav-tag \{\
+      font-family: ui-monospace, monospace;\
+      font-size: 0.6rem; font-weight: 600;\
+      color: var(--slate-500);\
+      background: var(--slate-800); border: 1px solid var(--slate-700);\
+      padding: 2px 6px; border-radius: 4px; letter-spacing: 0.05em;\
+    \}\
+\
+    .terminal \{\
+      background: var(--slate-900);\
+      border: 1px solid rgba(255,255,255,0.08);\
+      border-radius: 14px;\
+      overflow: hidden;\
+    \}\
+    .term-bar \{\
+      display: flex; align-items: center; gap: 7px;\
+      padding: 11px 14px;\
+      background: rgba(255,255,255,0.04);\
+      border-bottom: 1px solid rgba(255,255,255,0.06);\
+    \}\
+    .dot \{ width: 11px; height: 11px; border-radius: 50%; \}\
+    .dot.r \{ background: #ff5f57; \}\
+    .dot.y \{ background: #febc2e; \}\
+    .dot.g \{ background: #28c840; \}\
+    .term-title \{\
+      margin-left: 8px;\
+      font-size: 0.72rem; font-family: ui-monospace, monospace;\
+      color: var(--slate-500);\
+    \}\
+    .term-body \{ padding: 22px; \}\
+\
+    /* Tab toggle */\
+    .tab-row \{\
+      display: grid; grid-template-columns: 1fr 1fr;\
+      gap: 6px; padding: 5px;\
+      background: rgba(255,255,255,0.05);\
+      border-radius: 10px; margin-bottom: 18px;\
+    \}\
+    .tab \{\
+      display: flex; align-items: center; justify-content: center;\
+      gap: 7px; padding: 9px;\
+      border-radius: 7px; font-size: 0.82rem; font-weight: 600;\
+      color: var(--slate-500);\
+      transition: all 0.25s ease;\
+    \}\
+    .tab.active-tab \{\
+      background: var(--slate-700);\
+      color: #fff;\
+    \}\
+    .tab svg \{ flex-shrink: 0; \}\
+\
+    /* Drop zone */\
+    .dropzone \{\
+      border: 2px dashed var(--slate-700);\
+      border-radius: 12px; padding: 40px;\
+      text-align: center;\
+      transition: border-color 0.3s ease, background 0.3s ease;\
+      cursor: pointer;\
+    \}\
+    .dropzone.hover \{\
+      border-color: var(--teal);\
+      background: rgba(20,184,166,0.04);\
+    \}\
+    .dz-icon \{ margin: 0 auto 12px; color: var(--slate-600); \}\
+    .dz-title \{ font-weight: 600; color: var(--slate-300); margin-bottom: 4px; \}\
+    .dz-sub \{ font-size: 0.85rem; color: var(--slate-600); margin-bottom: 16px; \}\
+    .sample-btn \{\
+      font-family: ui-monospace, monospace;\
+      font-size: 0.78rem;\
+      padding: 7px 14px;\
+      background: var(--slate-800);\
+      color: var(--teal);\
+      border: 1px solid var(--slate-700);\
+      border-radius: 7px;\
+      cursor: pointer;\
+    \}\
+\
+    /* \uc0\u9472 \u9472  Scene 3: Pipeline running \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472  */\
+    #s3 \{\
+      display: flex;\
+      align-items: center;\
+      justify-content: center;\
+      background: var(--slate-950);\
+    \}\
+\
+    .pipeline-wrap \{\
+      width: 520px;\
+    \}\
+\
+    .file-pill \{\
+      display: flex; align-items: center; gap: 10px;\
+      padding: 11px 16px;\
+      background: var(--slate-800);\
+      border: 1px solid rgba(255,255,255,0.07);\
+      border-radius: 9px; margin-bottom: 14px;\
+      font-family: ui-monospace, monospace;\
+      font-size: 0.85rem; color: var(--slate-300);\
+    \}\
+    .file-pill svg \{ color: var(--teal); flex-shrink: 0; \}\
+    .complete-pill \{\
+      margin-left: auto; display: flex; align-items: center; gap: 5px;\
+      font-size: 0.78rem; font-weight: 600; color: #4ade80;\
+      opacity: 0; transition: opacity 0.4s ease;\
+    \}\
+    .complete-pill.show \{ opacity: 1; \}\
+\
+    .stage-list \{ display: flex; flex-direction: column; gap: 5px; margin-bottom: 16px; \}\
+    .stage-row \{\
+      display: flex; align-items: center; gap: 10px;\
+      padding: 8px 12px; border-radius: 8px;\
+      font-size: 0.875rem; color: var(--slate-600);\
+      opacity: 0.28;\
+      transition: opacity 0.3s ease, background 0.3s ease, color 0.3s ease;\
+    \}\
+    .stage-row.done \{ opacity: 0.65; color: var(--slate-300); \}\
+    .stage-row.active \{\
+      opacity: 1; background: rgba(20,184,166,0.08);\
+      border: 1px solid rgba(20,184,166,0.18);\
+      color: #5eead4;\
+    \}\
+    .stage-icon \{ width: 16px; height: 16px; flex-shrink: 0; \}\
+    .spin \{ animation: spin 1s linear infinite; \}\
+    @keyframes spin \{ to \{ transform: rotate(360deg); \} \}\
+\
+    /* Score rings */\
+    .rings-row \{\
+      display: flex; align-items: center; justify-content: center; gap: 18px;\
+      padding: 18px;\
+      border: 1px solid rgba(255,255,255,0.07);\
+      border-radius: 12px;\
+      background: var(--slate-800);\
+      opacity: 0;\
+      transition: opacity 0.5s ease;\
+    \}\
+    .rings-row.show \{ opacity: 1; \}\
+    .ring-cell \{ text-align: center; \}\
+    .ring-label \{ font-size: 0.72rem; color: var(--slate-500); margin-top: 8px; font-weight: 500; \}\
+    .arrow-icon \{ color: var(--slate-700); \}\
+\
+    /* \uc0\u9472 \u9472  Scene 4: Violations \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472  */\
+    #s4 \{\
+      display: flex;\
+      align-items: center;\
+      justify-content: center;\
+      background: var(--slate-950);\
+    \}\
+    .violations-wrap \{ width: 520px; \}\
+    .v-title \{\
+      font-size: 0.68rem;\
+      font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em;\
+      color: var(--slate-600); margin-bottom: 10px; padding: 0 2px;\
+    \}\
+    .v-item \{\
+      display: flex; align-items: center; gap: 10px;\
+      padding: 10px 14px; border-radius: 9px;\
+      font-size: 0.82rem; margin-bottom: 6px;\
+      border: 1px solid transparent;\
+      transition: all 0.5s ease;\
+    \}\
+    .v-item.critical \{ border-color: rgba(244,63,94,0.3); background: rgba(244,63,94,0.06); \}\
+    .v-item.serious  \{ border-color: rgba(245,158,11,0.3); background: rgba(245,158,11,0.06); \}\
+    .v-item.moderate \{ border-color: rgba(255,255,255,0.08); background: rgba(255,255,255,0.03); \}\
+    .v-item.fixed \{\
+      border-color: rgba(34,197,94,0.2);\
+      background: rgba(34,197,94,0.05);\
+      opacity: 0.55;\
+    \}\
+    .v-criterion \{\
+      font-family: ui-monospace, monospace;\
+      font-size: 0.75rem; color: var(--slate-500); flex-shrink: 0;\
+    \}\
+    .v-label \{ flex: 1; \}\
+    .v-label.strikethrough \{ text-decoration: line-through; color: var(--slate-600); \}\
+    .v-badge \{\
+      font-size: 0.67rem; font-weight: 700; text-transform: uppercase;\
+      padding: 2px 7px; border-radius: 4px; flex-shrink: 0;\
+    \}\
+    .v-badge.critical \{ color: #fb7185; background: rgba(244,63,94,0.1); \}\
+    .v-badge.serious  \{ color: #fbbf24; background: rgba(245,158,11,0.1); \}\
+    .v-badge.moderate \{ color: var(--slate-400); background: rgba(255,255,255,0.05); \}\
+    .v-badge.fixed    \{ color: #4ade80; \}\
+\
+    /* \uc0\u9472 \u9472  Scene 5: Output \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472  */\
+    #s5 \{\
+      display: flex;\
+      align-items: center;\
+      justify-content: center;\
+      background: var(--slate-950);\
+    \}\
+    .output-wrap \{ width: 520px; text-align: center; \}\
+    .big-score \{\
+      margin: 0 auto 24px;\
+      opacity: 0;\
+      transform: scale(0.85);\
+      transition: opacity 0.6s ease, transform 0.6s cubic-bezier(.22,1,.36,1);\
+    \}\
+    .big-score.in \{ opacity: 1; transform: scale(1); \}\
+    .output-msg \{\
+      font-size: 1.35rem; font-weight: 800;\
+      letter-spacing: -0.02em; color: #fff;\
+      margin-bottom: 6px;\
+      opacity: 0; transform: translateY(8px);\
+      transition: opacity 0.5s ease 0.3s, transform 0.5s ease 0.3s;\
+    \}\
+    .output-msg.in \{ opacity: 1; transform: translateY(0); \}\
+    .output-sub \{\
+      font-size: 0.9rem; color: var(--slate-500);\
+      margin-bottom: 28px;\
+      opacity: 0; transition: opacity 0.5s ease 0.5s;\
+    \}\
+    .output-sub.in \{ opacity: 1; \}\
+    .output-btns \{\
+      display: flex; gap: 12px; justify-content: center;\
+      opacity: 0; transform: translateY(6px);\
+      transition: opacity 0.4s ease 0.65s, transform 0.4s ease 0.65s;\
+    \}\
+    .output-btns.in \{ opacity: 1; transform: translateY(0); \}\
+    .btn-secondary \{\
+      display: flex; align-items: center; gap: 7px;\
+      padding: 11px 20px; border-radius: 10px;\
+      background: var(--slate-800); color: var(--slate-200);\
+      font-size: 0.875rem; font-weight: 600;\
+      border: 1px solid rgba(255,255,255,0.08);\
+    \}\
+    .btn-primary \{\
+      display: flex; align-items: center; gap: 7px;\
+      padding: 11px 24px; border-radius: 10px;\
+      background: var(--teal); color: var(--slate-900);\
+      font-size: 0.875rem; font-weight: 700;\
+    \}\
+    .caveat \{\
+      margin-top: 20px; font-size: 0.72rem; color: var(--slate-700);\
+      opacity: 0; transition: opacity 0.4s ease 0.9s;\
+    \}\
+    .caveat.in \{ opacity: 1; \}\
+\
+    /* \uc0\u9472 \u9472  Shared score ring SVG \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472  */\
+    .ring-svg text \{\
+      font-family: ui-monospace, monospace;\
+      font-weight: 700;\
+    \}\
+\
+    /* \uc0\u9472 \u9472  Replay button \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472  */\
+    #replay \{\
+      position: fixed; bottom: 20px; right: 20px;\
+      padding: 8px 16px;\
+      background: var(--slate-800); border: 1px solid var(--slate-700);\
+      color: var(--slate-400); font-size: 0.78rem; font-weight: 600;\
+      border-radius: 8px; cursor: pointer;\
+      opacity: 0; transition: opacity 0.3s ease;\
+    \}\
+    #replay.show \{ opacity: 1; \}\
+    #replay:hover \{ background: var(--slate-700); color: #fff; \}\
+\
+    /* \uc0\u9472 \u9472  Progress dots \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472  */\
+    #dots \{\
+      position: fixed; bottom: 22px; left: 50%; transform: translateX(-50%);\
+      display: flex; gap: 7px;\
+    \}\
+    .dot-ind \{\
+      width: 6px; height: 6px; border-radius: 50%;\
+      background: var(--slate-700); transition: background 0.3s ease, transform 0.3s ease;\
+    \}\
+    .dot-ind.on \{ background: var(--teal); transform: scale(1.3); \}\
+  </style>\
+</head>\
+<body>\
+\
+<!-- \uc0\u9472 \u9472  Scene 1: Brand splash \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472  -->\
+<div class="scene" id="s1">\
+  <div class="splash-logo" id="splashLogo">\
+    <span class="splash-icon">\
+      <svg width="22" height="22" viewBox="0 0 22 22" fill="none">\
+        <rect x="3" y="2" width="16" height="18" rx="2" stroke="#0f172a" stroke-width="2"/>\
+        <path d="M7 8h8M7 12h8M7 16h4" stroke="#0f172a" stroke-width="1.6" stroke-linecap="round"/>\
+      </svg>\
+    </span>\
+    <span class="splash-wordmark">happy<span>pdf</span></span>\
+    <span class="wcag-tag">WCAG 2.2</span>\
+  </div>\
+  <p class="splash-tagline" id="splashTag">\
+    <strong>PDF 
+\f1 \uc0\u8594 
+\f0  accessible HTML.</strong> Validated. Open.\
+  </p>\
+  <p class="splash-sub" id="splashSub">\
+    Multi-model remediation pipeline &nbsp;\'b7&nbsp; Powered by Ai2 open models\
+  </p>\
+</div>\
+\
+<!-- \uc0\u9472 \u9472  Scene 2: Upload \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472  -->\
+<div class="scene" id="s2">\
+  <div class="panel-wrap">\
+    <div class="panel-nav">\
+      <div class="nav-logo">\
+        <span class="nav-icon">\
+          <svg width="13" height="13" viewBox="0 0 13 13" fill="none">\
+            <rect x="1.5" y="1" width="10" height="11" rx="1.5" stroke="#0f172a" stroke-width="1.5"/>\
+            <path d="M4 4.5h5M4 7h5M4 9.5h3" stroke="#0f172a" stroke-width="1.2" stroke-linecap="round"/>\
+          </svg>\
+        </span>\
+        <span class="nav-wordmark">happy<span>pdf</span></span>\
+        <span class="nav-tag">WCAG 2.2</span>\
+      </div>\
+    </div>\
+    <div class="terminal">\
+      <div class="term-bar">\
+        <span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>\
+        <span class="term-title">happypdf \'97 pipeline</span>\
+      </div>\
+      <div class="term-body">\
+        <div class="tab-row">\
+          <div class="tab active-tab" id="tabDemo">\
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="16 16 12 12 8 16"/><line x1="12" y1="12" x2="12" y2="21"/><path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3"/></svg>\
+            Try the demo\
+          </div>\
+          <div class="tab" id="tabByok">\
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/></svg>\
+            Use my license\
+          </div>\
+        </div>\
+        <div class="dropzone" id="dropzone">\
+          <div class="dz-icon">\
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><polyline points="16 16 12 12 8 16"/><line x1="12" y1="12" x2="12" y2="21"/><path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3"/></svg>\
+          </div>\
+          <p class="dz-title">Drop a PDF here</p>\
+          <p class="dz-sub">or try it with a sample document</p>\
+          <div class="sample-btn">Use IRS Schedule C demo 
+\f1 \uc0\u8594 
+\f0 </div>\
+        </div>\
+      </div>\
+    </div>\
+  </div>\
+</div>\
+\
+<!-- \uc0\u9472 \u9472  Scene 3: Pipeline running \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472  -->\
+<div class="scene" id="s3">\
+  <div class="pipeline-wrap">\
+    <div class="terminal">\
+      <div class="term-bar">\
+        <span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>\
+        <span class="term-title">happypdf \'97 pipeline</span>\
+      </div>\
+      <div class="term-body">\
+        <div class="file-pill">\
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>\
+          irs_schedule_c.pdf\
+          <span class="complete-pill" id="completePill">\
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>\
+            Complete\
+          </span>\
+        </div>\
+\
+        <div class="stage-list" id="stageList">\
+          <!-- populated by JS -->\
+        </div>\
+\
+        <div class="rings-row" id="ringsRow">\
+          <div class="ring-cell">\
+            <svg class="ring-svg" width="72" height="72" id="ring1"></svg>\
+            <div class="ring-label">Baseline</div>\
+          </div>\
+          <svg class="arrow-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>\
+          <div class="ring-cell">\
+            <svg class="ring-svg" width="72" height="72" id="ring2"></svg>\
+            <div class="ring-label">Round 1</div>\
+          </div>\
+          <svg class="arrow-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>\
+          <div class="ring-cell">\
+            <svg class="ring-svg" width="72" height="72" id="ring3"></svg>\
+            <div class="ring-label">Final</div>\
+          </div>\
+        </div>\
+      </div>\
+    </div>\
+  </div>\
+</div>\
+\
+<!-- \uc0\u9472 \u9472  Scene 4: Violations \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472  -->\
+<div class="scene" id="s4">\
+  <div class="violations-wrap">\
+    <div class="terminal">\
+      <div class="term-bar">\
+        <span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>\
+        <span class="term-title">happypdf \'97 WCAG findings</span>\
+      </div>\
+      <div class="term-body">\
+        <div class="v-title">WCAG findings \'97 Round 1 
+\f1 \uc0\u8594 
+\f0  Round 2</div>\
+        <div id="violationList"></div>\
+      </div>\
+    </div>\
+  </div>\
+</div>\
+\
+<!-- \uc0\u9472 \u9472  Scene 5: Output \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472  -->\
+<div class="scene" id="s5">\
+  <div class="output-wrap">\
+    <svg class="big-score" id="bigScore" width="140" height="140"></svg>\
+    <p class="output-msg" id="outputMsg">97% automated check coverage</p>\
+    <p class="output-sub" id="outputSub">2 remediation rounds &nbsp;\'b7&nbsp; 5 violations resolved &nbsp;\'b7&nbsp; 0 remaining</p>\
+    <div class="output-btns" id="outputBtns">\
+      <div class="btn-secondary">\
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>\
+        View output HTML\
+      </div>\
+      <div class="btn-primary">\
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>\
+        Download HTML\
+      </div>\
+    </div>\
+    <p class="caveat" id="outputCaveat">\
+      Score reflects axe-core automated check coverage (30\'9640% of WCAG). Manual review still required for full conformance.\
+    </p>\
+  </div>\
+</div>\
+\
+<!-- Progress dots -->\
+<div id="dots">\
+  <div class="dot-ind" id="d0"></div>\
+  <div class="dot-ind" id="d1"></div>\
+  <div class="dot-ind" id="d2"></div>\
+  <div class="dot-ind" id="d3"></div>\
+  <div class="dot-ind" id="d4"></div>\
+</div>\
+\
+<button id="replay">
+\f2 \uc0\u8634 
+\f0  Replay</button>\
+\
+<script>\
+// \uc0\u9472 \u9472  Helpers \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \
+\
+function wait(ms) \{ return new Promise(r => setTimeout(r, ms)); \}\
+\
+function showScene(id) \{\
+  document.querySelectorAll('.scene').forEach(s => s.classList.remove('active'));\
+  document.getElementById(id).classList.add('active');\
+  // dots\
+  ['d0','d1','d2','d3','d4'].forEach((d,i) => \{\
+    document.getElementById(d).classList.toggle('on', 'd'+i === 'D'.toLowerCase() + id.replace('s',''));\
+  \});\
+  const n = parseInt(id.replace('s','')) - 1;\
+  ['d0','d1','d2','d3','d4'].forEach((d,i) => \{\
+    document.getElementById(d).classList.toggle('on', i === n);\
+  \});\
+\}\
+\
+function drawRing(svgId, score, animated = false) \{\
+  const svg = document.getElementById(svgId);\
+  const size = 72, stroke = 7;\
+  const r = (size - stroke) / 2;\
+  const circ = 2 * Math.PI * r;\
+  const color = score >= 90 ? '#22c55e' : score >= 60 ? '#f59e0b' : '#ef4444';\
+\
+  svg.innerHTML = `\
+    <circle cx="$\{size/2\}" cy="$\{size/2\}" r="$\{r\}" fill="none" stroke="#1e293b" stroke-width="$\{stroke\}"/>\
+    <circle cx="$\{size/2\}" cy="$\{size/2\}" r="$\{r\}" fill="none"\
+      stroke="$\{color\}" stroke-width="$\{stroke\}"\
+      stroke-dasharray="$\{animated ? '0' : (score/100)*circ\} $\{circ\}"\
+      stroke-dashoffset="0"\
+      stroke-linecap="round"\
+      id="$\{svgId\}-arc"\
+      transform="rotate(-90 $\{size/2\} $\{size/2\})"\
+      style="transition: stroke-dasharray 1s ease"/>\
+    <text x="50%" y="50%" dominant-baseline="central" text-anchor="middle"\
+      fill="$\{color\}" font-size="$\{size*0.23\}" font-weight="700"\
+      font-family="ui-monospace,monospace">$\{score\}</text>\
+  `;\
+\
+  if (animated) \{\
+    requestAnimationFrame(() => \{\
+      requestAnimationFrame(() => \{\
+        const arc = document.getElementById(`$\{svgId\}-arc`);\
+        if (arc) arc.setAttribute('stroke-dasharray', `$\{(score/100)*circ\} $\{circ\}`);\
+      \});\
+    \});\
+  \}\
+\}\
+\
+function drawBigRing(svgId, score) \{\
+  const svg = document.getElementById(svgId);\
+  const size = 140, stroke = 11;\
+  const r = (size - stroke) / 2;\
+  const circ = 2 * Math.PI * r;\
+  const color = '#22c55e';\
+  svg.innerHTML = `\
+    <circle cx="$\{size/2\}" cy="$\{size/2\}" r="$\{r\}" fill="none" stroke="#1e293b" stroke-width="$\{stroke\}"/>\
+    <circle cx="$\{size/2\}" cy="$\{size/2\}" r="$\{r\}" fill="none"\
+      stroke="$\{color\}" stroke-width="$\{stroke\}"\
+      stroke-dasharray="0 $\{circ\}"\
+      stroke-linecap="round"\
+      id="big-arc"\
+      transform="rotate(-90 $\{size/2\} $\{size/2\})"\
+      style="transition: stroke-dasharray 1.2s ease"/>\
+    <text x="50%" y="50%" dominant-baseline="central" text-anchor="middle"\
+      fill="$\{color\}" font-size="$\{size*0.22\}" font-weight="800"\
+      font-family="ui-monospace,monospace">$\{score\}</text>\
+  `;\
+  requestAnimationFrame(() => requestAnimationFrame(() => \{\
+    const arc = document.getElementById('big-arc');\
+    if (arc) arc.setAttribute('stroke-dasharray', `$\{(score/100)*circ\} $\{circ\}`);\
+  \}));\
+\}\
+\
+// \uc0\u9472 \u9472  Stage definitions \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \
+\
+const STAGES = [\
+  \{ label: 'olmOCR extraction' \},\
+  \{ label: 'Alt text generation' \},\
+  \{ label: 'Semantic HTML' \},\
+  \{ label: 'axe-core baseline' \},\
+  \{ label: 'Peer review \'b7 Round 1' \},\
+  \{ label: 'Peer review \'b7 Round 2' \},\
+  \{ label: 'Output ready' \},\
+];\
+\
+const VIOLATIONS = [\
+  \{ id: '1.1.1', label: 'Missing alt text',     impact: 'critical', fixedAt: 4 \},\
+  \{ id: '1.3.1', label: 'Table header missing', impact: 'serious',  fixedAt: 4 \},\
+  \{ id: '2.4.3', label: 'Focus order broken',   impact: 'serious',  fixedAt: 5 \},\
+  \{ id: '1.4.3', label: 'Contrast ratio 3.8:1', impact: 'moderate', fixedAt: 5 \},\
+  \{ id: '4.1.2', label: 'Duplicate element IDs',impact: 'moderate', fixedAt: 6 \},\
+];\
+\
+function buildStageList() \{\
+  const list = document.getElementById('stageList');\
+  list.innerHTML = STAGES.map((s, i) => `\
+    <div class="stage-row" id="stage-$\{i\}">\
+      <span class="stage-icon" id="stage-icon-$\{i\}">\
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">\
+          <circle cx="12" cy="12" r="8" stroke-width="1.5" opacity="0.3"/>\
+        </svg>\
+      </span>\
+      <span>$\{s.label\}</span>\
+    </div>\
+  `).join('');\
+\}\
+\
+function checkSVG() \{\
+  return `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#4ade80" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>`;\
+\}\
+function spinSVG() \{\
+  return `<svg class="spin" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#5eead4" stroke-width="2"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-4.67"/></svg>`;\
+\}\
+\
+function setStageActive(i) \{\
+  STAGES.forEach((_, j) => \{\
+    const row = document.getElementById(`stage-$\{j\}`);\
+    const icon = document.getElementById(`stage-icon-$\{j\}`);\
+    row.classList.remove('active','done');\
+    if (j < i) \{ row.classList.add('done'); icon.innerHTML = checkSVG(); \}\
+    else if (j === i) \{ row.classList.add('active'); icon.innerHTML = spinSVG(); \}\
+  \});\
+\}\
+\
+function buildViolationList(currentStage) \{\
+  const list = document.getElementById('violationList');\
+  list.innerHTML = VIOLATIONS.map(v => \{\
+    const fixed = currentStage >= v.fixedAt;\
+    return `\
+      <div class="v-item $\{fixed ? 'fixed' : v.impact\}" id="v-$\{v.id.replace('.','_')\}">\
+        $\{fixed\
+          ? `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#4ade80" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>`\
+          : `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="$\{v.impact==='critical'?'#fb7185':v.impact==='serious'?'#fbbf24':'#94a3b8'\}" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>`\
+        \}\
+        <span class="v-criterion">$\{v.id\}</span>\
+        <span class="v-label $\{fixed ? 'strikethrough' : ''\}">$\{v.label\}</span>\
+        <span class="v-badge $\{fixed ? 'fixed' : v.impact\}">$\{fixed ? 'fixed' : v.impact\}</span>\
+      </div>\
+    `;\
+  \}).join('');\
+\}\
+\
+// \uc0\u9472 \u9472  Main animation sequence \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \
+\
+async function run() \{\
+  document.getElementById('replay').classList.remove('show');\
+\
+  // Scene 1: Brand splash\
+  showScene('s1');\
+  await wait(300);\
+  document.getElementById('splashLogo').classList.add('in');\
+  await wait(500);\
+  document.getElementById('splashTag').classList.add('in');\
+  await wait(400);\
+  document.getElementById('splashSub').classList.add('in');\
+  await wait(2200);\
+\
+  // Scene 2: Upload \'97 hover then click demo\
+  showScene('s2');\
+  await wait(900);\
+  document.getElementById('dropzone').classList.add('hover');\
+  await wait(600);\
+  document.getElementById('dropzone').classList.remove('hover');\
+  await wait(300);\
+  document.getElementById('dropzone').classList.add('hover');\
+  await wait(1000);\
+\
+  // Scene 3: Pipeline running\
+  buildStageList();\
+  showScene('s3');\
+  drawRing('ring1', 0); drawRing('ring2', 0); drawRing('ring3', 0);\
+\
+  for (let i = 0; i < STAGES.length; i++) \{\
+    setStageActive(i);\
+    await wait(i === 3 ? 1100 : 850);\
+\
+    // After axe-core (stage 3) show baseline ring\
+    if (i === 3) \{\
+      document.getElementById('ringsRow').classList.add('show');\
+      drawRing('ring1', 61, true);\
+    \}\
+    // After round 1 (stage 4) show round 1 ring\
+    if (i === 4) \{\
+      drawRing('ring2', 84, true);\
+    \}\
+  \}\
+\
+  // Mark all done, show final ring\
+  STAGES.forEach((_, j) => \{\
+    const row = document.getElementById(`stage-$\{j\}`);\
+    const icon = document.getElementById(`stage-icon-$\{j\}`);\
+    row.classList.remove('active');\
+    row.classList.add('done');\
+    icon.innerHTML = checkSVG();\
+  \});\
+  document.getElementById('completePill').classList.add('show');\
+  drawRing('ring3', 97, true);\
+  await wait(1800);\
+\
+  // Scene 4: Violations\
+  buildViolationList(3);\
+  showScene('s4');\
+  await wait(1200);\
+  buildViolationList(4); // fix first two\
+  await wait(1400);\
+  buildViolationList(5); // fix next two\
+  await wait(1400);\
+  buildViolationList(6); // fix last\
+  await wait(1600);\
+\
+  // Scene 5: Output\
+  showScene('s5');\
+  drawBigRing('bigScore', 97);\
+  await wait(200);\
+  document.getElementById('bigScore').classList.add('in');\
+  await wait(400);\
+  document.getElementById('outputMsg').classList.add('in');\
+  await wait(250);\
+  document.getElementById('outputSub').classList.add('in');\
+  await wait(300);\
+  document.getElementById('outputBtns').classList.add('in');\
+  await wait(400);\
+  document.getElementById('outputCaveat').classList.add('in');\
+  await wait(2500);\
+\
+  document.getElementById('replay').classList.add('show');\
+\}\
+\
+// \uc0\u9472 \u9472  Replay \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \
+\
+function resetAll() \{\
+  document.getElementById('splashLogo').classList.remove('in');\
+  document.getElementById('splashTag').classList.remove('in');\
+  document.getElementById('splashSub').classList.remove('in');\
+  document.getElementById('dropzone').classList.remove('hover');\
+  document.getElementById('ringsRow').classList.remove('show');\
+  document.getElementById('completePill').classList.remove('show');\
+  document.getElementById('bigScore').classList.remove('in');\
+  document.getElementById('outputMsg').classList.remove('in');\
+  document.getElementById('outputSub').classList.remove('in');\
+  document.getElementById('outputBtns').classList.remove('in');\
+  document.getElementById('outputCaveat').classList.remove('in');\
+\}\
+\
+document.getElementById('replay').addEventListener('click', () => \{\
+  resetAll();\
+  run();\
+\});\
+\
+// Start\
+run();\
+</script>\
+</body>\
+</html>\
+}

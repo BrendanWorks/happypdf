@@ -1,11 +1,22 @@
 # Python
 venv/
 .venv/
+ENV/
 __pycache__/
 *.pyc
 *.egg-info/
+.eggs/
 dist/
 build/
+
+# Testing / linting caches
+.pytest_cache/
+.coverage
+htmlcov/
+.ruff_cache/
+.mypy_cache/
+.dmypy.json
+dmypy.json
 
 # Node
 node_modules/
@@ -15,8 +26,7 @@ output/
 *.md
 *.json
 !README.md
-!SETUP.md
-!PATH_MIGRATION.md
+!CONTRIBUTING.md
 !package.json
 !.prettierrc.json
 !docs/**/*.md
@@ -36,5 +46,21 @@ frontend/dist/
 .env.local
 modal.toml
 
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
 # OS
 .DS_Store
+Thumbs.db
+
+# Project-specific temp files
+*.log
+jobs/
+temp/
+debug/
+*.modal.cache
+cache/
