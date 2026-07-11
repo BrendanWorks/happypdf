@@ -223,6 +223,15 @@ npm run dev
 
 Run benchmarks: `python src/benchmark.py`
 
+### Run Locally with Docker
+
+```bash
+cp .env.example .env   # fill in your Modal + provider credentials
+docker compose up --build
+```
+
+This containerizes the orchestrator (`api/` + `src/`, with Playwright and axe-core baked in) and the built frontend — `make docker-up` does the same thing. It does **not** make the pipeline air-gapped: olmOCR extraction and Qwen2-VL alt-text generation are remote calls to Modal GPU functions, and the reviewer/judge step calls Anthropic/OpenAI/Google over the network in every deployment mode. You still need a Modal account and reviewer API keys either way — this just containerizes the orchestration layer for reproducible self-hosting, not the GPU inference itself.
+
 ## Architecture Highlights
 
 - **Stable Element IDs** (`block-{page}-{hash}`) for safe, repeatable patching.
