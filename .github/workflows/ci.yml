@@ -52,6 +52,10 @@ jobs:
       - name: Install Playwright browsers
         run: python -m playwright install chromium
 
+      # axe-core is a root-level npm dependency; path_resolver.py needs it on disk
+      - name: Install axe-core
+        run: npm install --legacy-peer-deps
+
       # Run Python tests
       - name: Run tests (pytest)
         run: pytest tests/ -v
