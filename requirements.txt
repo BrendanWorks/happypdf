@@ -18,4 +18,4 @@ python-multipart==0.0.32  # PDF upload handling for live jobs
 
 # Testing
 pytest>=7.0.0          # testing framework
-pytest-asyncio>=0.21.0 # async test support
+pytest-asyncio>=1.4.0 # async test support
