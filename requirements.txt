@@ -15,3 +15,7 @@ httpx==0.28.1          # async calls to the OLMo Modal endpoint
 fastapi==0.138.0       # demo API in front of the pipeline (api/main.py)
 uvicorn==0.49.0        # ASGI server for the demo API
 python-multipart==0.0.32  # PDF upload handling for live jobs
+
+# Testing
+pytest>=7.0.0          # testing framework
+pytest-asyncio>=0.21.0 # async test support
