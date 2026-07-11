@@ -26,9 +26,12 @@ from pathlib import Path
 
 import fitz  # PyMuPDF
 import modal
+from path_resolver import REPO as ROOT, AXE_LOCAL, validate_paths
+
+# Validate paths at import time
+validate_paths()
 
 # src/ lives under the repo root; inputs come from benchmark/, outputs go to output/.
-ROOT = Path(__file__).resolve().parent.parent
 INPUT_PDF = ROOT / "benchmark" / "syllabus_NOTaccessible.pdf"
 OUTPUT_DIR = ROOT / "output"
 OUT_HTML = OUTPUT_DIR / "syllabus_scored.html"
@@ -37,11 +40,8 @@ IMG_DIR = OUTPUT_DIR / "syllabus_images"
 CACHE_MD = OUTPUT_DIR / "syllabus_olmocr.md"      # cached olmOCR markdown
 CACHE_ALT = OUTPUT_DIR / "syllabus_alt.json"      # cached alt-text map
 
-# axe-core from a local npm install (repo root) or a shared parent install.
-AXE_CANDIDATES = [
-    ROOT / "node_modules/axe-core/axe.min.js",
-    Path("/Users/brendanworks/node_modules/axe-core/axe.min.js"),
-]
+# axe-core resolved portably via path_resolver
+AXE_CANDIDATES = [AXE_LOCAL]
 
 OLMOCR_APP, OLMOCR_FN = "olmocr", "process_pdf"
 ALTTEXT_APP, ALTTEXT_FN = "pdfaccess-alttext", "generate_alt_text"

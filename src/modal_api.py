@@ -18,9 +18,10 @@ Deploy:  modal deploy src/modal_api.py
 from pathlib import Path
 
 import modal
+from path_resolver import REPO, AXE_LOCAL, validate_paths
 
-REPO = Path(__file__).resolve().parent.parent
-AXE_LOCAL = "/Users/brendanworks/node_modules/axe-core/axe.min.js"
+# Validate paths at import time (fails fast if something is missing)
+validate_paths()
 
 image = (
     modal.Image.debian_slim(python_version="3.11")

@@ -15,6 +15,8 @@ output/
 *.md
 *.json
 !README.md
+!SETUP.md
+!PATH_MIGRATION.md
 !package.json
 !docs/**/*.md
 !tests/**/*.json

@@ -37,11 +37,14 @@ from playwright.sync_api import sync_playwright
 
 SRC = Path(__file__).resolve().parent
 sys.path.insert(0, str(SRC))
+from path_resolver import REPO as ROOT, AXE_LOCAL, validate_paths  # noqa: E402
 import judge        # noqa: E402
 import applicator   # noqa: E402
 import gate         # noqa: E402
 
-ROOT = SRC.parent
+# Validate paths at import time
+validate_paths()
+
 BASELINE = ROOT / "output" / "syllabus_scored.html"
 FINAL_HTML = ROOT / "output" / "syllabus_final.html"
 SUMMARY = ROOT / "output" / "loop_summary.json"
@@ -49,11 +52,7 @@ SUMMARY = ROOT / "output" / "loop_summary.json"
 MAX_ROUNDS = 3
 SCORE_THRESHOLD = 95.0  # percent: passes / (passes + violations)
 
-AXE_CANDIDATES = [
-    Path(os.environ["AXE_CORE_PATH"]) if os.environ.get("AXE_CORE_PATH") else None,
-    ROOT / "node_modules/axe-core/axe.min.js",
-    Path("/Users/brendanworks/node_modules/axe-core/axe.min.js"),
-]
+AXE_CANDIDATES = [AXE_LOCAL]
 
 
 def log(msg: str) -> None:
