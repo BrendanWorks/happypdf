@@ -6,11 +6,13 @@ Convert inaccessible PDFs into **WCAG 2.2-validated** semantic HTML5 with multi-
 
 happypdf turns inaccessible PDFs into clean, semantic HTML5. It uses vision-based OCR for extraction, generates high-quality alt text, builds proper structure (landmarks, headings, tables), scores the result with axe-core in a real Chromium browser, and runs a multi-round review loop that safely enhances accessibility **without losing original content**.
 
-## See It In Action
+## Demo
 
-[![happypdf Demo Video](https://img.shields.io/badge/Watch%20Demo-2.8MB%20Video-14b8a6?style=for-the-badge)](https://github.com/BrendanWorks/happypdf/releases/download/v1.0/Sizzle_Video.mov)
-
-**Watch how happypdf transforms an inaccessible PDF into WCAG 2.2 AA–validated HTML with full remediation audit trail.**
+<video width="100%" controls>
+  <source src="./videos/happypdf-demo.mp4" type="video/mp4">
+  <source src="./videos/happypdf-demo.mov" type="video/quicktime">
+  Your browser does not support the video tag. <a href="./videos/happypdf-demo.mov">Download the demo video</a>
+</video>
 
 ## Table of Contents
 - [Why This Exists](#why-this-exists)
