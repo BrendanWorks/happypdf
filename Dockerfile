@@ -7,7 +7,7 @@
 # Self-hosting with this image still requires a Modal account (for the GPU
 # functions — see docs/SETUP.md) and reviewer API keys; it is not an
 # air-gapped deployment.
-FROM mcr.microsoft.com/playwright/python:v1.60.0-noble
+FROM mcr.microsoft.com/playwright/python:v1.61.0-noble
 
 WORKDIR /app
 
