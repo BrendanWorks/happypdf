@@ -133,7 +133,7 @@ All documents converge quickly with zero content loss. Manifest and report downl
 | IRS Schedule C        | Dense form     | 1.1M | 7 | 100% (23 pass) | 100% (28 pass) | 3 |
 | Navy Bulletin 1943    | OCR'd prose    | 876K | 6 | 100% (20 pass) | 100% (20 pass) | 1 |
 
-**Extended Test Suite (6 Additional Documents)**
+**Extended Test Suite (10 Additional Documents)**
 
 | Document | Type | Size | Pages | Baseline | Final | Rounds | Notes |
 |----------|------|------|-------|----------|-------|--------|-------|
@@ -143,18 +143,22 @@ All documents converge quickly with zero content loss. Manifest and report downl
 | Dry Lab Protocol | Scientific | 1.3M | 3 | 100% (20 pass) | 100% (20 pass) | 1 | Text-heavy instructions |
 | Example Document | Sample | 343K | 3 | 100% (27 pass) | 100% (32 pass) | 2 | Generic test document |
 | Invoice Sample | Financial | 146K | 1 | 100% (23 pass) | 100% (28 pass) | 3 | Structured form, dense |
+| Somatosensory | Scientific | 132K | 4 | 96.0% (24 pass) | 96.7% (29 pass) | 2 | Neural system reference; 1 baseline violation not resolved by round 2 |
+| Cosmic Story Mat | Instructional | 447K | 6 | 100% (22 pass) | 100% (22 pass) | 1 | Children's literature, 25 embedded images; OLMo reviewer timed out then succeeded on retry |
+| Furnace (Amana) | Technical | 11.9M | 16 | 96.3% (26 pass) | 96.8% (30 pass) | 2 | Appliance manual; loop stopped after round 2 when round 3 would have regressed the axe score |
+| Hands-Only CPR Sheet | Medical | 219K | 1 | 100% (22 pass) | 100% (22 pass) | 1 | Emergency procedure; OLMo reviewer failed outright, loop continued with Gemini + GPT |
 
-**Comprehensive Test Suite (9 PDFs Total)** — Full details and raw files in [`benchmark/`](benchmark/). (Four additional documents — Somatosensory, Cosmic Story Mat, Furnace, Hands-Only CPR Sheet — have been run through the pipeline before but don't currently have verified output committed to the repo, so they're excluded from these numbers until re-verified.)
+**Comprehensive Test Suite (13 PDFs Total)** — Full details and raw files in [`benchmark/`](benchmark/). All 13 rows above are backed by real generated output committed to the repo — no estimated or placeholder numbers.
 
 **Key Metrics:**
-- **Total PDFs tested:** 9
-- **Average baseline score:** 100%
-- **Average final score:** 100%
-- **Average rounds to convergence:** 1.8
-- **Baseline violations:** 0 violations in 9/9 documents
-- **Reviewer success rate:** 100% on all tested review rounds
-- **Total ARIA enhancements:** 25 across the suite
-- **Total test coverage:** 146 KB to 4.2 MB | 1–13 pages
+- **Total PDFs tested:** 13
+- **Average baseline score:** 99.4%
+- **Average final score:** 99.5%
+- **Average rounds to convergence:** 1.7
+- **Baseline violations:** 0 violations in 11/13 documents (Somatosensory and Furnace each had 1, neither resolved by an available deterministic fix)
+- **Reviewer resilience:** across 13 live runs, one reviewer failed outright once and timed-out-then-recovered once; in both cases the loop correctly continued with the remaining reviewers rather than blocking
+- **Total ARIA enhancements:** 34 across the suite
+- **Total test coverage:** 132 KB to 11.9 MB | 1–16 pages
 
 ## Project Status & Roadmap
 
@@ -164,7 +168,7 @@ All documents converge quickly with zero content loss. Manifest and report downl
 - ✅ Full audit-trail JSON manifest export (with demo snapshot support)
 - ✅ Formatted HTML report generation with styling
 - ✅ Download package feature (JSON + HTML with proper headers)
-- ✅ Comprehensive benchmark testing (9 PDFs with manifest/report verification)
+- ✅ Comprehensive benchmark testing (13 PDFs with manifest/report verification)
 
 **Upcoming Features:**
 - Fully open-weight self-hosted mode (OLMo-only reviewers, no Claude/GPT/Gemini calls)
