@@ -260,7 +260,7 @@ For self-hosted deployments:
 - **Reviewer output can fail.** If a reviewer emits malformed JSON or times out, that reviewer is skipped for the round and the loop continues with available reviews.
 
 ## Related Work
-- **SciA11y**: Ai2 research on converting scientific paper PDFs to accessible HTML. happypdf extends this research to general documents with iterative validation. [Paper](arXiv:2105.00076v1)
+- **SciA11y**: Ai2 research on converting scientific paper PDFs to accessible HTML. happypdf extends this research to general documents with iterative validation. [Paper](https://arxiv.org/abs/2105.00076v1)
 - **olmOCR**: Primary extraction engine. [Paper](https://arxiv.org/abs/2502.18443)
 
 ## Contributing & License
