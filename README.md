@@ -98,7 +98,7 @@ This work extends Ai2's **SciA11y** research (Wang, Cachola, et al., ASSETS '21)
 
 ## How the Pipeline Works
 
-<img width="784" height="1168" alt="image" src="https://github.com/user-attachments/assets/52bec40c-efab-4191-9bc3-1264b908f537" />
+![happypdf pipeline animation](./videos/pipeline-demo.gif)
 
 
 
