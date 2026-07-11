@@ -169,6 +169,8 @@ All documents converge quickly with zero content loss. Manifest and report downl
 - ✅ Formatted HTML report generation with styling
 - ✅ Download package feature (JSON + HTML with proper headers)
 - ✅ Comprehensive benchmark testing (13 PDFs with manifest/report verification)
+- ✅ BYOK override/restore verified end-to-end with a real live job (see [Security](#security))
+- ✅ Fresh-machine self-hosting test in an isolated VM, caught and fixed a missing Quick Start step
 
 **Upcoming Features:**
 - Fully open-weight self-hosted mode (OLMo-only reviewers, no Claude/GPT/Gemini calls)
@@ -225,17 +227,24 @@ Run benchmarks: `python src/benchmark.py`
 
 - **Stable Element IDs** (`block-{page}-{hash}`) for safe, repeatable patching.
 - **Review-source agnostic** design — easily swap reviewers.
-- **Security-first BYOK** — Keys never touch the browser.
+- **Security-first BYOK** — Your key is sent once per job to call the provider on your behalf, then never persisted or reused. See [Security](#security) for the verified details.
 
 ## Security
 
 ### BYOK API key handling
-happypdf is designed so enterprise API keys do not pass through the browser or get written to application logs.
-- Keys are stored in Modal's encrypted secret vault.
-- Keys are injected into backend containers as environment variables.
-- The frontend never receives provider credentials.
+
+**Default (hosted) credentials** — happypdf's own keys, used unless you supply your own:
+- Stored in Modal's encrypted secret vault.
+- Injected into backend containers as environment variables.
+- The frontend never receives these credentials.
+
+**BYOK (user-supplied) credentials** — when you paste your own key into the settings panel:
+- The key is entered in your browser and sent once, over HTTPS, to power that single job's provider calls.
+- It's swapped into the backend's environment for the duration of that job only, then restored to the previous value — it is never persisted, logged, or reused across requests.
 - Error messages are sanitized to avoid leaking API responses or credentials.
-- Job state is stored in memory, not in a database.
+- Job state (including any in-flight keys) is stored in memory, not in a database.
+
+**Verified end-to-end (July 2026):** ran a real live job with a real Anthropic key passed explicitly as the BYOK override, after deliberately poisoning the server's own default key in-process — the job only succeeded because the override actually took effect (using the poisoned default would have failed every Claude call), and the environment was confirmed restored to the poisoned placeholder afterward, not left holding the real key. The OpenAI key path uses the identical override/restore mechanism but wasn't separately exercised in this test.
 
 ### Transport security
 - Production endpoints use HTTPS.
