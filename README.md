@@ -8,11 +8,9 @@ happypdf turns inaccessible PDFs into clean, semantic HTML5. It uses vision-base
 
 ## Demo
 
-<video width="100%" controls>
-  <source src="./videos/happypdf-demo.mp4" type="video/mp4">
-  <source src="./videos/happypdf-demo.mov" type="video/quicktime">
-  Your browser does not support the video tag. <a href="./videos/happypdf-demo.mov">Download the demo video</a>
-</video>
+**[▶ Watch the 21-second demo video](https://github.com/BrendanWorks/happypdf/releases/download/v1.0/Sizzle_Video.mov)**
+
+See happypdf transform an inaccessible PDF into WCAG 2.2 AA–validated HTML with full remediation audit trail. Available in [MP4](https://github.com/BrendanWorks/happypdf/releases/download/v1.0/happypdf-demo.mp4) (689 KB) or [MOV](https://github.com/BrendanWorks/happypdf/releases/download/v1.0/Sizzle_Video.mov) (2.8 MB).
 
 ## Table of Contents
 - [Why This Exists](#why-this-exists)
