@@ -36,6 +36,21 @@ const API_BASE: string = (import.meta.env.VITE_API_URL as string | undefined) ||
   'https://brendanworks--happypdf-api-fastapi-app.modal.run';
 const HAS_API = API_BASE.length > 0;
 
+declare global {
+  interface Window {
+    gtag?: (...args: unknown[]) => void;
+  }
+}
+
+// Fires a GA4 event if gtag loaded (no-op otherwise, e.g. ad blockers).
+// Never pass user-supplied content (filenames, uploaded text) as a param —
+// this app markets itself on not leaking user data to third parties.
+function trackEvent(action: string, params?: Record<string, string | number>) {
+  if (typeof window.gtag === 'function') {
+    window.gtag('event', action, params);
+  }
+}
+
 type Metric = { score: number; passes: number; violations: number };
 type Round = {
   round: number;
@@ -317,17 +332,24 @@ function DemoPanel() {
         if (!r.ok) return;
         const j = (await r.json()) as Job;
         setJob(j);
-        if (j.status === 'done' || j.status === 'error') { stopTimers(); setBusy(false); }
+        if (j.status === 'done') {
+          stopTimers(); setBusy(false);
+          trackEvent('remediation_success', { value: j.final?.passes ?? 0 });
+        } else if (j.status === 'error') {
+          stopTimers(); setBusy(false);
+          trackEvent('remediation_failed');
+        }
       } catch { /* keep polling */ }
     }, 600);
   };
   const apiLive = async (file: File) => {
     begin(file.name);
+    trackEvent('pdf_upload_started', { value: Math.round(file.size / 1024) });
     try {
       const fd = new FormData();
       fd.append('file', file);
-      if (byokKeys.anthropic) fd.append('anthropic_api_key', byokKeys.anthropic);
-      if (byokKeys.openai) fd.append('openai_api_key', byokKeys.openai);
+      if (byokKeys.anthropic) { fd.append('anthropic_api_key', byokKeys.anthropic); trackEvent('byok_authenticated', { provider: 'claude' }); }
+      if (byokKeys.openai) { fd.append('openai_api_key', byokKeys.openai); trackEvent('byok_authenticated', { provider: 'openai' }); }
       const r = await fetch(`${API_BASE}/api/jobs/live`, { method: 'POST', body: fd });
       if (!r.ok) {
         const errData = await r.json().catch(() => ({ detail: 'Unknown error' }));
