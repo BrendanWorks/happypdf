@@ -30,6 +30,7 @@ output/
 !SECURITY.md
 !CHANGELOG.md
 !package.json
+!package-lock.json
 !.prettierrc.json
 !docs/**/*.md
 !.github/**/*.md
