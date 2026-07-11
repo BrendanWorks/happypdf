@@ -15,7 +15,6 @@ To deploy for external use:
     # Then call via modal.Function("ollmocr_final", "process_pdf")
 """
 
-import json
 import logging
 import subprocess
 import tempfile
@@ -60,6 +59,7 @@ app = modal.App("olmocr", image=image)
 # Main Function - Processes PDF using official olmocr CLI
 # ============================================================================
 
+
 @app.function(
     gpu="H100",
     timeout=3600,
@@ -100,7 +100,7 @@ def process_pdf(pdf_bytes: bytes, filename: str = "document.pdf") -> dict:
 
     try:
         # Write PDF
-        logger.info(f"[olmocr] Writing input PDF")
+        logger.info("[olmocr] Writing input PDF")
         input_pdf.write_bytes(pdf_bytes)
 
         # Run official olmocr CLI
@@ -115,7 +115,7 @@ def process_pdf(pdf_bytes: bytes, filename: str = "document.pdf") -> dict:
             "300",  # 5 minutes for vLLM server to become ready
         ]
         # Log the exact command with all arguments
-        logger.info(f"[olmocr] EXACT COMMAND LINE:")
+        logger.info("[olmocr] EXACT COMMAND LINE:")
         for i, arg in enumerate(cmd):
             logger.info(f"[olmocr] arg[{i}] = {arg!r}")
         logger.info(f"[olmocr] Running: {' '.join(cmd)}")
@@ -159,7 +159,9 @@ def process_pdf(pdf_bytes: bytes, filename: str = "document.pdf") -> dict:
 
         if not md_files:
             available = list(markdown_dir.rglob("*"))
-            raise RuntimeError(f"No .md files found in {markdown_dir}. Found: {[f.name for f in available[:10]]}")
+            raise RuntimeError(
+                f"No .md files found in {markdown_dir}. Found: {[f.name for f in available[:10]]}"
+            )
 
         output_file = md_files[0]
         logger.info(f"[olmocr] Output: {output_file.name} ({output_file.stat().st_size:,} bytes)")
@@ -187,12 +189,14 @@ def process_pdf(pdf_bytes: bytes, filename: str = "document.pdf") -> dict:
     finally:
         # Cleanup
         import shutil
+
         shutil.rmtree(workspace, ignore_errors=True)
 
 
 # ============================================================================
 # CLI Interface
 # ============================================================================
+
 
 @app.local_entrypoint()
 def main(pdf_file: str):

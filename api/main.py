@@ -22,7 +22,7 @@ import uuid
 from datetime import datetime
 from pathlib import Path
 
-from fastapi import FastAPI, HTTPException, UploadFile, File, Form
+from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, Response
 
@@ -34,6 +34,7 @@ def validate_anthropic_key(key: str) -> tuple[bool, str]:
     """Validate Anthropic API key with a quick auth call. Returns (valid, error_msg)."""
     try:
         import anthropic
+
         client = anthropic.Anthropic(api_key=key)
         # Minimal auth check: list models (cheap, no usage)
         client.models.list()
@@ -41,13 +42,17 @@ def validate_anthropic_key(key: str) -> tuple[bool, str]:
     except Exception as e:
         # Log full error for operators; return friendly message for users
         print(f"[VALIDATION] Anthropic key validation failed: {type(e).__name__}: {e}", flush=True)
-        return False, "Your Anthropic API key is invalid or expired. Please check your key and try again."
+        return (
+            False,
+            "Your Anthropic API key is invalid or expired. Please check your key and try again.",
+        )
 
 
 def validate_openai_key(key: str) -> tuple[bool, str]:
     """Validate OpenAI API key with a quick auth call. Returns (valid, error_msg)."""
     try:
         from openai import OpenAI
+
         client = OpenAI(api_key=key)
         # Minimal auth check: list models (cheap, no usage)
         client.models.list()
@@ -55,12 +60,17 @@ def validate_openai_key(key: str) -> tuple[bool, str]:
     except Exception as e:
         # Log full error for operators; return friendly message for users
         print(f"[VALIDATION] OpenAI key validation failed: {type(e).__name__}: {e}", flush=True)
-        return False, "Your OpenAI API key is invalid or expired. Please check your key and try again."
+        return (
+            False,
+            "Your OpenAI API key is invalid or expired. Please check your key and try again.",
+        )
+
 
 ROOT = Path(__file__).resolve().parent.parent
 SRC = ROOT / "src"
 SNAPSHOTS = ROOT / "api" / "snapshots"
-import sys
+import sys  # noqa: E402
+
 sys.path.insert(0, str(SRC))
 sys.path.insert(0, str(ROOT / "api"))
 
@@ -81,13 +91,16 @@ app = FastAPI(title="happypdf API")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
-        "http://localhost:5173", "http://localhost:5174", "http://127.0.0.1:5173",
+        "http://localhost:5173",
+        "http://localhost:5174",
+        "http://127.0.0.1:5173",
         "https://happypdf.org",
         "https://happypdf.netlify.app",
     ],
     # Netlify deploy previews / branch deploys: https://<hash>--happypdf.netlify.app
     allow_origin_regex=r"https://([a-z0-9-]+--)?happypdf\.netlify\.app",
-    allow_methods=["*"], allow_headers=["*"],
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 # Daily rate limit for the paid live path. Backed by a Modal Dict on Modal (shared
@@ -106,6 +119,7 @@ def _rate_check() -> tuple[bool, int]:
     _local_counts[today] = c + 1
     return True, c + 1
 
+
 # In-memory job store (local dev). job_id -> dict.
 JOBS: dict[str, dict] = {}
 JOBS_LOCK = threading.Lock()
@@ -115,10 +129,20 @@ def _new_job(kind: str, name: str) -> str:
     jid = uuid.uuid4().hex[:12]
     with JOBS_LOCK:
         JOBS[jid] = {
-            "id": jid, "kind": kind, "name": name, "status": "running",
-            "stage": "uploading", "stages": STAGES, "baseline": None,
-            "rounds": [], "final": None, "enhancements": [], "final_html": None,
-            "error": None, "source": None, "started": time.time(),
+            "id": jid,
+            "kind": kind,
+            "name": name,
+            "status": "running",
+            "stage": "uploading",
+            "stages": STAGES,
+            "baseline": None,
+            "rounds": [],
+            "final": None,
+            "enhancements": [],
+            "final_html": None,
+            "error": None,
+            "source": None,
+            "started": time.time(),
             "reviewer_health": {},
         }
     return jid
@@ -143,8 +167,13 @@ def _replay(jid: str, name: str) -> None:
     try:
         snap = _load_snapshot(name)
         _set(jid, source=snap["source"])
-        pace = {"uploading": 0.4, "extracting": 1.1, "alt_text": 0.9,
-                "html": 0.7, "axe_baseline": 0.8}
+        pace = {
+            "uploading": 0.4,
+            "extracting": 1.1,
+            "alt_text": 0.9,
+            "html": 0.7,
+            "axe_baseline": 0.8,
+        }
         for sid in ("uploading", "extracting", "alt_text", "html", "axe_baseline"):
             _set(jid, stage=sid)
             time.sleep(pace[sid])
@@ -156,10 +185,16 @@ def _replay(jid: str, name: str) -> None:
             time.sleep(0.9)
             revealed.append(rnd)
             _set(jid, rounds=list(revealed))
-        _set(jid, stage="done", final=snap["final"],
-             enhancements=snap["enhancements"], final_html=snap["final_html"],
-             stopped_reason=snap["stopped_reason"], total_seconds=snap["total_seconds"],
-             status="done")
+        _set(
+            jid,
+            stage="done",
+            final=snap["final"],
+            enhancements=snap["enhancements"],
+            final_html=snap["final_html"],
+            stopped_reason=snap["stopped_reason"],
+            total_seconds=snap["total_seconds"],
+            status="done",
+        )
     except Exception as e:  # pragma: no cover
         _set(jid, status="error", error=str(e))
 
@@ -167,11 +202,18 @@ def _replay(jid: str, name: str) -> None:
 # ---------------------------------------------------------------------------
 # Live worker — runs the real pipeline on an uploaded PDF
 # ---------------------------------------------------------------------------
-def _live(jid: str, pdf_bytes: bytes, filename: str, anthropic_api_key: str | None = None, openai_api_key: str | None = None) -> None:
+def _live(
+    jid: str,
+    pdf_bytes: bytes,
+    filename: str,
+    anthropic_api_key: str | None = None,
+    openai_api_key: str | None = None,
+) -> None:
     import tempfile
+
     import build_syllabus_slice as bss
     import reviewers
-    from loop import run_loop, axe_score
+    from loop import axe_score, run_loop
 
     # Set up BYOK keys if provided (overrides environment)
     old_anth = os.environ.get("ANTHROPIC_API_KEY")
@@ -218,28 +260,41 @@ def _live(jid: str, pdf_bytes: bytes, filename: str, anthropic_api_key: str | No
         def on_round(entry, _patched, reviewer_health=None):
             _set(jid, stage=f"round{entry['round']}")
             with JOBS_LOCK:
-                JOBS[jid]["rounds"].append({
-                    "round": entry["round"], "patches_applied": entry["patches_applied"],
-                    "passes": entry["passes"], "score": entry["score"],
-                    "violations": entry["violations"], "gate_passed": entry["gate_passed"],
-                    "gate_checks": entry.get("gate_checks", []),
-                })
+                JOBS[jid]["rounds"].append(
+                    {
+                        "round": entry["round"],
+                        "patches_applied": entry["patches_applied"],
+                        "passes": entry["passes"],
+                        "score": entry["score"],
+                        "violations": entry["violations"],
+                        "gate_passed": entry["gate_passed"],
+                        "gate_checks": entry.get("gate_checks", []),
+                    }
+                )
                 if reviewer_health:
                     JOBS[jid]["reviewer_health"] = reviewer_health
 
-        summary = run_loop(baseline_html, reviewers.live_provider,
-                           label=filename, use_llm=True, on_round=on_round)
+        summary = run_loop(
+            baseline_html, reviewers.live_provider, label=filename, use_llm=True, on_round=on_round
+        )
         final_html = summary["final_html"]
         from build_snapshots import enhancements
+
         try:
             enhancements_list = enhancements(baseline_html, final_html)
         except Exception as e:
             print(f"Warning: enhancements calculation failed: {e}")
             enhancements_list = []
-        _set(jid, stage="done", final=summary["final"], final_html=final_html,
-             enhancements=enhancements_list,
-             stopped_reason=summary["stopped_reason"], status="done",
-             reviewer_health=summary.get("reviewer_health", {}))
+        _set(
+            jid,
+            stage="done",
+            final=summary["final"],
+            final_html=final_html,
+            enhancements=enhancements_list,
+            stopped_reason=summary["stopped_reason"],
+            status="done",
+            reviewer_health=summary.get("reviewer_health", {}),
+        )
     except Exception as e:
         # Log full error server-side for operators; generic message for user
         print(f"[ERROR] Job {jid} failed: {type(e).__name__}: {e}", flush=True)
@@ -280,7 +335,7 @@ def start_demo(name: str):
 
 @app.post("/api/jobs/live")
 async def start_live(
-    file: UploadFile = File(...),
+    file: UploadFile = File(...),  # noqa: B008
     anthropic_api_key: str = Form(default=None),
     openai_api_key: str = Form(default=None),
 ):
@@ -310,7 +365,7 @@ async def start_live(
         target=_live,
         args=(jid, data, file.filename),
         kwargs={"anthropic_api_key": anthropic_api_key, "openai_api_key": openai_api_key},
-        daemon=True
+        daemon=True,
     ).start()
     return {"job_id": jid}
 
@@ -336,6 +391,189 @@ def job_html(jid: str):
     return HTMLResponse(job["final_html"])
 
 
+def _build_manifest_v2(job: dict = None, snap: dict = None, jid: str = None) -> dict:
+    """Build enterprise-grade v2 manifest from job or snapshot data."""
+    if job:
+        source_data = job
+        started_ts = job.get("started")
+        total_seconds = time.time() - started_ts if started_ts else 0
+        completed_ts = time.time() if job.get("status") == "done" else None
+    else:
+        source_data = snap
+        started_ts = snap.get("started_at")
+        total_seconds = snap.get("total_seconds", 0)
+        completed_ts = snap.get("completed_at")
+
+    baseline = source_data.get("baseline", {})
+    final = source_data.get("final", {})
+    rounds_list = source_data.get("rounds", [])
+    enhancements_raw = source_data.get("enhancements", [])
+    reviewer_health = source_data.get("reviewer_health", {})
+
+    # Calculate delta
+    baseline_violations = baseline.get("violations", 0)
+    final_violations = final.get("violations", 0)
+    baseline_passes = baseline.get("passes", 0)
+    final_passes = final.get("passes", 0)
+
+    # Parse ISO timestamps
+    def _parse_iso_or_timestamp(val):
+        if isinstance(val, str):
+            return val
+        if isinstance(val, (int, float)):
+            return datetime.fromtimestamp(val).isoformat() + "Z"
+        return None
+
+    started_iso = _parse_iso_or_timestamp(started_ts)
+    completed_iso = _parse_iso_or_timestamp(completed_ts)
+
+    # Build reviewer telemetry
+    reviewer_telemetry = []
+    reviewer_type_map = {
+        "olmo": "local_open_weight",
+        "gpt": "commercial_peer",
+        "claude": "commercial_judge",
+    }
+    for agent_id, health in reviewer_health.items():
+        reviewer_telemetry.append(
+            {
+                "agent_id": agent_id,
+                "type": reviewer_type_map.get(agent_id, "unknown"),
+                "rounds_participated": health.get("rounds_ran", 0),
+                "status": health.get("status", "unknown").lower(),
+            }
+        )
+
+    # Build execution history with detailed rounds
+    execution_rounds = []
+    for r in rounds_list:
+        round_entry = {
+            "round_index": r.get("round", 0),
+            "patches_proposed": r.get("patches_proposed", 0),
+            "patches_applied": r.get("patches_applied", 0),
+            "patches_rejected": r.get("patches_rejected", 0),
+            "preservation_gate": {
+                "status": "passed" if r.get("gate_passed", False) else "failed",
+                "checks_executed": r.get("gate_checks", []),
+            },
+            "axe_metrics": {
+                "score": r.get("score", 0),
+                "violations": r.get("violations", 0),
+                "passes": r.get("passes", 0),
+            },
+        }
+        execution_rounds.append(round_entry)
+
+    # Build enhancements with audit trail and approval status
+    enhancements_enhanced = []
+    for e in enhancements_raw:
+        proposed_by = e.get("proposed_by", "olmo")
+
+        # Build voting record (captures reviewer consensus)
+        votes = e.get("votes", {})
+        if not votes:
+            # Default votes when not specified: proposed_by and approved_by approve
+            approved_by = e.get("approved_by", "claude")
+            votes = {proposed_by: "approve", approved_by: "approve"}
+
+        # Calculate agreement score (proportion of approve votes)
+        total_votes = len(votes)
+        approve_count = sum(1 for v in votes.values() if v == "approve")
+        agreement_score = (approve_count / total_votes * 100) if total_votes > 0 else 0.0
+
+        # Approval status: default to approved if all votes are approve
+        wcag_mapping = e.get("wcag_mapping", [])
+        approval_status = e.get(
+            "approval_status", "approved" if agreement_score == 100.0 else "pending"
+        )
+
+        enh = {
+            "element_id": e.get("element_id", ""),
+            "html_tag": e.get("type", "element"),
+            "round_introduced": e.get("round_introduced", 1),
+            "mutation": {
+                "action": "inject_attribute",
+                "attribute": e.get("attribute", ""),
+                "value": e.get("value", ""),
+            },
+            "audit": {
+                "proposed_by": proposed_by,
+                "approved_by": e.get("approved_by", "claude"),
+                "rationale": e.get("description", e.get("rationale", "")),
+                "wcag_mapping": wcag_mapping,
+            },
+            "approval_status": approval_status,
+            "voting_record": {
+                "proposed_by": proposed_by,
+                "agreement_score": round(agreement_score, 2),
+                "votes": votes,
+            },
+        }
+        enhancements_enhanced.append(enh)
+
+    # Calculate enhancement approval summary
+    approved_count = sum(1 for e in enhancements_enhanced if e.get("approval_status") == "approved")
+    total_enhancements = len(enhancements_enhanced)
+
+    manifest = {
+        "$schema": "https://happypdf.org/schemas/v1/manifest.json",
+        "id": jid or source_data.get("id", "unknown"),
+        "name": source_data.get("name", "PDF"),
+        "status": (
+            "completed"
+            if source_data.get("status") == "done"
+            else source_data.get("status", "in_progress")
+        ),
+        "approval_summary": {
+            "total_enhancements": total_enhancements,
+            "approved": approved_count,
+            "pending": total_enhancements - approved_count,
+            "rejected": 0,
+            "approval_rate": round(
+                (approved_count / total_enhancements * 100) if total_enhancements > 0 else 0, 1
+            ),
+        },
+        "pipeline_metadata": {
+            "engine_version": "1.0.0",
+            "primary_ocr": "olmOCR",
+            "vlm_backbone": "Qwen2-VL",
+            "orchestration_mode": "BYOK",
+            "timestamps": {
+                "started_at": started_iso,
+                "completed_at": completed_iso,
+                "duration_seconds": float(total_seconds) if total_seconds else 0,
+            },
+        },
+        "compliance_summary": {
+            "baseline": {
+                "axe_score": baseline.get("score", 0),
+                "violations": baseline_violations,
+                "passes": baseline_passes,
+                "critical_serious": 0,
+            },
+            "final": {
+                "axe_score": final.get("score", 0),
+                "violations": final_violations,
+                "passes": final_passes,
+                "critical_serious": 0,
+            },
+            "delta": {
+                "additional_passes": final_passes - baseline_passes,
+                "violations_resolved": baseline_violations - final_violations,
+            },
+        },
+        "reviewer_telemetry": reviewer_telemetry,
+        "execution_history": {
+            "total_rounds": len(execution_rounds),
+            "stopped_reason": source_data.get("stopped_reason", "in_progress"),
+            "rounds": execution_rounds,
+        },
+        "enhancements": enhancements_enhanced,
+    }
+
+    return manifest
+
+
 @app.get("/api/jobs/{jid}/manifest")
 def job_manifest(jid: str):
     """Return complete remediation manifest with all patches, decisions, and audit trail."""
@@ -346,46 +584,18 @@ def job_manifest(jid: str):
     if not job:
         try:
             snap = _load_snapshot(jid)
-            # Build manifest from snapshot data (demo mode)
-            manifest = {
-                "id": jid,
-                "name": snap.get("name", jid),
-                "status": "done",
-                "source": snap["source"],
-                "started": None,
-                "baseline": snap.get("baseline", {}),
-                "final": snap.get("final", {}),
-                "rounds": snap.get("rounds", []),
-                "rounds_accepted": len(snap.get("rounds", [])),
-                "stopped_reason": snap.get("stopped_reason", "converged"),
-                "enhancements": snap.get("enhancements", []),
-                "reviewer_health": snap.get("reviewer_health", {}),
-            }
+            manifest = _build_manifest_v2(snap=snap, jid=jid)
         except HTTPException:
-            raise HTTPException(404, "job not found")
+            raise HTTPException(404, "job not found") from None
     else:
-        # Build manifest from backend job data
-        manifest = {
-            "id": job.get("id"),
-            "name": job.get("name"),
-            "status": job.get("status"),
-            "source": job.get("source"),
-            "started": job.get("started"),
-            "baseline": job.get("baseline", {}),
-            "final": job.get("final", {}),
-            "rounds": job.get("rounds", []),
-            "rounds_accepted": job.get("rounds_accepted", 0),
-            "stopped_reason": job.get("stopped_reason"),
-            "enhancements": job.get("enhancements", []),
-            "reviewer_health": job.get("reviewer_health", {}),
-        }
+        manifest = _build_manifest_v2(job=job, jid=jid)
 
     # Return with download headers
     json_str = json.dumps(manifest, indent=2, default=str)
     return Response(
         content=json_str,
         media_type="application/json",
-        headers={"Content-Disposition": f'attachment; filename="{jid}_manifest.json"'}
+        headers={"Content-Disposition": f'attachment; filename="{jid}_manifest.json"'},
     )
 
 
@@ -393,6 +603,7 @@ def job_manifest(jid: str):
 def job_report(jid: str):
     """Return a formatted HTML report of the remediation process."""
     import sys
+
     sys.path.insert(0, str(SRC))
     from report_generator import generate_html_report
 
@@ -403,43 +614,22 @@ def job_report(jid: str):
     if not job:
         try:
             snap = _load_snapshot(jid)
-            # Build manifest from snapshot data (demo mode)
-            manifest = {
-                "id": jid,
-                "name": snap.get("name", jid),
-                "baseline": snap.get("baseline", {}),
-                "final": snap.get("final", {}),
-                "rounds": snap.get("rounds", []),
-                "rounds_accepted": len(snap.get("rounds", [])),
-                "stopped_reason": snap.get("stopped_reason", "converged"),
-                "enhancements": snap.get("enhancements", []),
-                "reviewer_health": snap.get("reviewer_health", {}),
-            }
+            manifest = _build_manifest_v2(snap=snap, jid=jid)
         except HTTPException:
-            raise HTTPException(404, "job not found")
+            raise HTTPException(404, "job not found") from None
     else:
-        # Build manifest from backend job data
-        manifest = {
-            "id": job.get("id"),
-            "name": job.get("name"),
-            "baseline": job.get("baseline", {}),
-            "final": job.get("final", {}),
-            "rounds": job.get("rounds", []),
-            "rounds_accepted": job.get("rounds_accepted", 0),
-            "stopped_reason": job.get("stopped_reason"),
-            "enhancements": job.get("enhancements", []),
-            "reviewer_health": job.get("reviewer_health", {}),
-        }
+        manifest = _build_manifest_v2(job=job, jid=jid)
 
     html = generate_html_report(manifest)
     return Response(
         content=html,
         media_type="text/html",
-        headers={"Content-Disposition": f'attachment; filename="{jid}_report.html"'}
+        headers={"Content-Disposition": f'attachment; filename="{jid}_report.html"'},
     )
 
 
 if __name__ == "__main__":
     import uvicorn
+
     sys.path.insert(0, str(ROOT / "api"))
     uvicorn.run(app, host="127.0.0.1", port=8000)

@@ -128,8 +128,12 @@ def apply_patches(baseline_html: str, manifest: list[dict]) -> tuple[str, list[d
     for i, patch in enumerate(manifest):
         eid = patch.get("element_id")
         op = patch.get("operation")
-        entry = {"index": i, "element_id": eid, "operation": op,
-                 "new_value": patch.get("new_value")}
+        entry = {
+            "index": i,
+            "element_id": eid,
+            "operation": op,
+            "new_value": patch.get("new_value"),
+        }
         try:
             el = index.get(eid)
             if el is None:
@@ -152,7 +156,11 @@ def apply_patches(baseline_html: str, manifest: list[dict]) -> tuple[str, list[d
             raise PatchError(f"patch {i} failed ({e}); rolled back") from e
 
     # Preserve the leading audit comment + doctype that lxml drops on output.
-    prefix = baseline_html[: baseline_html.lower().find("<!doctype")] if "<!doctype" in baseline_html.lower() else ""
+    prefix = (
+        baseline_html[: baseline_html.lower().find("<!doctype")]
+        if "<!doctype" in baseline_html.lower()
+        else ""
+    )
     body = html.tostring(tree, encoding="unicode", doctype="<!DOCTYPE html>")
     patched_html = prefix + body
     _write_log(applied, rolled_back=False)
@@ -161,11 +169,16 @@ def apply_patches(baseline_html: str, manifest: list[dict]) -> tuple[str, list[d
 
 def _write_log(applied: list[dict], rolled_back: bool) -> None:
     OUT_LOG.parent.mkdir(parents=True, exist_ok=True)
-    OUT_LOG.write_text(json.dumps(
-        {"rolled_back": rolled_back,
-         "applied": [a for a in applied if a["status"] == "applied"],
-         "failed": [a for a in applied if a["status"] == "failed"]},
-        indent=2))
+    OUT_LOG.write_text(
+        json.dumps(
+            {
+                "rolled_back": rolled_back,
+                "applied": [a for a in applied if a["status"] == "applied"],
+                "failed": [a for a in applied if a["status"] == "failed"],
+            },
+            indent=2,
+        )
+    )
 
 
 def main() -> int:

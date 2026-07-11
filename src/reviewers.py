@@ -41,8 +41,8 @@ OLMO_URL = os.environ.get(
 )
 
 MAX_HTML_CHARS = 8000  # OLMo has 4k token context; 8k chars ≈ 2k tokens leaves room for prompt
-RETRIES = 1             # one retry after the first failure
-BACKOFF_BASE = 2.0      # seconds: 2, 4, ...
+RETRIES = 1  # one retry after the first failure
+BACKOFF_BASE = 2.0  # seconds: 2, 4, ...
 
 REVIEW_INSTRUCTION = (
     "You are a WCAG 2.2 accessibility reviewer. You are given an HTML fragment in "
@@ -51,7 +51,7 @@ REVIEW_INSTRUCTION = (
     "(aria-label, role, aria-describedby) or alt text. For each issue, cite the exact "
     "`data-ir-id` value of the element it applies to — never invent an id that is not "
     "present in the HTML. Prefer concrete, deterministic fixes and put the literal "
-    "attribute and value in suggested_fix, e.g. 'Add aria-label=\"Class schedule\" to "
+    'attribute and value in suggested_fix, e.g. \'Add aria-label="Class schedule" to '
     "the table.'\n\n"
     "Respond with ONLY a JSON object of the form:\n"
     '{"violations": [{"issue_id": "string", "wcag_criterion": "1.3.1", '
@@ -98,7 +98,7 @@ def _extract_json(text: str) -> dict | list:
         # (small models often emit "Extra data" after a valid object).
         m = re.search(r"[\{\[]", text)
         if m:
-            return json.JSONDecoder().raw_decode(text[m.start():])[0]
+            return json.JSONDecoder().raw_decode(text[m.start() :])[0]
         raise
 
 
@@ -121,17 +121,19 @@ def _normalize(raw, reviewer: str, valid_ids: set[str]) -> list[dict]:
         fix_type = it.get("fix_type") or "deterministic"
         if it.get("requires_human_review") or it.get("requires_long_desc"):
             fix_type = "needs_human"
-        out.append({
-            "issue_id": it.get("issue_id") or f"{reviewer}-{i}",
-            "wcag_criterion": str(it.get("wcag_criterion") or it.get("criterion") or "1.3.1"),
-            "element_id": eid,
-            "issue": it.get("issue") or it.get("description") or "",
-            "impact": it.get("impact") or "moderate",
-            "confidence": float(it.get("confidence", 0.75) or 0.75),
-            "suggested_fix": it.get("suggested_fix") or it.get("fix") or "",
-            "fix_type": fix_type,
-            "hallucinated": bool(it.get("hallucinated", False)),
-        })
+        out.append(
+            {
+                "issue_id": it.get("issue_id") or f"{reviewer}-{i}",
+                "wcag_criterion": str(it.get("wcag_criterion") or it.get("criterion") or "1.3.1"),
+                "element_id": eid,
+                "issue": it.get("issue") or it.get("description") or "",
+                "impact": it.get("impact") or "moderate",
+                "confidence": float(it.get("confidence", 0.75) or 0.75),
+                "suggested_fix": it.get("suggested_fix") or it.get("fix") or "",
+                "fix_type": fix_type,
+                "hallucinated": bool(it.get("hallucinated", False)),
+            }
+        )
     return out
 
 
@@ -188,8 +190,11 @@ async def _call_olmo(html: str) -> str:
         with httpx.Client(timeout=300, follow_redirects=True) as client:
             r = client.post(
                 f"{OLMO_URL}/review",
-                json={"html_chunk": _clip(html), "system_prompt": REVIEW_INSTRUCTION,
-                      "max_tokens": 1024},
+                json={
+                    "html_chunk": _clip(html),
+                    "system_prompt": REVIEW_INSTRUCTION,
+                    "max_tokens": 1024,
+                },
             )
             r.raise_for_status()
             data = r.json()
@@ -235,6 +240,7 @@ async def _run_one(name: str, fn, html: str, valid_ids: set[str]) -> tuple[str, 
             # Always log full exception for diagnostic purposes (OLMo debugging)
             if name == "olmo":
                 import traceback
+
                 log(f"{name}: FAILED in {dt:.1f}s ({error_summary})")
                 log(f"{name}: Full traceback: {traceback.format_exc()[:500]}")
 
@@ -247,7 +253,9 @@ async def _run_one(name: str, fn, html: str, valid_ids: set[str]) -> tuple[str, 
                 return name, None
 
 
-async def get_live_reviews(html: str, round_num: int) -> tuple[dict[str, list[dict]], dict[str, dict]]:
+async def get_live_reviews(
+    html: str, round_num: int
+) -> tuple[dict[str, list[dict]], dict[str, dict]]:
     """Call OLMo, Gemini, GPT in parallel; return ({reviewer: [issues]}, {reviewer: health_info}).
 
     Reviewers without credentials are skipped with a warning. Raises
@@ -258,8 +266,10 @@ async def get_live_reviews(html: str, round_num: int) -> tuple[dict[str, list[di
     skipped = [n for n in REVIEWERS if n not in active]
     if skipped:
         log(f"round {round_num}: skipping (no credentials): {', '.join(skipped)}")
-    log(f"round {round_num}: calling {', '.join(active)} in parallel "
-        f"({len(valid_ids)} addressable elements)")
+    log(
+        f"round {round_num}: calling {', '.join(active)} in parallel "
+        f"({len(valid_ids)} addressable elements)"
+    )
 
     results = await asyncio.gather(*[_run_one(n, f, html, valid_ids) for n, f in active.items()])
 

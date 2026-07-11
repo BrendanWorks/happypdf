@@ -65,9 +65,19 @@ FUZZY_THRESHOLD = 0.50  # SequenceMatcher ratio when no target attribute can be 
 
 # Issue language that routes to a human: content meaning, structure, reading order.
 HUMAN_KW = (
-    "reading order", "header structure", "table structure", "wrong header",
-    "scope", "header association", "semantic structure", "incorrect data",
-    "missing content", "restructure", "merge cells", "rowspan", "colspan",
+    "reading order",
+    "header structure",
+    "table structure",
+    "wrong header",
+    "scope",
+    "header association",
+    "semantic structure",
+    "incorrect data",
+    "missing content",
+    "restructure",
+    "merge cells",
+    "rowspan",
+    "colspan",
 )
 # Attributes a patch may set deterministically when a concrete value is supplied.
 DET_ATTRS = ("role", "aria-label", "aria-describedby", "aria-labelledby", "lang")
@@ -78,11 +88,26 @@ DET_ATTRS = ("role", "aria-label", "aria-describedby", "aria-labelledby", "lang"
 # Only context-free roles. Excludes listitem/row/cell/columnheader/rowheader,
 # which are valid only inside a specific parent (a bare role="listitem" on a <p>
 # is an axe violation) — those route to needs_human.
-SAFE_ROLES = frozenset({
-    "navigation", "banner", "main", "contentinfo", "complementary", "region",
-    "search", "form", "group", "figure", "note", "article", "document", "img",
-    "list", "table",
-})
+SAFE_ROLES = frozenset(
+    {
+        "navigation",
+        "banner",
+        "main",
+        "contentinfo",
+        "complementary",
+        "region",
+        "search",
+        "form",
+        "group",
+        "figure",
+        "note",
+        "article",
+        "document",
+        "img",
+        "list",
+        "table",
+    }
+)
 
 
 def log(msg: str) -> None:
@@ -103,26 +128,28 @@ def parse_html(path: Path) -> dict[str, dict]:
             "text": text,
             "alt": el.get("alt", ""),
             "empty": not text and not el.get("alt"),
-            "attrs": {k: v for k, v in el.attrs.items()},
+            "attrs": dict(el.attrs),
         }
     return index
 
 
 def load_reviews(path: Path) -> dict[str, list[dict]]:
     data = json.loads(path.read_text())
-    return {rev: issues for rev, issues in data.items()}
+    return dict(data)
 
 
 def parse_fix(suggested: str) -> tuple[str | None, str | None]:
     """Extract (target_attribute, concrete_value) from a suggested-fix string."""
     m = re.search(
         r'(alt|aria-label|aria-describedby|aria-labelledby|role|lang)\s*=\s*"([^"]*)"',
-        suggested or "", re.I,
+        suggested or "",
+        re.I,
     )
     if m:
         return m.group(1).lower(), m.group(2)
-    m = re.search(r'\b(alt|aria-label|aria-describedby|aria-labelledby|role|lang)\b',
-                  suggested or "", re.I)
+    m = re.search(
+        r"\b(alt|aria-label|aria-describedby|aria-labelledby|role|lang)\b", suggested or "", re.I
+    )
     if m:
         return m.group(1).lower(), None
     return None, None
@@ -204,16 +231,28 @@ def classify(g: Group, el: dict | None) -> tuple[str, str, str | None, str | Non
     if el is None:
         return "hallucinated", "targets a data-ir-id not present in the HTML", target, value
     if target == "alt" and el["tag"] != "img":
-        return ("hallucinated",
-                f"alt text requested on a non-image <{el['tag']}> element", target, value)
+        return (
+            "hallucinated",
+            f"alt text requested on a non-image <{el['tag']}> element",
+            target,
+            value,
+        )
     if target in ("aria-label", "alt") and el["empty"] and el["tag"] in ("p", "span", "div"):
-        return ("hallucinated",
-                f"accessible name requested on an empty <{el['tag']}> with no content",
-                target, value)
+        return (
+            "hallucinated",
+            f"accessible name requested on an empty <{el['tag']}> with no content",
+            target,
+            value,
+        )
 
     # 2. Conservative human-gate: content meaning / structure / reading order.
     if any(kw in blob for kw in HUMAN_KW):
-        return "needs_human", "touches content meaning, table structure, or reading order", target, value
+        return (
+            "needs_human",
+            "touches content meaning, table structure, or reading order",
+            target,
+            value,
+        )
 
     # 3. LLM-required: alt text on a real image (rewrite/generate).
     if target == "alt" and el["tag"] == "img":
@@ -223,15 +262,26 @@ def classify(g: Group, el: dict | None) -> tuple[str, str, str | None, str | Non
     if target in ("aria-describedby", "aria-labelledby"):
         # These reference the id of a description element that must already exist;
         # the applicator never creates one, so auto-adding them dangles the ref.
-        return ("needs_human",
-                f"{target} references a description element that must exist; route to human",
-                target, value)
+        return (
+            "needs_human",
+            f"{target} references a description element that must exist; route to human",
+            target,
+            value,
+        )
     if target == "role" and value and value.lower() not in SAFE_ROLES:
-        return ("needs_human",
-                f'role="{value}" needs validation/companion attributes (not a self-sufficient role)',
-                target, value)
+        return (
+            "needs_human",
+            f'role="{value}" needs validation/companion attributes (not a self-sufficient role)',
+            target,
+            value,
+        )
     if target in DET_ATTRS and value:
-        return "deterministic", "reviewer supplied a concrete, non-destructive attribute value", target, value
+        return (
+            "deterministic",
+            "reviewer supplied a concrete, non-destructive attribute value",
+            target,
+            value,
+        )
 
     # 5. Conservative default — anything ambiguous goes to a human.
     return "needs_human", "no safe deterministic transformation could be derived", target, value
@@ -286,7 +336,7 @@ def _generate_alt_text_claude(g: Group, el: dict) -> dict:
         return _extract_json(text)
     except Exception as e:
         # Don't leak exception details which could contain API response content
-        raise RuntimeError(f"Claude API error: {type(e).__name__}")
+        raise RuntimeError(f"Claude API error: {type(e).__name__}") from None
 
 
 def _generate_alt_text_openai(g: Group, el: dict) -> dict:
@@ -307,7 +357,7 @@ def _generate_alt_text_openai(g: Group, el: dict) -> dict:
         return _extract_json(text)
     except Exception as e:
         # Don't leak exception details which could contain API response content
-        raise RuntimeError(f"OpenAI API error: {type(e).__name__}")
+        raise RuntimeError(f"OpenAI API error: {type(e).__name__}") from None
 
 
 def generate_alt_text(g: Group, el: dict, provider: str | None = None) -> dict:
@@ -325,15 +375,15 @@ def generate_alt_text(g: Group, el: dict, provider: str | None = None) -> dict:
     """
     # Determine provider: explicit param > env var > auto-select
     if provider is None:
-        provider = os.environ.get('HAPPYPDF_ALT_TEXT_PROVIDER')
+        provider = os.environ.get("HAPPYPDF_ALT_TEXT_PROVIDER")
 
     if provider is None:
         # Auto-select: Claude if both keys available, else OpenAI
-        provider = 'claude' if os.environ.get('ANTHROPIC_API_KEY') else 'openai'
+        provider = "claude" if os.environ.get("ANTHROPIC_API_KEY") else "openai"
 
-    if provider == 'claude':
+    if provider == "claude":
         return _generate_alt_text_claude(g, el)
-    elif provider == 'openai':
+    elif provider == "openai":
         return _generate_alt_text_openai(g, el)
     else:
         raise ValueError(f"Unknown provider: {provider}. Use 'claude' or 'openai'.")
@@ -357,29 +407,37 @@ def build_manifest(html: Path, reviews: Path, use_llm: bool) -> tuple[list, list
     reviews_dict = load_reviews(reviews)
     total_reviewers = len(reviews_dict)
     groups = deduplicate(reviews_dict)
-    log(f"deduplicated {sum(len(g.reviewers) for g in groups)} raw issues "
-        f"-> {len(groups)} unique issue(s)")
+    log(
+        f"deduplicated {sum(len(g.reviewers) for g in groups)} raw issues "
+        f"-> {len(groups)} unique issue(s)"
+    )
 
     patches, rejected, deferred, audit = [], [], [], []
 
     def record(g, decision, structural, patch_generated, claude_call=False, claude=None):
         """One auditable per-issue decision row for output/judge_audit.json."""
-        audit.append({
-            "issue_id": f"{g.element_id}:{g.wcag_criterion}",
-            "element_id": g.element_id,
-            "wcag_criterion": g.wcag_criterion,
-            "reviewers": sorted(g.reviewers),
-            "dedup_status": (f"{len(g.reviewers)}/{total_reviewers} agree "
-                             f"(confidence {g.confidence})"),
-            "issue": g.issue,
-            "suggested_fix": g.suggested_fix,
-            "structural_check": structural,
-            "advisory_flags": {"hallucinated": g.hallucinated_hints, "fix_type": g.fix_type_hints},
-            "claude_call": claude_call,
-            "claude_reasoning": (claude or {}).get("reasoning") if claude else None,
-            "decision": decision,
-            "patch_generated": patch_generated,
-        })
+        audit.append(
+            {
+                "issue_id": f"{g.element_id}:{g.wcag_criterion}",
+                "element_id": g.element_id,
+                "wcag_criterion": g.wcag_criterion,
+                "reviewers": sorted(g.reviewers),
+                "dedup_status": (
+                    f"{len(g.reviewers)}/{total_reviewers} agree " f"(confidence {g.confidence})"
+                ),
+                "issue": g.issue,
+                "suggested_fix": g.suggested_fix,
+                "structural_check": structural,
+                "advisory_flags": {
+                    "hallucinated": g.hallucinated_hints,
+                    "fix_type": g.fix_type_hints,
+                },
+                "claude_call": claude_call,
+                "claude_reasoning": (claude or {}).get("reasoning") if claude else None,
+                "decision": decision,
+                "patch_generated": patch_generated,
+            }
+        )
 
     for g in groups:
         el = index.get(g.element_id)
@@ -388,20 +446,31 @@ def build_manifest(html: Path, reviews: Path, use_llm: bool) -> tuple[list, list
 
         if decision == "hallucinated":
             record(g, "REJECT_HALLUCINATED", reason, False)
-            rejected.append({
-                "element_id": g.element_id, "wcag_criterion": g.wcag_criterion,
-                "status": "hallucinated", "reason": reason, "flagged_by": sorted(g.reviewers),
-                "advisory_hallucinated_flags": g.hallucinated_hints,
-            })
+            rejected.append(
+                {
+                    "element_id": g.element_id,
+                    "wcag_criterion": g.wcag_criterion,
+                    "status": "hallucinated",
+                    "reason": reason,
+                    "flagged_by": sorted(g.reviewers),
+                    "advisory_hallucinated_flags": g.hallucinated_hints,
+                }
+            )
             log(f"  ✗ hallucination skipped [{g.element_id}] {reason}")
             continue
 
         if decision == "needs_human":
-            rejected.append({
-                "element_id": g.element_id, "wcag_criterion": g.wcag_criterion,
-                "status": "needs_human", "reason": reason, "flagged_by": sorted(g.reviewers),
-                "confidence": g.confidence, "issue": g.issue,
-            })
+            rejected.append(
+                {
+                    "element_id": g.element_id,
+                    "wcag_criterion": g.wcag_criterion,
+                    "status": "needs_human",
+                    "reason": reason,
+                    "flagged_by": sorted(g.reviewers),
+                    "confidence": g.confidence,
+                    "issue": g.issue,
+                }
+            )
             record(g, "NEEDS_HUMAN", reason, False)
             log(f"  ⚠ needs_human [{g.element_id}] {reason}")
             continue
@@ -411,53 +480,69 @@ def build_manifest(html: Path, reviews: Path, use_llm: bool) -> tuple[list, list
         # elements every round, but re-setting an attribute to its current value
         # produces no patch.
         if decision == "deterministic" and el and el["attrs"].get(target) == value:
-            rejected.append({
-                "element_id": g.element_id, "wcag_criterion": g.wcag_criterion,
-                "status": "already_satisfied", "flagged_by": sorted(g.reviewers),
-                "reason": f'{target}="{value}" is already present on the element',
-            })
+            rejected.append(
+                {
+                    "element_id": g.element_id,
+                    "wcag_criterion": g.wcag_criterion,
+                    "status": "already_satisfied",
+                    "flagged_by": sorted(g.reviewers),
+                    "reason": f'{target}="{value}" is already present on the element',
+                }
+            )
             record(g, "ALREADY_SATISFIED", f'{target}="{value}" already present', False)
-            log(f"  = already satisfied [{g.element_id}] {target}=\"{value}\"")
+            log(f'  = already satisfied [{g.element_id}] {target}="{value}"')
             continue
         if decision == "llm_safe" and el and len((el.get("alt") or "").strip()) >= 15:
-            rejected.append({
-                "element_id": g.element_id, "wcag_criterion": g.wcag_criterion,
-                "status": "already_satisfied", "flagged_by": sorted(g.reviewers),
-                "reason": "element already has substantive alt text",
-            })
+            rejected.append(
+                {
+                    "element_id": g.element_id,
+                    "wcag_criterion": g.wcag_criterion,
+                    "status": "already_satisfied",
+                    "flagged_by": sorted(g.reviewers),
+                    "reason": "element already has substantive alt text",
+                }
+            )
             record(g, "ALREADY_SATISFIED", "element already has substantive alt text", False)
             log(f"  = already satisfied [{g.element_id}] alt already present")
             continue
 
         if decision == "deterministic":
-            patches.append({
-                "element_id": g.element_id,
-                "operation": "annotate",
-                "target_attribute": target,
-                "new_value": value,
-                "wcag_criterion": g.wcag_criterion,
-                "confidence": g.confidence,
-                "reasoning": (f"Deterministic fix accepted ({agree}, confidence "
-                              f"{g.confidence}). {reason}. Setting {target}=\"{value}\" is "
-                              f"non-destructive and needs no model call."),
-            })
-            record(g, "ACCEPT", f'{reason}; target {target} is valid', True)
-            log(f"  ✓ deterministic patch [{g.element_id}] {target}=\"{value}\"")
+            patches.append(
+                {
+                    "element_id": g.element_id,
+                    "operation": "annotate",
+                    "target_attribute": target,
+                    "new_value": value,
+                    "wcag_criterion": g.wcag_criterion,
+                    "confidence": g.confidence,
+                    "reasoning": (
+                        f"Deterministic fix accepted ({agree}, confidence "
+                        f'{g.confidence}). {reason}. Setting {target}="{value}" is '
+                        f"non-destructive and needs no model call."
+                    ),
+                }
+            )
+            record(g, "ACCEPT", f"{reason}; target {target} is valid", True)
+            log(f'  ✓ deterministic patch [{g.element_id}] {target}="{value}"')
             continue
 
         # decision == "llm_safe"
         if not use_llm:
-            deferred.append({
-                "element_id": g.element_id, "wcag_criterion": g.wcag_criterion,
-                "status": "deferred_llm", "reason": "LLM-safe fix; run without --no-llm to generate",
-                "flagged_by": sorted(g.reviewers),
-            })
+            deferred.append(
+                {
+                    "element_id": g.element_id,
+                    "wcag_criterion": g.wcag_criterion,
+                    "status": "deferred_llm",
+                    "reason": "LLM-safe fix; run without --no-llm to generate",
+                    "flagged_by": sorted(g.reviewers),
+                }
+            )
             record(g, "DEFERRED_LLM", "LLM-safe fix; deferred (--no-llm)", False)
             log(f"  … llm_safe deferred [{g.element_id}] (--no-llm)")
             continue
 
         # Auto-select provider based on available credentials
-        provider = 'claude' if os.environ.get('ANTHROPIC_API_KEY') else 'openai'
+        provider = "claude" if os.environ.get("ANTHROPIC_API_KEY") else "openai"
         log(f"  → calling {provider.capitalize()} for llm_safe fix [{g.element_id}]...")
 
         try:
@@ -467,41 +552,68 @@ def build_manifest(html: Path, reviews: Path, use_llm: bool) -> tuple[list, list
             error_msg = str(e)
             log(f"  ⚠ needs_human [{g.element_id}] {type(e).__name__}: {error_msg}")
             # Sanitize: don't expose API errors or keys
-            user_msg = f"{provider.capitalize()} API error (invalid credentials or service unavailable)"
-            rejected.append({
-                "element_id": g.element_id, "wcag_criterion": g.wcag_criterion,
-                "status": "needs_human", "reason": user_msg,
-                "flagged_by": sorted(g.reviewers),
-            })
+            user_msg = (
+                f"{provider.capitalize()} API error (invalid credentials or service unavailable)"
+            )
+            rejected.append(
+                {
+                    "element_id": g.element_id,
+                    "wcag_criterion": g.wcag_criterion,
+                    "status": "needs_human",
+                    "reason": user_msg,
+                    "flagged_by": sorted(g.reviewers),
+                }
+            )
             record(g, "NEEDS_HUMAN", f"alt on <{el['tag']}> failed: {user_msg}", False)
             continue
 
         if not result.get("safe", False):
-            rejected.append({
-                "element_id": g.element_id, "wcag_criterion": g.wcag_criterion,
-                "status": "needs_human", "reason": f"{provider.capitalize()} judged the fix unsafe to auto-generate",
-                "provider_response": result, "flagged_by": sorted(g.reviewers),
-            })
-            record(g, "NEEDS_HUMAN", f"alt on <{el['tag']}> is valid; {provider.capitalize()} judged fix unsafe",
-                   False, claude_call=True, claude=result)
+            rejected.append(
+                {
+                    "element_id": g.element_id,
+                    "wcag_criterion": g.wcag_criterion,
+                    "status": "needs_human",
+                    "reason": f"{provider.capitalize()} judged the fix unsafe to auto-generate",
+                    "provider_response": result,
+                    "flagged_by": sorted(g.reviewers),
+                }
+            )
+            record(
+                g,
+                "NEEDS_HUMAN",
+                f"alt on <{el['tag']}> is valid; {provider.capitalize()} judged fix unsafe",
+                False,
+                claude_call=True,
+                claude=result,
+            )
             log(f"  ⚠ needs_human [{g.element_id}] {provider.capitalize()} declined to auto-fix")
             continue
 
         conf = round(min(g.confidence, float(result.get("confidence", g.confidence))), 2)
-        patches.append({
-            "element_id": g.element_id,
-            "operation": "annotate",
-            "target_attribute": target or "alt",
-            "new_value": result.get("new_value", ""),
-            "wcag_criterion": g.wcag_criterion,
-            "confidence": conf,
-            "llm_safe": True,
-            "reasoning": (f"LLM-safe fix accepted ({agree}). {provider.capitalize()} generated the "
-                          f"alt text and judged it safe. Reasoning: "
-                          f"{result.get('reasoning', '')}"),
-        })
-        record(g, "ACCEPT", f"alt on <{el['tag']}> is valid; {provider.capitalize()} generated + approved", True,
-               claude_call=True, claude=result)
+        patches.append(
+            {
+                "element_id": g.element_id,
+                "operation": "annotate",
+                "target_attribute": target or "alt",
+                "new_value": result.get("new_value", ""),
+                "wcag_criterion": g.wcag_criterion,
+                "confidence": conf,
+                "llm_safe": True,
+                "reasoning": (
+                    f"LLM-safe fix accepted ({agree}). {provider.capitalize()} generated the "
+                    f"alt text and judged it safe. Reasoning: "
+                    f"{result.get('reasoning', '')}"
+                ),
+            }
+        )
+        record(
+            g,
+            "ACCEPT",
+            f"alt on <{el['tag']}> is valid; {provider.capitalize()} generated + approved",
+            True,
+            claude_call=True,
+            claude=result,
+        )
         log(f"  ✓ llm_safe patch [{g.element_id}] alt=\"{result.get('new_value','')[:60]}\"")
 
     OUT_AUDIT.parent.mkdir(parents=True, exist_ok=True)
@@ -513,13 +625,18 @@ def main() -> int:
     ap = argparse.ArgumentParser(description="Peer reviews -> deterministic patch manifest.")
     ap.add_argument("--html", type=Path, default=DEFAULT_HTML)
     ap.add_argument("--reviews", type=Path, default=DEFAULT_REVIEWS)
-    ap.add_argument("--no-llm", action="store_true",
-                    help="skip Claude calls; defer LLM-safe fixes (offline-testable)")
+    ap.add_argument(
+        "--no-llm",
+        action="store_true",
+        help="skip Claude calls; defer LLM-safe fixes (offline-testable)",
+    )
     args = ap.parse_args()
 
     log("=" * 70)
-    log(f"Judge starting  html={args.html.name}  reviews={args.reviews.name}  "
-        f"llm={'off' if args.no_llm else 'on'}")
+    log(
+        f"Judge starting  html={args.html.name}  reviews={args.reviews.name}  "
+        f"llm={'off' if args.no_llm else 'on'}"
+    )
     if not args.html.exists():
         log(f"FATAL: HTML not found: {args.html}")
         return 1
@@ -527,12 +644,13 @@ def main() -> int:
         log(f"FATAL: reviews not found: {args.reviews}")
         return 1
 
-    patches, rejected, deferred, audit = build_manifest(args.html, args.reviews, use_llm=not args.no_llm)
+    patches, rejected, deferred, audit = build_manifest(
+        args.html, args.reviews, use_llm=not args.no_llm
+    )
 
     OUT_MANIFEST.parent.mkdir(parents=True, exist_ok=True)
     OUT_MANIFEST.write_text(json.dumps(patches, indent=2))
-    OUT_REJECTED.write_text(json.dumps(
-        {"rejected": rejected, "deferred": deferred}, indent=2))
+    OUT_REJECTED.write_text(json.dumps({"rejected": rejected, "deferred": deferred}, indent=2))
 
     log("=" * 70)
     log(f"DONE  patches={len(patches)}  rejected={len(rejected)}  deferred={len(deferred)}")

@@ -92,17 +92,25 @@ def check_text_coverage(orig, patched) -> dict:
     # An empty original with surviving content is fine; an empty *patched* is not.
     passed = coverage >= TEXT_COVERAGE_THRESHOLD and (p > 0 or o == 0)
     return {
-        "name": "text_coverage", "passed": passed,
-        "original_words": o, "patched_words": p,
-        "coverage": round(coverage, 4), "threshold": TEXT_COVERAGE_THRESHOLD,
+        "name": "text_coverage",
+        "passed": passed,
+        "original_words": o,
+        "patched_words": p,
+        "coverage": round(coverage, 4),
+        "threshold": TEXT_COVERAGE_THRESHOLD,
         "detail": f"{o} -> {p} words ({coverage:.1%}); threshold {TEXT_COVERAGE_THRESHOLD:.0%}",
     }
 
 
 def check_image_count(orig, patched) -> dict:
     o, p = _count(orig, "img"), _count(patched, "img")
-    return {"name": "image_count", "passed": p >= o, "original": o, "patched": p,
-            "detail": f"{o} -> {p} images (must not decrease)"}
+    return {
+        "name": "image_count",
+        "passed": p >= o,
+        "original": o,
+        "patched": p,
+        "detail": f"{o} -> {p} images (must not decrease)",
+    }
 
 
 def check_heading_order(orig, patched) -> dict:
@@ -112,18 +120,29 @@ def check_heading_order(orig, patched) -> dict:
         if prev is not None and (lvl - prev) > HEADING_SKIP_TOLERANCE:
             skips.append({"from": prev, "to": lvl})
         prev = lvl
-    return {"name": "heading_order", "passed": not skips,
-            "original_sequence": before, "patched_sequence": after,
-            "tolerance": HEADING_SKIP_TOLERANCE, "skips": skips,
-            "detail": f"before {before} -> after {after}; skips {skips or 'none'}"}
+    return {
+        "name": "heading_order",
+        "passed": not skips,
+        "original_sequence": before,
+        "patched_sequence": after,
+        "tolerance": HEADING_SKIP_TOLERANCE,
+        "skips": skips,
+        "detail": f"before {before} -> after {after}; skips {skips or 'none'}",
+    }
 
 
 def check_table_structure(orig, patched) -> dict:
     o, p = _count(orig, "table"), _count(patched, "table")
     passed = (p >= o) if o else True
-    return {"name": "table_structure", "passed": passed, "original": o, "patched": p,
-            "original_shapes": _table_shapes(orig), "patched_shapes": _table_shapes(patched),
-            "detail": f"{o} -> {p} tables" + ("" if passed else " (TABLE LOST)")}
+    return {
+        "name": "table_structure",
+        "passed": passed,
+        "original": o,
+        "patched": p,
+        "original_shapes": _table_shapes(orig),
+        "patched_shapes": _table_shapes(patched),
+        "detail": f"{o} -> {p} tables" + ("" if passed else " (TABLE LOST)"),
+    }
 
 
 CHECKS = (check_text_coverage, check_image_count, check_heading_order, check_table_structure)
@@ -136,10 +155,13 @@ def run_gate(original_html: str, patched_html: str, *, write_detail: bool = Fals
     passed = all(r["passed"] for r in results)
     detail = {
         "timestamp": datetime.now().isoformat(timespec="seconds"),
-        "passed": passed, "checks": results,
+        "passed": passed,
+        "checks": results,
         "failed_checks": [r["name"] for r in results if not r["passed"]],
-        "thresholds": {"text_coverage": TEXT_COVERAGE_THRESHOLD,
-                       "heading_skip_tolerance": HEADING_SKIP_TOLERANCE},
+        "thresholds": {
+            "text_coverage": TEXT_COVERAGE_THRESHOLD,
+            "heading_skip_tolerance": HEADING_SKIP_TOLERANCE,
+        },
     }
     if write_detail:
         OUT_DETAIL.parent.mkdir(parents=True, exist_ok=True)
@@ -162,8 +184,10 @@ def main() -> int:
 
     result = run_gate(args.original.read_text(), args.patched.read_text(), write_detail=True)
     for c in result["checks"]:
-        log(f"  {'✓' if c['passed'] else '✗'} {c['name']}: {c['detail']}. "
-            f"{'PASS' if c['passed'] else 'FAIL'}")
+        log(
+            f"  {'✓' if c['passed'] else '✗'} {c['name']}: {c['detail']}. "
+            f"{'PASS' if c['passed'] else 'FAIL'}"
+        )
     log("=" * 72)
     if result["passed"]:
         log(f"GATE PASSED — round preserved content (detail: {OUT_DETAIL})")

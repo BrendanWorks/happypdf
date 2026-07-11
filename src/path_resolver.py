@@ -7,11 +7,10 @@ relative paths from __file__.
 """
 
 import os
-import sys
 from pathlib import Path
 
-
 # ── Project structure ──────────────────────────────────────────────────────
+
 
 def get_project_root() -> Path:
     """Get the happypdf project root (repo root, not src/)."""
@@ -31,6 +30,7 @@ def get_api_dir() -> Path:
 
 
 # ── Dependencies ───────────────────────────────────────────────────────────
+
 
 def get_axe_core_path() -> Path:
     """
@@ -107,7 +107,7 @@ def validate_paths() -> None:
                 f"Please refer to SETUP.md for project structure."
             )
 
-    print(f"✓ All required paths validated")
+    print("✓ All required paths validated")
     print(f"  Project root: {get_project_root()}")
     print(f"  axe-core: {get_axe_core_path()}")
 

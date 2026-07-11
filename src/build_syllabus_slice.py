@@ -25,8 +25,10 @@ from datetime import datetime
 from pathlib import Path
 
 import fitz  # PyMuPDF
+
 import modal
-from path_resolver import REPO as ROOT, AXE_LOCAL, validate_paths
+from path_resolver import AXE_LOCAL, validate_paths
+from path_resolver import REPO as ROOT
 
 # Validate paths at import time
 validate_paths()
@@ -37,8 +39,8 @@ OUTPUT_DIR = ROOT / "output"
 OUT_HTML = OUTPUT_DIR / "syllabus_scored.html"
 OUT_AXE = OUTPUT_DIR / "syllabus_axe_baseline.json"
 IMG_DIR = OUTPUT_DIR / "syllabus_images"
-CACHE_MD = OUTPUT_DIR / "syllabus_olmocr.md"      # cached olmOCR markdown
-CACHE_ALT = OUTPUT_DIR / "syllabus_alt.json"      # cached alt-text map
+CACHE_MD = OUTPUT_DIR / "syllabus_olmocr.md"  # cached olmOCR markdown
+CACHE_ALT = OUTPUT_DIR / "syllabus_alt.json"  # cached alt-text map
 
 # axe-core resolved portably via path_resolver
 AXE_CANDIDATES = [AXE_LOCAL]
@@ -68,8 +70,15 @@ def strip_front_matter(md: str) -> str:
     blocks (the ones carrying olmocr keys) while keeping real content."""
     blocks = re.split(r"(?m)^---\s*$", md)
     kept = []
-    meta_keys = ("primary_language", "is_rotation_valid", "rotation_correction",
-                 "is_table", "is_diagram", "total-input-tokens", "Page dimensions")
+    meta_keys = (
+        "primary_language",
+        "is_rotation_valid",
+        "rotation_correction",
+        "is_table",
+        "is_diagram",
+        "total-input-tokens",
+        "Page dimensions",
+    )
     for b in blocks:
         if any(k in b for k in meta_keys) and ":" in b:
             continue  # metadata block, drop it
@@ -123,13 +132,15 @@ def extract_images(pdf_path: Path) -> list[dict]:
             data = base["image"]
             fname = f"syllabus_img_{len(images) + 1}.{ext}"
             (IMG_DIR / fname).write_bytes(data)
-            images.append({
-                "filename": fname,
-                "path": IMG_DIR / fname,
-                "b64": base64.b64encode(data).decode("utf-8"),
-                "page": page_idx + 1,
-                "context": ctx,
-            })
+            images.append(
+                {
+                    "filename": fname,
+                    "path": IMG_DIR / fname,
+                    "b64": base64.b64encode(data).decode("utf-8"),
+                    "page": page_idx + 1,
+                    "context": ctx,
+                }
+            )
     log(f"images: extracted {len(images)} from {doc.page_count} page(s)")
     doc.close()
     return images
@@ -148,10 +159,16 @@ def generate_alt_text(images: list[dict]) -> dict[str, dict]:
         res = fn.remote(img["b64"], img["context"])
         if not res.get("success"):
             log(f"  {img['filename']}: FAILED ({res.get('error', '?')[:80]}) -> filename fallback")
-            res = {"alt_text": img["filename"], "requires_long_desc": False,
-                   "confidence": 0.0, "success": False}
+            res = {
+                "alt_text": img["filename"],
+                "requires_long_desc": False,
+                "confidence": 0.0,
+                "success": False,
+            }
         else:
-            log(f"  {img['filename']}: \"{res['alt_text'][:70]}\" (long_desc={res['requires_long_desc']})")
+            log(
+                f"  {img['filename']}: \"{res['alt_text'][:70]}\" (long_desc={res['requires_long_desc']})"
+            )
         mapping[img["filename"]] = res
     return mapping
 
@@ -160,7 +177,9 @@ def generate_alt_text(images: list[dict]) -> dict[str, dict]:
 # Step 5: Markdown + alt text -> semantic HTML5
 # ---------------------------------------------------------------------------
 class HtmlBuilder:
-    def __init__(self, markdown: str, images: list[dict], alt_map: dict[str, dict], title: str = "Document"):
+    def __init__(
+        self, markdown: str, images: list[dict], alt_map: dict[str, dict], title: str = "Document"
+    ):
         self.lines = markdown.split("\n")
         self.images = images
         self.alt_map = alt_map
@@ -190,14 +209,21 @@ class HtmlBuilder:
     @staticmethod
     def _convert_markdown_images(text: str) -> str:
         """Convert markdown image syntax ![alt](src) to HTML <img> tags."""
+
         def replace_image(match):
             alt = match.group(1)
             src = match.group(2)
             # Escape alt text for HTML attribute
-            alt_escaped = alt.replace('"', '&quot;').replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
+            alt_escaped = (
+                alt.replace('"', "&quot;")
+                .replace("&", "&amp;")
+                .replace("<", "&lt;")
+                .replace(">", "&gt;")
+            )
             return f'<img src="{src}" alt="{alt_escaped}">'
+
         # Match markdown image syntax: ![alt text](image.png)
-        return re.sub(r'!\[([^\]]*)\]\(([^\)]+)\)', replace_image, text)
+        return re.sub(r"!\[([^\]]*)\]\(([^\)]+)\)", replace_image, text)
 
     @staticmethod
     def _fix_table_html(tbl: str) -> str:
@@ -210,14 +236,14 @@ class HtmlBuilder:
         - &lt;/th&gt; becomes </th>
         """
         # Unescape HTML entities that represent table tags
-        tbl = tbl.replace('&lt;th ', '<th ')
-        tbl = tbl.replace('&lt;/th&gt;', '</th>')
-        tbl = tbl.replace('&lt;td ', '<td ')
-        tbl = tbl.replace('&lt;/td&gt;', '</td>')
-        tbl = tbl.replace('&lt;/tr&gt;', '</tr>')
-        tbl = tbl.replace('&lt;tr&gt;', '<tr>')
-        tbl = tbl.replace('&gt;', '>')
-        tbl = tbl.replace('&lt;', '<')
+        tbl = tbl.replace("&lt;th ", "<th ")
+        tbl = tbl.replace("&lt;/th&gt;", "</th>")
+        tbl = tbl.replace("&lt;td ", "<td ")
+        tbl = tbl.replace("&lt;/td&gt;", "</td>")
+        tbl = tbl.replace("&lt;/tr&gt;", "</tr>")
+        tbl = tbl.replace("&lt;tr&gt;", "<tr>")
+        tbl = tbl.replace("&gt;", ">")
+        tbl = tbl.replace("&lt;", "<")
         return tbl
 
     def _heading(self, line: str):
@@ -236,7 +262,7 @@ class HtmlBuilder:
                 body.append("    </ul>")
             in_list, items = False, []
 
-        has_h1 = any(self._heading(l.strip())[0] == 1 for l in self.lines)
+        has_h1 = any(self._heading(line.strip())[0] == 1 for line in self.lines)
         i = 0
         while i < len(self.lines):
             raw = self.lines[i].strip()
@@ -272,7 +298,9 @@ class HtmlBuilder:
                 # Parse and reconstruct table to fix HTML entities and empty cells
                 tbl = self._fix_table_html(tbl)
 
-                tbl = re.sub(r"<table", f'<table data-ir-id="{self._id("table:" + tbl[:60])}"', tbl, count=1)
+                tbl = re.sub(
+                    r"<table", f'<table data-ir-id="{self._id("table:" + tbl[:60])}"', tbl, count=1
+                )
                 body.append("    " + tbl.replace("\n", "\n    "))
                 continue
 
@@ -287,12 +315,12 @@ class HtmlBuilder:
             content = self._convert_markdown_images(raw)
 
             # If markdown images were converted, keep the HTML; otherwise escape
-            if '!['  in raw and '<img' in content:
+            if "![" in raw and "<img" in content:
                 # Images converted successfully, keep the generated HTML
                 pass
-            elif '&lt;' in raw and ('&lt;th' in raw or '&lt;td' in raw or '&lt;tr' in raw):
+            elif "&lt;" in raw and ("&lt;th" in raw or "&lt;td" in raw or "&lt;tr" in raw):
                 # OLMo output HTML entities for table tags; unescape them
-                content = raw.replace('&lt;', '<').replace('&gt;', '>').replace('&amp;', '&')
+                content = raw.replace("&lt;", "<").replace("&gt;", ">").replace("&amp;", "&")
             else:
                 # Regular text - escape special characters for HTML
                 content = self._esc(raw)
@@ -312,11 +340,15 @@ class HtmlBuilder:
             mime = "image/png" if img["filename"].endswith(".png") else "image/jpeg"
             data_uri = f'data:{mime};base64,{img.get("b64", "")}'
             body.append(f'    <figure data-ir-id="{fig_id}">')
-            body.append(f'      <img data-ir-id="{img_id}" src="{data_uri}" alt="{self._attr(alt)}">')
+            body.append(
+                f'      <img data-ir-id="{img_id}" src="{data_uri}" alt="{self._attr(alt)}">'
+            )
             if res.get("requires_long_desc"):
                 cap_id = self._id("cap:" + img["filename"])
-                body.append(f'      <figcaption data-ir-id="{cap_id}">'
-                            f'Complex image — a full long description is required.</figcaption>')
+                body.append(
+                    f'      <figcaption data-ir-id="{cap_id}">'
+                    f"Complex image — a full long description is required.</figcaption>"
+                )
             body.append("    </figure>")
 
         return self._wrap(body, self.title)
@@ -383,9 +415,16 @@ def summarize(results: dict) -> dict:
             sev[v["impact"]] += 1
     n_v, n_p = len(violations), len(results.get("passes", []))
     score = round(n_p / (n_p + n_v) * 100, 1) if (n_p + n_v) else 0.0
-    return {"severity": sev, "violations": n_v, "passes": n_p, "score": score,
-            "rules": [{"id": v.get("id"), "impact": v.get("impact"),
-                       "nodes": len(v.get("nodes", []))} for v in violations]}
+    return {
+        "severity": sev,
+        "violations": n_v,
+        "passes": n_p,
+        "score": score,
+        "rules": [
+            {"id": v.get("id"), "impact": v.get("impact"), "nodes": len(v.get("nodes", []))}
+            for v in violations
+        ],
+    }
 
 
 def comment_block(summary: dict, dup_ids: set[str], n_imgs: int) -> str:
@@ -464,8 +503,10 @@ def main() -> int:
     OUT_AXE.write_text(json.dumps(results, indent=2))
 
     log("=" * 70)
-    log(f"DONE  score={summary['score']}%  violations={summary['violations']}"
-        f"  passes={summary['passes']}  images={len(images)}")
+    log(
+        f"DONE  score={summary['score']}%  violations={summary['violations']}"
+        f"  passes={summary['passes']}  images={len(images)}"
+    )
     log(f"  HTML:    {OUT_HTML}")
     log(f"  AxeJSON: {OUT_AXE}")
     if builder.dup_ids:

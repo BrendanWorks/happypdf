@@ -13,24 +13,19 @@ To deploy:
 
 import base64
 import json
-import subprocess
-import tempfile
-from pathlib import Path
 from io import BytesIO
 
-import modal
 from PIL import Image
 
-image = (
-    modal.Image.debian_slim(python_version="3.11")
-    .pip_install(
-        "Pillow",
-        "torch>=2.0",
-        "torchvision>=0.17.0",
-        "transformers>=4.40.0",
-        "accelerate",
-        "bitsandbytes",
-    )
+import modal
+
+image = modal.Image.debian_slim(python_version="3.11").pip_install(
+    "Pillow",
+    "torch>=2.0",
+    "torchvision>=0.17.0",
+    "transformers>=4.40.0",
+    "accelerate",
+    "bitsandbytes",
 )
 
 app = modal.App("pdfaccess-alttext", image=image)
@@ -60,8 +55,8 @@ def generate_alt_text(
         }
     """
     try:
-        from transformers import Qwen2VLForConditionalGeneration, AutoProcessor
         import torch
+        from transformers import AutoProcessor, Qwen2VLForConditionalGeneration
 
         print("[AltText] Decoding image...")
         image_data = base64.b64decode(image_b64)
@@ -70,9 +65,7 @@ def generate_alt_text(
         # Resize if needed
         if image.width > 896:
             scale = 896 / image.width
-            image = image.resize(
-                (896, max(1, int(image.height * scale))), Image.LANCZOS
-            )
+            image = image.resize((896, max(1, int(image.height * scale))), Image.LANCZOS)
 
         # Build prompt
         base_prompt = (
@@ -97,7 +90,15 @@ def generate_alt_text(
 
         print("[AltText] Processing image...")
         text = processor.apply_chat_template(
-            [{"role": "user", "content": [{"type": "image", "image": image}, {"type": "text", "text": full_prompt}]}],
+            [
+                {
+                    "role": "user",
+                    "content": [
+                        {"type": "image", "image": image},
+                        {"type": "text", "text": full_prompt},
+                    ],
+                }
+            ],
             tokenize=False,
             add_generation_prompt=True,
         )
@@ -143,6 +144,7 @@ def generate_alt_text(
 
     except Exception as e:
         import traceback
+
         error = f"{type(e).__name__}: {e}"
         print(f"[AltText] ✗ ERROR: {error}")
         print(traceback.format_exc())
