@@ -24,15 +24,15 @@ Determinism is the point. When the remediation loop (rounds 2-3) rewrites an ele
 
 The tradeoff: two elements with identical normalized text hash to the same ID. This happens with visual artifacts such as rows of dashes used as separators. The builder detects collisions (`dup_ids`) and records them in the output's comment block rather than silently emitting invalid duplicate IDs. Filtering these artifacts upstream is a known TODO.
 
-## Three Deployment Modes (and Why the Code Doesn't Change)
+## Deployment Modes (and Why the Code Doesn't Change)
 
-The three modes described in the README — self-hosted, hosted demo, and BYOK — are **not three codebases**. They are the same orchestration with different model backends bound at the seams:
+Self-hosted and BYOK are **not two codebases**. There is one live reviewer function (`reviewers.live_provider`), which always calls OLMo (Modal), Gemini, and GPT together in parallel — there is no separate OLMo-only code path today.
 
 - **Extraction** is always olmOCR. It runs on your Modal account in every mode.
 - **Alt text** is Qwen2-VL today; it can be swapped for any vision model behind the same `generate_alt_text(image_b64, context) -> {alt_text, ...}` contract.
-- **Peer review / judge** (rounds 2-3) is where the modes diverge: OLMo for self-hosted, Claude + a panel for hosted, and customer-supplied credentials for BYOK. All speak the same review/patch contract, so the loop code is identical.
+- **Peer review / judge** (rounds 2-3) always runs the same `live_provider` function. The only thing that changes between "hosted" and BYOK is *whose* Anthropic/OpenAI credentials it uses: the server's own `.env` keys by default, or a user-supplied key that temporarily overrides those environment variables for the duration of that one job (see `api/main.py::_live`).
 
-Because the seams are plain function contracts, "switching modes" is configuration, not a rewrite. That is what makes BYOK cheap to offer.
+Because credential selection is a plain environment-variable seam, BYOK is cheap to offer without a second implementation — but it is also not yet a distinct "self-hosted, OLMo-only" review mode; that would require actually branching the reviewer selection, which doesn't exist in code yet.
 
 ## Modal Infrastructure
 

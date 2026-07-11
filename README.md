@@ -80,13 +80,14 @@ The demo runs on Modal GPUs and excels with complex documents: forms, tables, sc
 
 ## Deployment Modes
 
-The same orchestration layer works across all modes — only the model backends change.
+There is currently one reviewer pipeline: OLMo (Modal) + Gemini + GPT run together as peer reviewers, with Claude Opus as judge for LLM-safe fixes. The only thing that changes between modes is whose API credentials it uses.
 
-| Mode | Models | Cost Model | Best For |
+| Mode | Credentials | Cost Model | Best For |
 | :--- | :--- | :--- | :--- |
-| **Self-hosted / open-weight** | OLMo + local/Modal inference | Compute only | Offline, air-gapped, cost-sensitive |
-| **Hosted Demo** | happypdf-provisioned (Claude judge + reviewers) | Per conversion | Quick testing |
-| **BYOK / Enterprise** | Your Claude, OpenAI, or Gemini keys | Your existing contracts | Organizations with approved AI access |
+| **Hosted (default)** | happypdf-provisioned keys | Per conversion | Quick testing, default experience |
+| **BYOK / Enterprise** | Your own Claude / OpenAI keys, swapped in for that job only | Your existing contracts | Organizations with approved AI access |
+
+A fully open-weight, OLMo-only self-hosted mode (no Claude/GPT/Gemini calls, offline-capable) is a roadmap item — the reviewer step doesn't currently branch by mode, so it isn't available yet. See [Upcoming Features](#project-status--roadmap).
 
 ## Why This Project?
 
@@ -132,7 +133,7 @@ All documents converge quickly with zero content loss. Manifest and report downl
 | IRS Schedule C        | Dense form     | 1.1M | 7 | 100% (23 pass) | 100% (28 pass) | 3 |
 | Navy Bulletin 1943    | OCR'd prose    | 876K | 6 | 100% (20 pass) | 100% (20 pass) | 1 |
 
-**Extended Test Suite (10 Additional Documents)**
+**Extended Test Suite (6 Additional Documents)**
 
 | Document | Type | Size | Pages | Baseline | Final | Rounds | Notes |
 |----------|------|------|-------|----------|-------|--------|-------|
@@ -142,22 +143,18 @@ All documents converge quickly with zero content loss. Manifest and report downl
 | Dry Lab Protocol | Scientific | 1.3M | 3 | 100% (20 pass) | 100% (20 pass) | 1 | Text-heavy instructions |
 | Example Document | Sample | 343K | 3 | 100% (27 pass) | 100% (32 pass) | 2 | Generic test document |
 | Invoice Sample | Financial | 146K | 1 | 100% (23 pass) | 100% (28 pass) | 3 | Structured form, dense |
-| Somatosensory | Scientific | 132K | 2 | 100% (24 pass) | 100% (24 pass) | 0 | Neural system reference |
-| Cosmic Story Mat | Instructional | 440K | 2 | 100% (22 pass) | 100% (22 pass) | 0 | Children's literature |
-| Furnace (Amana) | Technical | 892K | 4 | 96.3% (26 pass) | 96.3% (26 pass) | 1 | Appliance manual |
-| Hands-Only CPR Sheet | Medical | 285K | 1 | 100% (22 pass) | 100% (22 pass) | 0 | Emergency procedure |
 
-**Comprehensive Test Suite (13 PDFs Total)** — Full details and raw files in [`benchmark/`](benchmark/).
+**Comprehensive Test Suite (9 PDFs Total)** — Full details and raw files in [`benchmark/`](benchmark/). (Four additional documents — Somatosensory, Cosmic Story Mat, Furnace, Hands-Only CPR Sheet — have been run through the pipeline before but don't currently have verified output committed to the repo, so they're excluded from these numbers until re-verified.)
 
 **Key Metrics:**
-- **Total PDFs tested:** 13
-- **Average baseline score:** 99.3%
-- **Average final score:** 99.3%
-- **Average rounds to convergence:** 1.2
-- **Baseline violations:** 0 violations in 12/13 documents (1 PDF had 96.3%)
+- **Total PDFs tested:** 9
+- **Average baseline score:** 100%
+- **Average final score:** 100%
+- **Average rounds to convergence:** 1.8
+- **Baseline violations:** 0 violations in 9/9 documents
 - **Reviewer success rate:** 100% on all tested review rounds
-- **Total ARIA enhancements:** 25+ across the suite
-- **Total test coverage:** 132 KB to 4.4 MB | 1–13 pages
+- **Total ARIA enhancements:** 25 across the suite
+- **Total test coverage:** 146 KB to 4.2 MB | 1–13 pages
 
 ## Project Status & Roadmap
 
@@ -167,9 +164,10 @@ All documents converge quickly with zero content loss. Manifest and report downl
 - ✅ Full audit-trail JSON manifest export (with demo snapshot support)
 - ✅ Formatted HTML report generation with styling
 - ✅ Download package feature (JSON + HTML with proper headers)
-- ✅ Comprehensive benchmark testing (13 PDFs with manifest/report verification)
+- ✅ Comprehensive benchmark testing (9 PDFs with manifest/report verification)
 
 **Upcoming Features:**
+- Fully open-weight self-hosted mode (OLMo-only reviewers, no Claude/GPT/Gemini calls)
 - Download full package ZIP (HTML output + JSON manifest + Report + Original PDF)
 - CLI instance for batch processing and local runs
 - Persistent job storage (Supabase) to handle long-running PDF processing
@@ -265,6 +263,8 @@ For self-hosted deployments:
 
 ## Contributing & License
 
-Pull requests are welcome. For major changes, please open an issue first.
+Pull requests are welcome — see [`CONTRIBUTING.md`](CONTRIBUTING.md) for setup, branch, and code-style conventions. For major changes, please open an issue first.
 
-**License:** MIT
+Questions or bugs: [open a GitHub issue](https://github.com/BrendanWorks/happypdf/issues).
+
+**License:** [MIT](LICENSE)

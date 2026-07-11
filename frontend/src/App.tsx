@@ -428,7 +428,7 @@ function DemoPanel() {
                       onChange={(e) => setByokKeys({ ...byokKeys, openai: e.target.value })}
                       className="w-full px-3 py-2 bg-slate-900 border border-slate-600/50 rounded text-xs text-slate-300 placeholder-slate-600 focus:outline-none focus:border-teal-400/50"
                     />
-                    <p className="text-xs text-slate-500">⚠️ Keys stored locally in your browser. Not transmitted to happypdf servers.</p>
+                    <p className="text-xs text-slate-500">⚠️ Sent over HTTPS to call the provider on your behalf — never logged or stored server-side. Not saved between sessions; you'll re-enter it after a refresh.</p>
                     {(byokKeys.anthropic || byokKeys.openai) && (
                       <button
                         type="button"
@@ -825,7 +825,7 @@ export default function App() {
                 {/* Mini stats */}
                 <div className="mt-10 flex flex-wrap gap-6 justify-center lg:justify-start">
                   {[
-                    { val: '97%', label: 'avg. final score' },
+                    { val: '100%', label: 'avg. final score' },
                     { val: '3', label: 'max remediation rounds' },
                     { val: '0', label: 'API key needed*' },
                   ].map(({ val, label }) => (
@@ -836,7 +836,7 @@ export default function App() {
                   ))}
                 </div>
                 <p className="text-xs text-slate-600 mt-2 text-center lg:text-left">
-                  * Self-hosted mode. Bring your own keys for max quality.
+                  * Hosted demo uses our keys. Bring your own for BYOK.
                 </p>
               </div>
 
