@@ -582,13 +582,29 @@ function DemoPanel() {
                     Download
                   </button>
                 </div>
-                <div className="flex gap-2 text-xs">
-                  <a href={`${API_BASE}/api/jobs/${job.id}/manifest`} download className="flex-1 text-center px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded transition-colors">
-                    📋 Manifest (JSON)
-                  </a>
-                  <a href={`${API_BASE}/api/jobs/${job.id}/report`} target="_blank" rel="noopener noreferrer" className="flex-1 text-center px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded transition-colors">
-                    📊 Report (HTML)
-                  </a>
+                <div className="space-y-2">
+                  <div className="text-xs text-slate-400 px-3">Audit Trail & Documentation</div>
+                  <div className="flex gap-2">
+                    <a
+                      href={`${API_BASE}/api/jobs/${job.id}/manifest`}
+                      download
+                      title="Complete remediation audit trail: baseline scores, rounds, patches, reviewer decisions, enhancements"
+                      className="flex-1 text-center px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded transition-colors group relative"
+                    >
+                      <div>📋 Manifest</div>
+                      <div className="text-xs opacity-75 group-hover:opacity-100">JSON audit trail</div>
+                    </a>
+                    <a
+                      href={`${API_BASE}/api/jobs/${job.id}/report`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      title="Formatted report with score progression, reviewer health, enhancements, and styling"
+                      className="flex-1 text-center px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded transition-colors group relative"
+                    >
+                      <div>📊 Report</div>
+                      <div className="text-xs opacity-75 group-hover:opacity-100">HTML formatted</div>
+                    </a>
+                  </div>
                 </div>
                 {job.kind === 'replay' && (
                   <a href={`https://github.com/BrendanWorks/happypdf/raw/main/benchmark/${job.id === 'syllabus' ? 'syllabus_NOTaccessible' : job.id === 'navy_bulletin' ? 'navy_bulletin' : 'irs_schedule_c'}.pdf`} target="_blank" rel="noopener noreferrer" className="block text-center text-xs text-slate-400 hover:text-slate-300 transition-colors">
