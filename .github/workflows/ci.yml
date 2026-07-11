@@ -63,3 +63,21 @@ jobs:
       # Syntax-check the Modal deployment entrypoints
       - name: Validate Modal config
         run: python -m py_compile src/modal_api.py modal/modal_alttext_adapter.py modal/modal_olmo_wcag.py modal/modal_olmocr_final.py
+
+  docker-build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # Confirms the backend image still builds — catches base image /
+      # dependency breakage before it reaches a self-hoster.
+      - name: Build backend image
+        run: docker build -t happypdf-backend:ci .
+
+      # Confirms the frontend build stage still produces a working image.
+      # Doesn't run a live pipeline job here (needs real Modal/provider
+      # credentials, costs money, slow) — that's covered manually, not on
+      # every push.
+      - name: Build frontend image
+        run: docker build --build-arg VITE_API_URL=http://localhost:8000 -t happypdf-frontend:ci ./frontend
