@@ -1,0 +1,65 @@
+name: CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+jobs:
+  lint-and-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      # Check out the code
+      - uses: actions/checkout@v4
+
+      # Set up Python 3.11
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      # Set up Node.js for frontend tools
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      # Install Python dependencies
+      - name: Install Python dependencies
+        run: pip install -r requirements.txt && pip install ruff black
+
+      # Lint Python code with ruff
+      - name: Lint Python (ruff)
+        run: ruff check src/ api/ tests/ modal/
+
+      # Check Python formatting with black
+      - name: Check Python formatting (black)
+        run: black --check src/ api/ tests/ modal/
+
+      # Install frontend dependencies
+      - name: Install frontend dependencies
+        run: cd frontend && npm ci
+
+      # Lint TypeScript/React code
+      - name: Lint TypeScript (ESLint)
+        run: cd frontend && npm run lint
+
+      # Type check TypeScript
+      - name: Type check TypeScript
+        run: cd frontend && npm run typecheck
+
+      # Install Playwright's Chromium (axe-core runs in a real browser)
+      - name: Install Playwright browsers
+        run: python -m playwright install chromium
+
+      # axe-core is a root-level npm dependency; path_resolver.py needs it on disk
+      - name: Install axe-core
+        run: npm install --legacy-peer-deps
+
+      # Run Python tests
+      - name: Run tests (pytest)
+        run: pytest tests/ -v
+
+      # Syntax-check the Modal deployment entrypoints
+      - name: Validate Modal config
+        run: python -m py_compile src/modal_api.py modal/modal_alttext_adapter.py modal/modal_olmo_wcag.py modal/modal_olmocr_final.py

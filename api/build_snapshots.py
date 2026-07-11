@@ -48,8 +48,10 @@ def enhancements(baseline_html: str, final_html: str) -> list[dict]:
 
 def round_summary(r: dict) -> dict:
     audit = r.get("judge_audit", [])
+
     def count(dec):
         return sum(1 for a in audit if a["decision"] == dec)
+
     return {
         "round": r["round"],
         "patches_applied": r["patches_applied"],
@@ -92,13 +94,21 @@ def main() -> int:
     for name, label, doctype in DOCS:
         snap = build(name, label, doctype)
         (OUT / f"{name}.json").write_text(json.dumps(snap, indent=2))
-        index.append({"id": name, "label": label, "doctype": doctype,
-                      "baseline_passes": snap["baseline"]["passes"],
-                      "final_passes": snap["final"]["passes"],
-                      "enhancements": len(snap["enhancements"]),
-                      "rounds": len(snap["rounds"])})
-        print(f"  {name}: {snap['baseline']['passes']}->{snap['final']['passes']} passes, "
-              f"{len(snap['enhancements'])} ARIA enhancements, {len(snap['rounds'])} rounds")
+        index.append(
+            {
+                "id": name,
+                "label": label,
+                "doctype": doctype,
+                "baseline_passes": snap["baseline"]["passes"],
+                "final_passes": snap["final"]["passes"],
+                "enhancements": len(snap["enhancements"]),
+                "rounds": len(snap["rounds"]),
+            }
+        )
+        print(
+            f"  {name}: {snap['baseline']['passes']}->{snap['final']['passes']} passes, "
+            f"{len(snap['enhancements'])} ARIA enhancements, {len(snap['rounds'])} rounds"
+        )
     (OUT / "index.json").write_text(json.dumps(index, indent=2))
     print(f"wrote {len(index)} snapshots + index to {OUT}")
     return 0

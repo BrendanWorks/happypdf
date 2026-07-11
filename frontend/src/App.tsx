@@ -32,7 +32,7 @@ import {
 // When VITE_API_URL is set (local dev), the demo drives the real backend.
 // On a static host (Netlify) it defaults to the Modal endpoint.
 // The benchmark demos also replay bundled snapshots client-side for instant results.
-const API_BASE: string = ((import.meta as any).env?.VITE_API_URL as string) ||
+const API_BASE: string = (import.meta.env.VITE_API_URL as string | undefined) ||
   'https://brendanworks--happypdf-api-fastapi-app.modal.run';
 const HAS_API = API_BASE.length > 0;
 
@@ -75,6 +75,7 @@ type Snapshot = {
   enhancements: Enhancement[];
   stopped_reason: string;
   final_html: string;
+  reviewer_health?: { [key: string]: { status: string; round?: number; rounds_ran?: number } };
 };
 
 const DEMOS: { id: string; label: string }[] = [

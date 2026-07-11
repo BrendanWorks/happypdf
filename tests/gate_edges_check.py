@@ -1,7 +1,10 @@
 #!/usr/bin/env python3
 """Adversarial edge-case tests for the content-preservation gate.
 
-Run: python tests/test_gate_edges.py   (exit 0 = all pass)
+Run: python tests/gate_edges_check.py   (exit 0 = all pass)
+Not named test_*.py on purpose: it requires a pre-generated
+output/syllabus_scored.html from a real pipeline run, so pytest can't
+collect it in a fresh checkout.
 Each case mutates a known-good baseline and asserts the gate verdict.
 """
 
@@ -50,7 +53,9 @@ def main() -> int:
     results.append(check("text loss fails coverage", GOOD, thin, False, "text_coverage"))
 
     # 4. Deleted table → table_structure fails.
-    no_table = GOOD.replace('<table data-ir-id="t"><tr><th>H</th></tr><tr><td>1</td></tr></table>', "")
+    no_table = GOOD.replace(
+        '<table data-ir-id="t"><tr><th>H</th></tr><tr><td>1</td></tr></table>', ""
+    )
     results.append(check("deleted table fails", GOOD, no_table, False, "table_structure"))
 
     # 5. Removed image → image_count fails.

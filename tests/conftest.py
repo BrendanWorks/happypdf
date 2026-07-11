@@ -5,13 +5,12 @@ These fixtures provide sample data (markdown, HTML, API responses) that
 multiple tests reuse, avoiding duplication and keeping tests maintainable.
 """
 
-import json
 from pathlib import Path
 
 import pytest
 
-
 # ── Paths ──────────────────────────────────────────────────────────────────
+
 
 @pytest.fixture
 def repo_root() -> Path:
@@ -26,6 +25,7 @@ def sample_pdf_path(repo_root) -> Path:
 
 
 # ── Sample Data ────────────────────────────────────────────────────────────
+
 
 @pytest.fixture
 def sample_markdown() -> str:
@@ -122,15 +122,13 @@ def sample_axe_results() -> dict:
                 "tags": ["wcag2aa", "wcag412"],
                 "description": "Elements must have sufficient color contrast",
                 "help": "Ensure the contrast between foreground and background colors...",
-                "nodes": [
-                    {"html": "<h1>Course Syllabus</h1>", "target": ["h1"]}
-                ],
-                "violations": []
+                "nodes": [{"html": "<h1>Course Syllabus</h1>", "target": ["h1"]}],
+                "violations": [],
             }
         ],
         "violations": [],
         "incomplete": [],
-        "inapplicable": []
+        "inapplicable": [],
     }
 
 
@@ -145,14 +143,15 @@ def sample_reviewer_response() -> dict:
                 "issue_type": "missing_landmark",
                 "description": "Main content should be wrapped in a <main> landmark",
                 "severity": "serious",
-                "hallucinated": False
+                "hallucinated": False,
             }
         ],
-        "summary": "Found 1 accessibility issue"
+        "summary": "Found 1 accessibility issue",
     }
 
 
 # ── Test data helpers ──────────────────────────────────────────────────────
+
 
 @pytest.fixture
 def element_ids() -> dict:

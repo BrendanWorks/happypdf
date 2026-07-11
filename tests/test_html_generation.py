@@ -7,7 +7,6 @@ The HTML generator must produce valid, accessible HTML5 that meets WCAG standard
 import sys
 from pathlib import Path
 
-import pytest
 from lxml import html
 
 # Add src to path
@@ -39,7 +38,9 @@ class TestHtmlGeneration:
         doc = html.fromstring(output_html)
 
         # Find all block elements
-        block_elements = doc.xpath("//h1 | //h2 | //h3 | //p | //ul | //ol | //table | //section | //article | //aside | //nav | //blockquote")
+        block_elements = doc.xpath(
+            "//h1 | //h2 | //h3 | //p | //ul | //ol | //table | //section | //article | //aside | //nav | //blockquote"
+        )
 
         # Each should have data-ir-id
         for elem in block_elements:
@@ -94,7 +95,9 @@ class TestHtmlGeneration:
                 curr_level = levels[i]
                 # Can go down (e.g. h1 → h2), stay same (h2 → h2), or up (h3 → h2)
                 # But shouldn't skip (e.g. h1 → h4)
-                assert curr_level <= prev_level + 1, f"Heading hierarchy violation: h{prev_level} → h{curr_level}"
+                assert (
+                    curr_level <= prev_level + 1
+                ), f"Heading hierarchy violation: h{prev_level} → h{curr_level}"
 
     def test_tables_have_structure(self, sample_markdown):
         """Generated tables should have proper structure (thead, tbody, th)."""
@@ -119,7 +122,9 @@ class TestHtmlGeneration:
         builder = HtmlBuilder(sample_markdown, [], {})
         output_html = builder.build()
 
-        assert 'charset="UTF-8"' in output_html or 'charset=UTF-8' in output_html, "Should declare UTF-8 encoding"
+        assert (
+            'charset="UTF-8"' in output_html or "charset=UTF-8" in output_html
+        ), "Should declare UTF-8 encoding"
 
     def test_html_has_viewport_meta(self, sample_markdown):
         """HTML should include viewport meta tag for responsive design."""
@@ -127,7 +132,7 @@ class TestHtmlGeneration:
         output_html = builder.build()
 
         assert 'name="viewport"' in output_html, "Should have viewport meta tag"
-        assert 'width=device-width' in output_html, "Viewport should include device-width"
+        assert "width=device-width" in output_html, "Viewport should include device-width"
 
     def test_markdown_lists_become_lists(self, sample_markdown):
         """Markdown bullet lists should become <ul> or <ol> in HTML."""

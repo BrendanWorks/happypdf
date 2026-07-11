@@ -15,10 +15,8 @@ Design notes (why this isn't just `asgi_app()(lambda: app)`):
 Deploy:  modal deploy src/modal_api.py
 """
 
-from pathlib import Path
-
 import modal
-from path_resolver import REPO, AXE_LOCAL, validate_paths
+from path_resolver import AXE_LOCAL, REPO, validate_paths
 
 # Validate paths at import time (fails fast if something is missing)
 validate_paths()
@@ -51,9 +49,9 @@ app = modal.App("happypdf-api")
 @app.function(
     image=image,
     secrets=[modal.Secret.from_name("happypdf-secrets")],
-    min_containers=0,        # scale to zero when idle — no standing cost
-    max_containers=1,        # single container => consistent in-memory job state
-    scaledown_window=1200,   # stay warm 20 min so a 5 min job + polls survive
+    min_containers=0,  # scale to zero when idle — no standing cost
+    max_containers=1,  # single container => consistent in-memory job state
+    scaledown_window=1200,  # stay warm 20 min so a 5 min job + polls survive
     timeout=3600,
 )
 @modal.concurrent(max_inputs=20)  # serve polls concurrently with a running job
@@ -70,4 +68,5 @@ def fastapi_app():
     # Can be overridden via HAPPYPDF_ALT_TEXT_PROVIDER env var for testing
 
     from main import app as fastapi  # api/main.py
+
     return fastapi

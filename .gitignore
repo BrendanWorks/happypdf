@@ -18,6 +18,7 @@ output/
 !SETUP.md
 !PATH_MIGRATION.md
 !package.json
+!.prettierrc.json
 !docs/**/*.md
 !tests/**/*.json
 !benchmark/*.md

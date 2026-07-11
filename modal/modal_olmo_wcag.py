@@ -11,29 +11,25 @@ Chat template: <|endoftext|><|user|>\n...\n<|assistant|>\n...<|endoftext|>
 Inference time: ~3-5s per HTML chunk
 """
 
-import modal
-import base64
-import json
-from io import BytesIO
 from typing import Optional
+
 from pydantic import BaseModel
+
+import modal
 
 app = modal.App("olmo-wcag-reviewer")
 
 # Base image with dependencies
-image = (
-    modal.Image.debian_slim(python_version="3.11")
-    .pip_install(
-        "torch",
-        "torchvision",
-        "transformers>=4.48.0",
-        "accelerate",
-        "Pillow",
-        "fastapi",
-        "uvicorn[standard]",
-        "pydantic>=2.0",
-        "python-multipart",
-    )
+image = modal.Image.debian_slim(python_version="3.11").pip_install(
+    "torch",
+    "torchvision",
+    "transformers>=4.48.0",
+    "accelerate",
+    "Pillow",
+    "fastapi",
+    "uvicorn[standard]",
+    "pydantic>=2.0",
+    "python-multipart",
 )
 
 
@@ -64,12 +60,7 @@ class OLMoWCAGReviewer:
         self.model.eval()
         print(f"[OLMoReviewer] Model loaded on {self.device}")
 
-    def review_html(
-        self,
-        html_chunk: str,
-        system_prompt: str,
-        max_tokens: int = 1024
-    ) -> str:
+    def review_html(self, html_chunk: str, system_prompt: str, max_tokens: int = 1024) -> str:
         """
         Review HTML chunk for WCAG violations.
 
@@ -81,44 +72,39 @@ class OLMoWCAGReviewer:
         Returns:
             Raw model output (should be JSON)
         """
-        import torch
         import re
         import traceback
 
-        print(f"[OLMoReviewer] === REVIEW START ===")
+        import torch
+
+        print("[OLMoReviewer] === REVIEW START ===")
         print(f"[OLMoReviewer] HTML chunk length: {len(html_chunk)} chars")
         print(f"[OLMoReviewer] System prompt length: {len(system_prompt)} chars")
 
         # Build conversation with system role if OLMo supports it, else prepend
         messages = [
-            {
-                "role": "system",
-                "content": system_prompt
-            },
-            {
-                "role": "user",
-                "content": f"HTML to review:\n{html_chunk}"
-            }
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": f"HTML to review:\n{html_chunk}"},
         ]
 
         # Apply chat template
         try:
             formatted_prompt = self.tokenizer.apply_chat_template(
-                messages,
-                tokenize=False,
-                add_generation_prompt=True
+                messages, tokenize=False, add_generation_prompt=True
             )
-            print(f"[OLMoReviewer] Used system role path")
+            print("[OLMoReviewer] Used system role path")
         except Exception as e:
             # Fallback: if system role fails, use original approach
             print(f"[OLMoReviewer] System role failed ({type(e).__name__}), using fallback")
             formatted_prompt = self.tokenizer.apply_chat_template(
                 [{"role": "user", "content": f"{system_prompt}\n\nHTML to review:\n{html_chunk}"}],
                 tokenize=False,
-                add_generation_prompt=True
+                add_generation_prompt=True,
             )
 
-        print(f"[OLMoReviewer] Formatted prompt length: {len(formatted_prompt)} chars (~{len(formatted_prompt)//4} tokens)")
+        print(
+            f"[OLMoReviewer] Formatted prompt length: {len(formatted_prompt)} chars (~{len(formatted_prompt)//4} tokens)"
+        )
 
         # Tokenize - explicitly handle device mapping
         try:
@@ -141,12 +127,16 @@ class OLMoWCAGReviewer:
                     max_new_tokens=max_tokens,
                     do_sample=False,  # Greedy decoding
                     temperature=0.0,  # Explicit deterministic
-                    pad_token_id=self.tokenizer.eos_token_id if self.tokenizer.eos_token_id is not None else 1,
+                    pad_token_id=(
+                        self.tokenizer.eos_token_id
+                        if self.tokenizer.eos_token_id is not None
+                        else 1
+                    ),
                 )
             print(f"[OLMoReviewer] Generation complete, output shape: {output_ids.shape}")
         except Exception as e:
             print(f"[OLMoReviewer] GENERATION ERROR: {type(e).__name__}: {str(e)}")
-            print(f"[OLMoReviewer] Full traceback:")
+            print("[OLMoReviewer] Full traceback:")
             print(traceback.format_exc())
             raise
 
@@ -162,16 +152,16 @@ class OLMoWCAGReviewer:
 
         # Post-process: if output doesn't start with JSON, try to extract it
         if generated_text and not generated_text.startswith(("{", "[")):
-            print(f"[OLMoReviewer] Output doesn't start with JSON, attempting extraction...")
+            print("[OLMoReviewer] Output doesn't start with JSON, attempting extraction...")
             print(f"[OLMoReviewer] First 100 chars: {generated_text[:100]}")
-            json_match = re.search(r'\{.*\}|\[.*\]', generated_text, re.DOTALL)
+            json_match = re.search(r"\{.*\}|\[.*\]", generated_text, re.DOTALL)
             if json_match:
                 generated_text = json_match.group(0)
                 print(f"[OLMoReviewer] Extracted JSON ({len(generated_text)} chars)")
             else:
-                print(f"[OLMoReviewer] No JSON found in output")
+                print("[OLMoReviewer] No JSON found in output")
 
-        print(f"[OLMoReviewer] === REVIEW COMPLETE ===")
+        print("[OLMoReviewer] === REVIEW COMPLETE ===")
         return generated_text
 
 
@@ -195,7 +185,7 @@ def get_model():
 @modal.asgi_app()
 def api():
     """FastAPI app for WCAG review."""
-    from fastapi import FastAPI, HTTPException
+    from fastapi import FastAPI
 
     app = FastAPI(title="OLMo WCAG Reviewer")
 
@@ -214,24 +204,19 @@ def api():
         """Review HTML for WCAG violations."""
         try:
             model = get_model()
-            output = model.review_html(
-                req.html_chunk,
-                req.system_prompt,
-                req.max_tokens
-            )
+            output = model.review_html(req.html_chunk, req.system_prompt, req.max_tokens)
             return ReviewResponse(raw_output=output, success=True)
         except Exception as e:
             import traceback
+
             error_msg = str(e)
             tb = traceback.format_exc()
-            print(f"\n[OLMo Endpoint] EXCEPTION CAUGHT")
+            print("\n[OLMo Endpoint] EXCEPTION CAUGHT")
             print(f"[OLMo Endpoint] Type: {type(e).__name__}")
             print(f"[OLMo Endpoint] Message: {error_msg}")
             print(f"[OLMo Endpoint] Traceback:\n{tb}\n")
             return ReviewResponse(
-                raw_output="",
-                success=False,
-                error=f"{type(e).__name__}: {error_msg[:200]}"
+                raw_output="", success=False, error=f"{type(e).__name__}: {error_msg[:200]}"
             )
 
     @app.get("/health")

@@ -9,8 +9,6 @@ import re
 import sys
 from pathlib import Path
 
-import pytest
-
 # Add src to path
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
@@ -91,7 +89,7 @@ class TestOLMoAdapter:
             "wcag": ["1.3.1"],
             "issue_type": "missing_label",
             "description": "Form control missing label",
-            "hallucinated": False
+            "hallucinated": False,
         }
 
         # Create a violation targeting non-existent ID
@@ -100,7 +98,7 @@ class TestOLMoAdapter:
             "wcag": ["2.1.1"],
             "issue_type": "keyboard_trap",
             "description": "Keyboard navigation trap",
-            "hallucinated": False  # But is actually hallucinated
+            "hallucinated": False,  # But is actually hallucinated
         }
 
         # Valid issue should not be marked as hallucinated

@@ -26,9 +26,9 @@ from lxml import html
 
 SRC = Path(__file__).resolve().parent
 sys.path.insert(0, str(SRC))
-import build_syllabus_slice as bss   # noqa: E402
-import reviewers                     # noqa: E402
-from loop import run_loop            # noqa: E402
+import build_syllabus_slice as bss  # noqa: E402
+import reviewers  # noqa: E402
+from loop import run_loop  # noqa: E402
 
 ROOT = SRC.parent
 BENCH = ROOT / "benchmark"
@@ -55,9 +55,17 @@ def _label(el, i: int) -> str:
 
 
 def _issue(eid, crit, text, fix):
-    return {"issue_id": f"synth-{eid}", "wcag_criterion": crit, "element_id": eid,
-            "issue": text, "impact": "serious", "confidence": 0.85,
-            "suggested_fix": fix, "fix_type": "deterministic", "hallucinated": False}
+    return {
+        "issue_id": f"synth-{eid}",
+        "wcag_criterion": crit,
+        "element_id": eid,
+        "issue": text,
+        "impact": "serious",
+        "confidence": 0.85,
+        "suggested_fix": fix,
+        "fix_type": "deterministic",
+        "hallucinated": False,
+    }
 
 
 def synth_reviews(rnd: int, current_html: str):
@@ -69,16 +77,26 @@ def synth_reviews(rnd: int, current_html: str):
         for i, t in enumerate(doc.xpath("//table[@data-ir-id]"), 1):
             if t.get("aria-label"):
                 continue
-            issues.append(_issue(t.get("data-ir-id"), "1.3.1",
-                                 "Data table has no accessible name.",
-                                 f'Add aria-label="{_label(t, i)}" to the table.'))
+            issues.append(
+                _issue(
+                    t.get("data-ir-id"),
+                    "1.3.1",
+                    "Data table has no accessible name.",
+                    f'Add aria-label="{_label(t, i)}" to the table.',
+                )
+            )
     elif rnd == 2:
         for ul in doc.xpath("//ul[@data-ir-id]"):
             if ul.get("role"):
                 continue
-            issues.append(_issue(ul.get("data-ir-id"), "1.3.1",
-                                 "List has no explicit list role for assistive technology.",
-                                 'Add role="list" to the list.'))
+            issues.append(
+                _issue(
+                    ul.get("data-ir-id"),
+                    "1.3.1",
+                    "List has no explicit list role for assistive technology.",
+                    'Add role="list" to the list.',
+                )
+            )
     if not issues:
         return {}  # no actionable issues this round -> 0 patches -> converged
     return {"olmo": issues, "gemini": list(issues), "gpt": list(issues)}
@@ -102,7 +120,9 @@ def run_document(name: str, md_file: str, doctype: str, *, live: bool = False) -
     summary["total_seconds"] = round(time.time() - t0, 2)
 
     (BENCH / f"{name}{suffix}_final.html").write_text(summary.pop("final_html"))
-    (BENCH / f"{name}{suffix}_summary.json").write_text(json.dumps({**summary, "name": name}, indent=2))
+    (BENCH / f"{name}{suffix}_summary.json").write_text(
+        json.dumps({**summary, "name": name}, indent=2)
+    )
     return {**summary, "name": name}
 
 
@@ -111,8 +131,11 @@ def comparison_table(results: list[dict], *, live: bool = False) -> str:
         e = next((x for x in rounds if x["round"] == r and x.get("status") == "accepted"), None)
         return f"{e['patches_applied']} → {e['passes']}p" if e else "—"
 
-    source = ("live OLMo (Modal) + Gemini (google-genai) + GPT (openai), called in parallel"
-              if live else "synthesized per document from its real elements")
+    source = (
+        "live OLMo (Modal) + Gemini (google-genai) + GPT (openai), called in parallel"
+        if live
+        else "synthesized per document from its real elements"
+    )
     lines = [
         f"# happypdf Benchmark — {'LIVE reviewers' if live else 'remediation loop'} "
         "across document types",
@@ -152,9 +175,13 @@ def comparison_table(results: list[dict], *, live: bool = False) -> str:
 
 def main() -> int:
     import argparse
+
     ap = argparse.ArgumentParser(description="Run the loop across benchmark documents.")
-    ap.add_argument("--live", action="store_true",
-                    help="use live OLMo/Gemini/GPT reviewers instead of synthesized mocks")
+    ap.add_argument(
+        "--live",
+        action="store_true",
+        help="use live OLMo/Gemini/GPT reviewers instead of synthesized mocks",
+    )
     args = ap.parse_args()
 
     if args.live:
