@@ -98,8 +98,8 @@ def synth_reviews(rnd: int, current_html: str):
                 )
             )
     if not issues:
-        return {}  # no actionable issues this round -> 0 patches -> converged
-    return {"olmo": issues, "gemini": list(issues), "gpt": list(issues)}
+        return {}, {}  # no actionable issues this round -> 0 patches -> converged
+    return {"olmo": issues, "gemini": list(issues), "gpt": list(issues)}, {}
 
 
 # ---------------------------------------------------------------------------
