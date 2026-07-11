@@ -245,6 +245,13 @@ happypdf is designed so enterprise API keys do not pass through the browser or g
 - Temporary files are created with Python's `tempfile` module and deleted after processing.
 - Modal containers scale down after idle periods, clearing in-memory state.
 
+### Analytics
+The hosted site (happypdf.org) uses Google Analytics (GA4) to understand traffic and usage.
+- Standard GA4 data is collected: page views, device/browser info, approximate location, and first-party cookies (`_ga`, `_ga_*`).
+- Custom events track pipeline usage — upload started (file size only), conversion succeeded/failed (pass count only), and BYOK used (provider name only). **No filenames, document content, or API keys are ever sent to analytics.**
+- Analytics loads unconditionally on page load; there is currently no cookie-consent banner. If you're serving EU visitors and need GDPR-compliant opt-in consent, gate the GA script in `frontend/index.html` behind a consent mechanism before relying on this for compliance.
+- Self-hosted deployments can remove the GA script entirely — it's a static tag in `frontend/index.html`, not wired into the pipeline.
+
 ### Self-hosting checklist
 For self-hosted deployments:
 1. Store `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, and `GOOGLE_API_KEY` in Modal Secrets or your own secret manager.
