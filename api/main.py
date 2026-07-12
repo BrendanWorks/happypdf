@@ -373,7 +373,11 @@ async def start_live(
     threading.Thread(
         target=_live,
         args=(jid, data, file.filename),
-        kwargs={"anthropic_api_key": anthropic_api_key, "openai_api_key": openai_api_key, "reviewer_profile": reviewer_profile},
+        kwargs={
+            "anthropic_api_key": anthropic_api_key,
+            "openai_api_key": openai_api_key,
+            "reviewer_profile": reviewer_profile,
+        },
         daemon=True,
     ).start()
     return {"job_id": jid}

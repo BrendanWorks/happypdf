@@ -138,7 +138,7 @@ def run_loop(
             # Log full error for operators; generic message for user
             log(f"[{label}] round {r}: reviewers failed ({type(e).__name__}: {e}); stopping")
             # Extract health data if attached to exception (e.g., AllReviewersFailed)
-            if hasattr(e, 'health'):
+            if hasattr(e, "health"):
                 for reviewer, status in e.health.items():
                     if reviewer not in reviewer_health:
                         reviewer_health[reviewer] = status

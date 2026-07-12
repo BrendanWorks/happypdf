@@ -310,7 +310,9 @@ async def get_live_reviews(
             health[name] = {"status": "success", "round": round_num}
     # Return health even if all reviewers failed — caller needs this for telemetry
     if active and failures == len(active):
-        log(f"round {round_num}: all {failures} reviewer(s) failed; returning health telemetry before raising")
+        log(
+            f"round {round_num}: all {failures} reviewer(s) failed; returning health telemetry before raising"
+        )
         # Create an exception with health attached so it can be extracted
         exc = AllReviewersFailed(f"all {failures} reviewer(s) failed in round {round_num}")
         exc.health = health  # Attach health data to exception
