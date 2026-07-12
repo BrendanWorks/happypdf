@@ -553,18 +553,21 @@ function DemoPanel() {
               <div className="border border-slate-700/60 rounded-xl p-4">
                 <p className="text-xs text-slate-500 font-medium uppercase tracking-wider mb-3">Peer reviewers</p>
                 <div className="space-y-2">
-                  {Object.entries(job.reviewer_health).map(([model, health]) => (
-                    <div key={model} className="flex items-center justify-between text-sm">
-                      <span className="text-slate-300 capitalize">{model === 'gpt' ? 'ChatGPT' : model === 'olmo' ? 'OLMo' : 'Claude'}</span>
-                      <span className={`font-medium ${
-                        health.status === 'success' ? 'text-emerald-400' :
-                        health.status === 'failed' ? 'text-rose-400' :
-                        'text-slate-500'
-                      }`}>
-                        {health.status === 'success' ? 'OK' : health.status === 'failed' ? 'Failed' : 'Skipped'}
-                      </span>
-                    </div>
-                  ))}
+                  {Object.entries(job.reviewer_health).map(([model, health]) => {
+                    const roundsRan = health.rounds_ran || 0;
+                    const isNotRun = roundsRan === 0;
+                    const statusText = isNotRun ? 'Not Run' : (health.status === 'success' ? 'OK' : 'Failed');
+                    const statusColor = isNotRun ? 'text-slate-500 italic' : (health.status === 'success' ? 'text-emerald-400' : 'text-rose-400');
+
+                    return (
+                      <div key={model} className="flex items-center justify-between text-sm">
+                        <span className="text-slate-300 capitalize">{model === 'gpt' ? 'ChatGPT' : model === 'olmo' ? 'OLMo' : 'Claude'}</span>
+                        <span className={`font-medium ${statusColor}`}>
+                          {statusText}
+                        </span>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             )}
