@@ -164,13 +164,16 @@ def generate_html_report(manifest: dict, output_path: str = None) -> str:
     reviewer_html = ""
     reviewer_names = {
         "olmo": ("OLMo", "Local Engine"),
+        "gemini": ("Gemini", "Peer Review"),
         "gpt": ("GPT-4o", "Peer Review"),
         "claude": ("Claude", "Judge / Patcher"),
     }
     for agent_id, health in reviewer_health.items():
         rounds_ran = health.get("rounds_ran", 0)
         name, role = reviewer_names.get(agent_id, (agent_id.upper(), "Reviewer"))
-        status = health.get("status", "UNKNOWN").lower()  # noqa: F841
+        status = health.get("status", "UNKNOWN").lower()
+        status_class = "success" if status == "success" else "failure"
+        status_text = "Success" if status == "success" else "Failed"
 
         reviewer_html += f"""
         <div class="reviewer-card">
@@ -178,7 +181,7 @@ def generate_html_report(manifest: dict, output_path: str = None) -> str:
             <div class="reviewer-name">{name} &nbsp;<span style="font-weight:400;text-transform:none;letter-spacing:0;font-size:0.75rem;color:#94a3b8;">{role}</span></div>
             <div class="reviewer-rounds">Evaluated {rounds_ran} optimization pass{'es' if rounds_ran != 1 else ''}</div>
           </div>
-          <span class="status-pill success">Success</span>
+          <span class="status-pill {status_class}">{status_text}</span>
         </div>
 """
 

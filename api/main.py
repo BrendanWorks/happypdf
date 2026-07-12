@@ -297,6 +297,7 @@ def _live(
             stopped_reason=summary["stopped_reason"],
             status="done",
             reviewer_health=summary.get("reviewer_health", {}),
+            reviewer_profile=reviewer_profile,
         )
     except Exception as e:
         # Log full error server-side for operators; generic message for user
@@ -417,6 +418,7 @@ def _build_manifest_v2(job: dict = None, snap: dict = None, jid: str = None) -> 
     rounds_list = source_data.get("rounds", [])
     enhancements_raw = source_data.get("enhancements", [])
     reviewer_health = source_data.get("reviewer_health", {})
+    reviewer_profile = source_data.get("reviewer_profile", "default")
 
     # Calculate delta
     baseline_violations = baseline.get("violations", 0)
@@ -546,6 +548,7 @@ def _build_manifest_v2(job: dict = None, snap: dict = None, jid: str = None) -> 
             "primary_ocr": "olmOCR",
             "vlm_backbone": "Qwen2-VL",
             "orchestration_mode": "BYOK",
+            "reviewer_profile": reviewer_profile,
             "timestamps": {
                 "started_at": started_iso,
                 "completed_at": completed_iso,
