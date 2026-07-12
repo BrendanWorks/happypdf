@@ -260,6 +260,7 @@ function DemoPanel() {
   const [htmlUrl, setHtmlUrl] = useState<string | null>(null);
   const [byokKeys, setByokKeys] = useState({ anthropic: '', openai: '' });
   const [showByokSettings, setShowByokSettings] = useState(false);
+  const [reviewerProfile, setReviewerProfile] = useState<'default' | 'olmo-only'>('default');
   const pollRef = useRef<number | null>(null);
   const timerRef = useRef<number | null>(null);
 
@@ -348,6 +349,7 @@ function DemoPanel() {
     try {
       const fd = new FormData();
       fd.append('file', file);
+      fd.append('reviewer_profile', reviewerProfile);
       if (byokKeys.anthropic) { fd.append('anthropic_api_key', byokKeys.anthropic); trackEvent('byok_authenticated', { provider: 'claude' }); }
       if (byokKeys.openai) { fd.append('openai_api_key', byokKeys.openai); trackEvent('byok_authenticated', { provider: 'openai' }); }
       const r = await fetch(`${API_BASE}/api/jobs/live`, { method: 'POST', body: fd });
@@ -428,6 +430,32 @@ function DemoPanel() {
                       onChange={(e) => setByokKeys({ ...byokKeys, openai: e.target.value })}
                       className="w-full px-3 py-2 bg-slate-900 border border-slate-600/50 rounded text-xs text-slate-300 placeholder-slate-600 focus:outline-none focus:border-teal-400/50"
                     />
+                    <div className="pt-2 border-t border-slate-700/50 space-y-2">
+                      <p className="text-xs font-medium text-slate-400">Reviewer Profile</p>
+                      <label className="flex items-center gap-2 text-xs text-slate-300 cursor-pointer hover:text-slate-200 transition-colors">
+                        <input
+                          type="radio"
+                          name="profile"
+                          value="default"
+                          checked={reviewerProfile === 'default'}
+                          onChange={(e) => setReviewerProfile(e.target.value as 'default' | 'olmo-only')}
+                          className="w-3 h-3 cursor-pointer"
+                        />
+                        <span>Default (OLMo + Gemini + GPT-4o)</span>
+                      </label>
+                      <label className="flex items-center gap-2 text-xs text-slate-300 cursor-pointer hover:text-slate-200 transition-colors">
+                        <input
+                          type="radio"
+                          name="profile"
+                          value="olmo-only"
+                          checked={reviewerProfile === 'olmo-only'}
+                          onChange={(e) => setReviewerProfile(e.target.value as 'default' | 'olmo-only')}
+                          className="w-3 h-3 cursor-pointer"
+                        />
+                        <span>OLMo Only (air-gapped, no external API calls)</span>
+                      </label>
+                      <p className="text-xs text-slate-600 pt-1">OLMo mode disables Gemini and GPT review. Single-model review produces fewer accessibility suggestions but requires no external API keys.</p>
+                    </div>
                     <p className="text-xs text-slate-500">⚠️ Sent over HTTPS to call the provider on your behalf — never logged or stored server-side. Not saved between sessions; you'll re-enter it after a refresh.</p>
                     {(byokKeys.anthropic || byokKeys.openai) && (
                       <button

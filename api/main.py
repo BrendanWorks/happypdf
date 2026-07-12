@@ -208,6 +208,7 @@ def _live(
     filename: str,
     anthropic_api_key: str | None = None,
     openai_api_key: str | None = None,
+    reviewer_profile: str = "default",
 ) -> None:
     import tempfile
 
@@ -218,11 +219,13 @@ def _live(
     # Set up BYOK keys if provided (overrides environment)
     old_anth = os.environ.get("ANTHROPIC_API_KEY")
     old_openai = os.environ.get("OPENAI_API_KEY")
+    old_profile = os.environ.get("REVIEWER_PROFILE")
     try:
         if anthropic_api_key:
             os.environ["ANTHROPIC_API_KEY"] = anthropic_api_key
         if openai_api_key:
             os.environ["OPENAI_API_KEY"] = openai_api_key
+        os.environ["REVIEWER_PROFILE"] = reviewer_profile
 
         reviewers.load_env()
     except Exception as setup_err:
@@ -309,6 +312,10 @@ def _live(
             os.environ["OPENAI_API_KEY"] = old_openai
         else:
             os.environ.pop("OPENAI_API_KEY", None)
+        if old_profile:
+            os.environ["REVIEWER_PROFILE"] = old_profile
+        else:
+            os.environ.pop("REVIEWER_PROFILE", None)
 
 
 # ---------------------------------------------------------------------------
@@ -338,6 +345,7 @@ async def start_live(
     file: UploadFile = File(...),  # noqa: B008
     anthropic_api_key: str = Form(default=None),
     openai_api_key: str = Form(default=None),
+    reviewer_profile: str = Form(default="default"),
 ):
     if not (file.filename or "").lower().endswith(".pdf"):
         raise HTTPException(400, "please upload a .pdf")
@@ -364,7 +372,7 @@ async def start_live(
     threading.Thread(
         target=_live,
         args=(jid, data, file.filename),
-        kwargs={"anthropic_api_key": anthropic_api_key, "openai_api_key": openai_api_key},
+        kwargs={"anthropic_api_key": anthropic_api_key, "openai_api_key": openai_api_key, "reviewer_profile": reviewer_profile},
         daemon=True,
     ).start()
     return {"job_id": jid}
