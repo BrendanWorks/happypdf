@@ -175,7 +175,7 @@ All documents converge quickly with zero content loss. Manifest and report downl
 
 **Upcoming Features:**
 - Visual-artifact filtering for the element ID builder (repeated separator lines etc. can hash-collide into duplicate IDs — currently detected and logged, not filtered upstream) and a second-pass classifier to reduce heading-promotion false positives; see `docs/ARCHITECTURE.md`
-- Fully open-weight self-hosted mode (OLMo-only reviewers, no Claude/GPT/Gemini calls)
+- **Fully open-weight self-hosted mode** (OLMo-only reviewers, no Claude/GPT/Gemini calls) — This is a priority because accessibility tools should not require proprietary API access. Organizations in restricted sectors (government, defense, education) often can't send PDFs to external cloud providers. An OLMo-only pipeline, running fully locally on customer infrastructure, removes that barrier. Quality may drop slightly (single-model review vs. multi-model consensus), but access is more important than marginal accuracy improvements for users with no other options.
 - Download full package ZIP (HTML output + JSON manifest + Report + Original PDF)
 - CLI instance for batch processing and local runs
 - Persistent job storage (Supabase) to handle long-running PDF processing
@@ -294,13 +294,31 @@ For self-hosted deployments:
 4. Choose a container scale-down window that matches your security and latency needs.
 5. Avoid persistent job storage unless your organization explicitly requires it.
 
-## Known Limitations
-- **axe-core is not full WCAG conformance.** Automated tools can only test part of WCAG. happypdf reports axe-core results and routes uncertain cases to human review.
-- **Baseline output is often already valid.** Because the HTML generator creates semantic structure up front, the review loop often improves passes and structure rather than reducing violations.
-- **Heading detection is heuristic.** Some section labels from OCR are promoted to headings, but complex document structures may still need manual review.
-- **Duplicate IDs can occur on repeated visual artifacts.** Repeated separator lines or similar artifacts can produce identical hashes. The applicator fails safe when patches are ambiguous.
-- **OCR quality affects output quality.** Scanned pages, low-resolution images, and complex vector graphics can reduce extraction quality.
-- **Reviewer output can fail.** If a reviewer emits malformed JSON or times out, that reviewer is skipped for the round and the loop continues with available reviews.
+## Limitations & Trade-offs
+
+### Automation Has Limits
+
+**axe-core catches ~30-40% of WCAG success criteria.** Automated tools test *syntax*, not *semantics*. A link with non-descriptive text ("click here") passes axe-core; reading order problems, incorrectly-described images, and tables with ambiguous headers don't register as violations because they require human judgment. happypdf reports what automated tools can measure and flags uncertain cases for human review. This is honest about what automation can do, and it is why the preservation gate matters more than the axe-core score alone.
+
+**The baseline is often already valid.** The HTML generator creates semantic structure up front (landmarks, headings, tables with proper `<th>` cells, images with alt text). Many PDFs have zero baseline violations because olmOCR + deterministic HTML generation already produces passing HTML. The review loop focuses on *semantic correctness and optimization* — does an image's alt text actually describe what it shows? Is table navigation fully correct? These improvements are harder to measure (axe-core may show the same score) but matter for real assistive technology use.
+
+**Heading detection is heuristic.** olmOCR sometimes emits section labels (e.g., "Methodology") as plain paragraphs rather than markdown headings. The builder promotes short standalone labels to `<h2>` and synthesizes an `<h1>` from the first content line when none exists. This is a trade-off: we get stronger document structure in most cases, but edge cases (a label that looks like a heading but isn't) can mis-tag. Complex documents still benefit from a human pass to verify outline accuracy.
+
+**Handling collisions in the element ID system.** Repeated visual artifacts (rows of dashes, separator lines) can produce identical content hashes and thus duplicate `data-ir-id` values. The ID generator detects collisions and records them in the output's comment block. When the applicator encounters a patch targeting an ambiguous ID, it fails safe rather than applying it to a wrong element. A future improvement is upstream filtering of visual artifacts.
+
+### Performance & Completeness
+
+**Multi-model review is slower than single-model patching.** Running three reviewers (OLMo, Gemini, GPT) in parallel takes longer than one model generating patches directly. We chose ensemble review anyway because each model catches different failure modes — OLMo reasons about structure, Gemini handles semantic descriptions, GPT suggests ARIA patterns — and the judge model deduplicates and filters out unsafe patches. Single-model approaches trade speed for resilience to model-specific blindspots.
+
+**OCR quality sets a floor.** Scanned pages, low-resolution images, and complex vector graphics reduce extraction fidelity. olmOCR is excellent but not magic; if the source PDF has unreadable text, the output won't magically make it readable. This is a constraint of the input, not the tool.
+
+**Review models occasionally fail.** If a reviewer times out or emits malformed JSON, that reviewer is skipped for the round and the loop continues with the remaining reviewers. This is a feature (the loop doesn't block on one model's failure) and a limitation (you lose that reviewer's insights for that round). On the Cosmic Story Mat benchmark, OLMo timed out on the first attempt but succeeded on the second; the loop correctly continued with Gemini + GPT and re-tried OLMo, eventually converging with all three.
+
+### The Preservation Gate is Your Safety Net
+
+While automation has limits, the preservation gate is absolute: **every word, image, and table in the output is accounted for.** The orchestrator runs a bit-level check: word count, image count, table count, and content-addressed hashes. If any element is missing, the job fails. You can see exactly where remediation succeeded and where it needs human attention, without risk of silent data loss.
+
+See [`docs/PRESERVATION_PROOF.md`](docs/PRESERVATION_PROOF.md) for the mathematical contract.
 
 ## Related Work
 - **SciA11y**: Ai2 research on converting scientific paper PDFs to accessible HTML. happypdf extends this research to general documents with iterative validation. [Paper](https://arxiv.org/abs/2105.00076v1)

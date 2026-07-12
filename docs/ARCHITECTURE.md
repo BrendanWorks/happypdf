@@ -1,6 +1,8 @@
 # Architecture
 
-happypdf turns an inaccessible PDF into WCAG-validated HTML through a linear extraction-and-scoring pipeline, with a remediation loop layered on top (in development). This document explains the moving parts of the shipping vertical slice and the design decisions behind them.
+happypdf turns an inaccessible PDF into WCAG-validated HTML through a linear extraction-and-scoring pipeline, with a remediation loop layered on top. This document explains the moving parts of the shipping vertical slice, the design decisions behind them, and the trade-offs we made.
+
+**Design Philosophy:** happypdf prioritizes **auditability, safety, and rigor** over raw speed. Every choice is grounded in the constraint that accessibility remediation must be *additive* — never losing content, never making silent changes, always showing its work.
 
 ## Pipeline Overview
 
@@ -63,6 +65,38 @@ The raw axe JSON is written verbatim to `output/syllabus_axe_baseline.json`. A s
 ### Score vs. Hard Gates
 
 The reported score is simply `passes / (passes + violations)`. It is a useful signal, not a verdict. axe-core covers roughly 30-40% of WCAG success criteria — it cannot judge reading order, content loss during extraction, or whether alt text is actually *correct*. The real acceptance bar for a remediated document is the hard gates: zero critical violations, no content dropped relative to the source, and a sensible reading order. Those gates are enforced by the remediation loop, not by axe alone.
+
+## Trade-offs in Pipeline Design
+
+### Speed vs. Auditability: Why Deterministic IDs?
+
+A simpler approach would be to generate new UUIDs for each element on each run. But then the patch manifest wouldn't be reproducible — "replace element X" would mean different things across runs, making the audit trail unverifiable.
+
+We chose deterministic hashing over UUIDs specifically to make the remediation process auditable. When you can say "here's the exact element we changed, here's the hash of its content," the audit trail becomes a *legal artifact*, not just a log.
+
+The trade-off: collision handling. Two elements with identical normalized text hash to the same ID (e.g., repeated separator lines). We detect and document collisions rather than silently emitting duplicates. Upstream filtering would eliminate the collisions but add complexity; we chose to be transparent about it instead.
+
+### Accuracy vs. Computation: Why Multi-Model Review?
+
+A single LLM could generate patches directly. It's faster and simpler.
+
+But single models have blindspots:
+- Claude excels at ARIA patterns and structured fixes.
+- Gemini is strong at semantic descriptions and image analysis.
+- OLMo/Qwen reason well about document structure.
+
+Each model catches different classes of errors. By running three reviewers in parallel and having a judge deduplicate and filter unsafe patches, we improve resilience to model-specific failures. On the Cosmic Story Mat benchmark (25 embedded images), OLMo timed out on the first attempt; the loop correctly continued with Gemini + GPT, re-tried OLMo, and converged successfully.
+
+The trade-off: this approach is slower per-round (3 parallel calls + judge) than one-shot prompting. We made that trade because accessibility remediation is not a latency-critical workload — a few extra seconds per document is acceptable if it means fewer hallucinated ARIA roles or missed edge cases.
+
+### Completeness vs. Complexity: Why Real Chromium for Axe?
+
+We inject axe-core into a real headless Chromium instance rather than parsing HTML rules locally. This means:
+- Real DOM rendering, real CSS cascade, real computed styles.
+- axe-core can detect actual accessibility bugs, not just structural ones.
+- We get structured JSON output from the real engine.
+
+The trade-off: This requires Playwright + Chromium + a running Playwright process. It's heavier than static HTML analysis. But the result is authoritative — if axe-core says there are 0 violations, that judgment is credible because it came from the actual accessibility audit engine that organizations use.
 
 ## Known Bugs and Workarounds
 
