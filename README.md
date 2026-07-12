@@ -27,6 +27,7 @@ Watch happypdf transform an inaccessible PDF into WCAG 2.2 AA–validated HTML w
 - [Project Status & Roadmap](#project-status--roadmap)
 - [Quick Start](#quick-start)
 - [Architecture Highlights](#architecture-highlights)
+- [Design Decisions](#design-decisions)
 - [Security](#security)
 - [Known Limitations](#known-limitations)
 - [Related Work](#related-work)
@@ -238,6 +239,17 @@ This containerizes the orchestrator (`api/` + `src/`, with Playwright and axe-co
 - **Stable Element IDs** (`block-{page}-{hash}`) for safe, repeatable patching.
 - **Review-source agnostic** design — easily swap reviewers.
 - **Security-first BYOK** — Your key is sent once per job to call the provider on your behalf, then never persisted or reused. See [Security](#security) for the verified details.
+
+## Design Decisions
+
+**Why multi-model review instead of a single LLM patching the HTML directly?**
+A single model call can hallucinate ARIA roles or miss edge cases. Three reviewers (OLMo, Gemini, GPT) run in parallel and vote, which catches different failure modes than any one model alone. The judge then deduplicates their findings and filters out unsafe patches before anything gets applied. This is slower than one-shot prompting, but it is more resilient to the class of errors that actually break accessibility rather than just looking wrong.
+
+**Why deterministic patching with stable element IDs?**
+If the same reviewer finding could produce different HTML on different runs, changes could not be audited or reproduced. Element content is hashed into stable IDs (`block-{page}-{hash}`), so a patch manifest can say "replace the contents of this exact element" and mean the same thing every time. That is what makes the audit trail meaningful instead of just decorative.
+
+**Why BYOK over a pure SaaS model?**
+Procurement friction is real for government and enterprise buyers. If an organization already has an approved contract with Anthropic or OpenAI, routing remediation through their own credentials removes a blocker that a per-conversion SaaS model would create. It is also why the BYOK code path was verified end-to-end with a real key rather than left as an untested feature.
 
 ## Security
 
