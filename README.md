@@ -173,6 +173,7 @@ All documents converge quickly with zero content loss. Manifest and report downl
 - ✅ Fresh-machine self-hosting test in an isolated VM, caught and fixed a missing Quick Start step
 
 **Upcoming Features:**
+- Visual-artifact filtering for the element ID builder (repeated separator lines etc. can hash-collide into duplicate IDs — currently detected and logged, not filtered upstream) and a second-pass classifier to reduce heading-promotion false positives; see `docs/ARCHITECTURE.md`
 - Fully open-weight self-hosted mode (OLMo-only reviewers, no Claude/GPT/Gemini calls)
 - Download full package ZIP (HTML output + JSON manifest + Report + Original PDF)
 - CLI instance for batch processing and local runs
