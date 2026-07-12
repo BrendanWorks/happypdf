@@ -1,6 +1,6 @@
 # Changelog
 
-This project doesn't use formal semantic versioning yet — entries are grouped by date. See [GitHub Releases](https://github.com/BrendanWorks/happypdf/releases) for downloadable demo assets (currently [v1.0](https://github.com/BrendanWorks/happypdf/releases/tag/v1.0)).
+This project doesn't use formal semantic versioning yet — entries are grouped by date. See [GitHub Releases](https://github.com/BrendanWorks/happypdf/releases) for downloadable demo assets — latest is [v1.1](https://github.com/BrendanWorks/happypdf/releases/tag/v1.1), demo videos are attached to [v1.0](https://github.com/BrendanWorks/happypdf/releases/tag/v1.0).
 
 ## 2026-07-11 — Docker self-hosting, repo polish
 
