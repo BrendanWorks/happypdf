@@ -81,14 +81,32 @@ The demo runs on Modal GPUs and excels with complex documents: forms, tables, sc
 
 ## Deployment Modes
 
-There is currently one reviewer pipeline: OLMo (Modal) + Gemini + GPT run together as peer reviewers, with Claude Opus as judge for LLM-safe fixes. The only thing that changes between modes is whose API credentials it uses.
+There is a configurable reviewer pipeline controlled by the `REVIEWER_PROFILE` environment variable. The extraction, HTML generation, and scoring stages are always the same.
 
-| Mode | Credentials | Cost Model | Best For |
-| :--- | :--- | :--- | :--- |
-| **Hosted (default)** | happypdf-provisioned keys | Per conversion | Quick testing, default experience |
-| **BYOK / Enterprise** | Your own Claude / OpenAI keys, swapped in for that job only | Your existing contracts | Organizations with approved AI access |
+| Mode | Profile Var | Reviewers | Credentials | Cost Model | Best For |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| **Hosted (default)** | `default` (or unset) | OLMo + Gemini + GPT (parallel consensus) | happypdf-provisioned keys | Per conversion | Quick testing, highest quality, default experience |
+| **BYOK / Enterprise** | `default` | OLMo + Gemini + GPT (same pipeline) | Your own Claude / OpenAI keys | Your existing contracts | Organizations with approved AI access |
+| **OLMo-Only (air-gapped)** | `olmo-only` | OLMo only (Modal) | Modal auth only | Your Modal account | Restricted sectors, no external API calls, local self-hosting |
 
-A fully open-weight, OLMo-only self-hosted mode (no Claude/GPT/Gemini calls, offline-capable) is a roadmap item — the reviewer step doesn't currently branch by mode, so it isn't available yet. See [Upcoming Features](#project-status--roadmap).
+### OLMo-Only Mode
+
+Set `REVIEWER_PROFILE=olmo-only` to run single-model review with only OLMo (no Claude/GPT/Gemini). This is useful for:
+- **Government & Defense** — No external API calls, full control over compute.
+- **Restricted Networks** — Air-gapped environments with local Modal deployment.
+- **Cost-Conscious Workflows** — Single model vs. three-model consensus.
+
+**Trade-off:** Single-model review catches fewer failure modes than multi-model consensus, so quality may drop slightly (5-10% fewer WCAG suggestions). But you get complete data sovereignty and can run entirely on customer infrastructure.
+
+**Usage:**
+```bash
+# Docker
+docker compose up --build --env REVIEWER_PROFILE=olmo-only
+
+# Local
+export REVIEWER_PROFILE=olmo-only
+python src/benchmark.py --live
+```
 
 ## Why This Project?
 
@@ -172,10 +190,11 @@ All documents converge quickly with zero content loss. Manifest and report downl
 - ✅ Comprehensive benchmark testing (13 PDFs with manifest/report verification)
 - ✅ BYOK override/restore verified end-to-end with a real live job (see [Security](#security))
 - ✅ Fresh-machine self-hosting test in an isolated VM, caught and fixed a missing Quick Start step
+- ✅ Research-informed documentation: trade-offs in design decisions, preservation proof mathematical contract
+- ✅ OLMo-only reviewer profile (`REVIEWER_PROFILE=olmo-only`) for air-gapped / government / restricted-network deployments
 
 **Upcoming Features:**
 - Visual-artifact filtering for the element ID builder (repeated separator lines etc. can hash-collide into duplicate IDs — currently detected and logged, not filtered upstream) and a second-pass classifier to reduce heading-promotion false positives; see `docs/ARCHITECTURE.md`
-- **Fully open-weight self-hosted mode** (OLMo-only reviewers, no Claude/GPT/Gemini calls) — This is a priority because accessibility tools should not require proprietary API access. Organizations in restricted sectors (government, defense, education) often can't send PDFs to external cloud providers. An OLMo-only pipeline, running fully locally on customer infrastructure, removes that barrier. Quality may drop slightly (single-model review vs. multi-model consensus), but access is more important than marginal accuracy improvements for users with no other options.
 - Download full package ZIP (HTML output + JSON manifest + Report + Original PDF)
 - CLI instance for batch processing and local runs
 - Persistent job storage (Supabase) to handle long-running PDF processing

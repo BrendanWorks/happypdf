@@ -8,11 +8,15 @@ consumes:
     {issue_id, wcag_criterion, element_id, issue, impact, confidence,
      suggested_fix, fix_type, hallucinated}
 
-`get_live_reviews(html, round_num)` calls all three in parallel and returns a
-dict keyed by reviewer name — {"olmo": [...], "gemini": [...], "gpt": [...]} —
+`get_live_reviews(html, round_num)` calls reviewers in parallel (profile-dependent)
+and returns a dict keyed by reviewer name — {"olmo": [...], "gemini": [...], ...} —
 which is exactly the shape the mock files use, so it drops straight into the
 loop's `reviews_provider`. (The spec sketched a flat list; the per-reviewer dict
 is required for the judge's agreement/confidence logic.)
+
+Profiles:
+- "default" (env: REVIEWER_PROFILE=default or unset): calls OLMo, Gemini, GPT in parallel
+- "olmo-only" (env: REVIEWER_PROFILE=olmo-only): calls only OLMo (single-model review)
 
 Resilience: each reviewer is retried once with exponential backoff; a reviewer
 that still fails is logged and skipped (the round continues with the others).
@@ -221,6 +225,23 @@ def _available(name: str) -> bool:
     return True  # olmo uses Modal auth
 
 
+def _get_profile_reviewers(profile: str) -> dict[str, callable]:
+    """Return the set of reviewers for a given profile.
+
+    Args:
+        profile: "default" for multi-model (OLMo + Gemini + GPT) or "olmo-only"
+                 for single-model (OLMo only). Default if unset or invalid: "default".
+
+    Returns:
+        Dict of {reviewer_name: callable} for this profile.
+    """
+    profile = (profile or "default").lower().strip()
+    if profile == "olmo-only":
+        return {"olmo": REVIEWERS["olmo"]}
+    # default: all reviewers
+    return REVIEWERS
+
+
 async def _run_one(name: str, fn, html: str, valid_ids: set[str]) -> tuple[str, list[dict] | None]:
     """Call one reviewer with one retry; return (name, issues) or (name, None) on failure."""
     for attempt in range(RETRIES + 1):
@@ -254,20 +275,26 @@ async def _run_one(name: str, fn, html: str, valid_ids: set[str]) -> tuple[str, 
 
 
 async def get_live_reviews(
-    html: str, round_num: int
+    html: str, round_num: int, profile: str = "default"
 ) -> tuple[dict[str, list[dict]], dict[str, dict]]:
-    """Call OLMo, Gemini, GPT in parallel; return ({reviewer: [issues]}, {reviewer: health_info}).
+    """Call reviewers in parallel based on profile; return ({reviewer: [issues]}, {reviewer: health_info}).
+
+    Args:
+        html: HTML fragment to review
+        round_num: review round number (for logging)
+        profile: "default" (OLMo+Gemini+GPT) or "olmo-only" (OLMo only)
 
     Reviewers without credentials are skipped with a warning. Raises
     AllReviewersFailed if no reviewer produced a result."""
     load_env()
     valid_ids = _valid_ids(html)
-    active = {n: f for n, f in REVIEWERS.items() if _available(n)}
-    skipped = [n for n in REVIEWERS if n not in active]
+    profile_reviewers = _get_profile_reviewers(profile)
+    active = {n: f for n, f in profile_reviewers.items() if _available(n)}
+    skipped = [n for n in profile_reviewers if n not in active]
     if skipped:
         log(f"round {round_num}: skipping (no credentials): {', '.join(skipped)}")
     log(
-        f"round {round_num}: calling {', '.join(active)} in parallel "
+        f"round {round_num}: calling {', '.join(active)} in parallel (profile={profile}) "
         f"({len(valid_ids)} addressable elements)"
     )
 
@@ -288,5 +315,9 @@ async def get_live_reviews(
 
 def live_provider(round_num: int, html: str) -> tuple[dict[str, list[dict]], dict[str, dict]]:
     """Synchronous adapter matching the loop's reviews_provider(round, html).
-    Returns (reviews, health_info)."""
-    return asyncio.run(get_live_reviews(html, round_num))
+    Returns (reviews, health_info).
+
+    Reads REVIEWER_PROFILE env var for profile selection ("default" or "olmo-only").
+    """
+    profile = os.environ.get("REVIEWER_PROFILE", "default")
+    return asyncio.run(get_live_reviews(html, round_num, profile=profile))

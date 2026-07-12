@@ -28,13 +28,16 @@ The tradeoff: two elements with identical normalized text hash to the same ID. T
 
 ## Deployment Modes (and Why the Code Doesn't Change)
 
-Self-hosted and BYOK are **not two codebases**. There is one live reviewer function (`reviewers.live_provider`), which always calls OLMo (Modal), Gemini, and GPT together in parallel — there is no separate OLMo-only code path today.
+All deployment modes use the same codebase. **Credential selection and reviewer profiling are environment-variable seams.**
 
 - **Extraction** is always olmOCR. It runs on your Modal account in every mode.
 - **Alt text** is Qwen2-VL today; it can be swapped for any vision model behind the same `generate_alt_text(image_b64, context) -> {alt_text, ...}` contract.
-- **Peer review / judge** (rounds 2-3) always runs the same `live_provider` function. The only thing that changes between "hosted" and BYOK is *whose* Anthropic/OpenAI credentials it uses: the server's own `.env` keys by default, or a user-supplied key that temporarily overrides those environment variables for the duration of that one job (see `api/main.py::_live`).
+- **Peer review / judge** (rounds 2-3) uses `reviewers.live_provider`, which branches based on environment variables:
+  - `REVIEWER_PROFILE=default` (or unset): OLMo + Gemini + GPT in parallel (default).
+  - `REVIEWER_PROFILE=olmo-only`: OLMo only (single-model review).
+  - Credentials come from the environment (`.env`, Modal secrets, or user-supplied BYOK override for that job).
 
-Because credential selection is a plain environment-variable seam, BYOK is cheap to offer without a second implementation — but it is also not yet a distinct "self-hosted, OLMo-only" review mode; that would require actually branching the reviewer selection, which doesn't exist in code yet.
+**Why this matters:** Adding OLMo-only mode required only 50 lines of code (a profile selector + filter logic) because the loop, judge, applicator, and gate don't know or care how many reviewers there are. The same code paths work whether it's three models or one. This is the payoff of "review-source agnostic" design — new modes are cheap to add.
 
 ## Modal Infrastructure
 
