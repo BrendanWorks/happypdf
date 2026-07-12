@@ -663,6 +663,11 @@ def generate_html_report(manifest: dict, output_path: str = None) -> str:
       color: #166534;
       border: 1px solid #bbf7d0;
     }}
+    .status-pill.failure {{
+      background: #fee2e2;
+      color: #991b1b;
+      border: 1px solid #fecaca;
+    }}
 
     /* ── Footer ────────────────────────────────────────────────────────────── */
     .page-footer {{
