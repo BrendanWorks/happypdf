@@ -250,6 +250,39 @@ class HtmlBuilder:
         m = re.match(r"^(#+)\s+(.+)$", line)
         return (len(m.group(1)), m.group(2)) if m else (0, line)
 
+    def _is_likely_section_header(self, line: str, idx: int) -> bool:
+        """Heuristic to detect section headers that olmOCR didn't mark with #.
+        Looks for: short lines (1-5 words, <50 chars) followed by content."""
+        if not line or len(line) > 50:
+            return False
+        word_count = len(line.split())
+        if word_count < 1 or word_count > 5:
+            return False
+        # Avoid false positives: already marked as heading, is part of list/table, or is HTML
+        if line.startswith(("#", "<", "-", "*", "•", "![", "Ce ")):
+            return False
+        # Look ahead past blank lines to find next non-empty line
+        next_idx = idx + 1
+        while next_idx < len(self.lines) and not self.lines[next_idx].strip():
+            next_idx += 1
+        # Check if followed by substantial content (list, table, or text paragraph)
+        if next_idx < len(self.lines):
+            next_content = self.lines[next_idx].strip()
+            # Headers are typically followed by lists, tables, or paragraphs
+            if next_content.startswith(("<table", "-", "*", "•")):
+                return True
+            # Also treat as header if followed by a paragraph (but not foreign language)
+            if not next_content.startswith(("Ce ", "![")) and len(next_content) > 20:
+                return True
+        return False
+
+    def _get_language_attr(self, line: str) -> str:
+        """Detect language and return lang attribute if not English."""
+        # Detect French: "Ce programme est..." or similar French markers
+        if re.match(r"^Ce\s+\w+", line, re.IGNORECASE):
+            return ' lang="fr"'
+        return ""
+
     def build(self) -> str:
         body, in_list, items = [], False, []
 
@@ -311,6 +344,13 @@ class HtmlBuilder:
                 continue
 
             flush_list()
+
+            # Check if this looks like a section header (olmOCR didn't mark with #)
+            if self._is_likely_section_header(raw, i):
+                body.append(f'    <h2 data-ir-id="{self._id(raw)}">{self._esc(raw)}</h2>')
+                i += 1
+                continue
+
             # Convert markdown images to HTML img tags
             content = self._convert_markdown_images(raw)
 
@@ -325,7 +365,9 @@ class HtmlBuilder:
                 # Regular text - escape special characters for HTML
                 content = self._esc(raw)
 
-            body.append(f'    <p data-ir-id="{self._id(raw)}">{content}</p>')
+            # Add language attribute if this is foreign language text
+            lang_attr = self._get_language_attr(raw)
+            body.append(f'    <p data-ir-id="{self._id(raw)}"{lang_attr}>{content}</p>')
             i += 1
         flush_list()
 
