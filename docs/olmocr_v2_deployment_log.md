@@ -92,3 +92,51 @@ Raw outputs and the machine-generated report are under `output/` (gitignored):
 
 **Production impact: none.** The pipeline still resolves `Function.from_name("olmocr", ...)`;
 `olmocr-v2` is not referenced by any production code path.
+
+## Second comparison — somatosensory.pdf (neuroscience text)
+
+Run to exercise a science document (prose + one table + figures). v2 reported
+`allenai/olmOCR-2-7B-1025-FP8` (204s); v1 the implicit default (192s).
+
+| metric | v1 (prod) | v2 (staging) | Δ |
+|---|---|---|---|
+| chars | 7218 | 7118 | −100 |
+| tables | 1 | 1 | 0 |
+| table_rows | 3 | 3 | 0 |
+| images referenced | 6 | 6 | 0 |
+| math_markers | 0 | 0 | 0 |
+
+**This one favors v1, not v2.** No equations in the doc (so the expected
+olmOCR-2 math advantage wasn't exercised), and inspection of the markdown shows
+two accessibility-relevant regressions in v2:
+
+1. **Italic emphasis dropped.** v1 preserves `<i>…</i>` on introduced terms
+   (*first pain*, *cutaneous pricking pain*, *second/deep pain*, *intrafusal /
+   extrafusal fibers*); v2 renders them as plain text. Consistent across every
+   emphasized term — looks systematic, not random.
+2. **Thinner figure alt text.** For the skin-receptor diagram, v1's alt text
+   lists 7 receptor types plus the glabrous-vs-hairy-skin distinction; v2's
+   lists 5 and omits the skin-type distinction.
+
+Both captured the same prose, table, and 6 figure references — no text content
+loss either way.
+
+**Caveat.** Single run, single doc; olmOCR is a VLM with stochastic decoding, so
+the alt-text wording difference could be run-to-run variance. The italics drop is
+more likely a real formatting behavior change between model versions (it's
+uniform across the document). Worth a re-run and a check against a genuinely
+equation-heavy paper before concluding.
+
+## Overall read across both documents
+
+Neither comparison shows olmOCR-2 clearly beating v1 on happypdf's own benchmark
+inputs: IRS Schedule C was a wash (v2 slightly better checkboxes), and
+somatosensory favored v1 (emphasis + alt-text). The dependable, non-stochastic
+win of this change remains the **explicit model pin** (removing silent drift on
+the olmocr CLI default), not an output-quality upgrade on these docs. Recommend
+holding promotion pending either (a) a re-run to rule out variance and/or (b) a
+comparison on an equation-dense document where olmOCR-2's advertised table/math
+gains would actually be exercised.
+
+Re-score saved outputs for free (no GPU):
+`python scripts/compare_olmocr_v1_v2.py --score-files output/somatosensory_v1_olmocr.md output/somatosensory_v2_olmocr2.md`
