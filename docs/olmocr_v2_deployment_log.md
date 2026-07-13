@@ -127,16 +127,53 @@ more likely a real formatting behavior change between model versions (it's
 uniform across the document). Worth a re-run and a check against a genuinely
 equation-heavy paper before concluding.
 
-## Overall read across both documents
+## Third comparison — Pascal2606.30772v1.pdf (14-page algebraic geometry paper)
 
-Neither comparison shows olmOCR-2 clearly beating v1 on happypdf's own benchmark
-inputs: IRS Schedule C was a wash (v2 slightly better checkboxes), and
-somatosensory favored v1 (emphasis + alt-text). The dependable, non-stochastic
-win of this change remains the **explicit model pin** (removing silent drift on
-the olmocr CLI default), not an output-quality upgrade on these docs. Recommend
-holding promotion pending either (a) a re-run to rule out variance and/or (b) a
-comparison on an equation-dense document where olmOCR-2's advertised table/math
-gains would actually be exercised.
+The equation-dense test recommended above: a math paper (Pascal constructions,
+Burkhardt quartic, projective four-space) full of inline and display LaTeX. v2
+reported `allenai/olmOCR-2-7B-1025-FP8` (202s); v1 the implicit default (200s).
 
-Re-score saved outputs for free (no GPU):
-`python scripts/compare_olmocr_v1_v2.py --score-files output/somatosensory_v1_olmocr.md output/somatosensory_v2_olmocr2.md`
+| metric | v1 (prod) | v2 (staging) | Δ |
+|---|---|---|---|
+| chars | 30441 | 30407 | −34 |
+| lines | 747 | 726 | −21 |
+| tables | 1 | 1 | 0 |
+| table_rows | 4 | 4 | 0 |
+| math_markers | 686 | 686 | **0** |
+
+**Essentially equivalent — and this is the fair math test.** Both emit the same
+686 LaTeX math markers, and reading the equations confirms both extract the math
+**accurately**: same variables, same display environments, same structure.
+Whole-document counts of the small stylistic differences are all noise-level:
+italic `*…*` spans 22 vs 21, QED symbols identical, spaced `=` in math 204 vs 201.
+A few local differences exist (e.g. `k = 5` vs `k=5`, `\begin{array}{ll}` with `&`
+alignment vs `{l}` inline, one `*Proof.*` vs `Proof.`) but they do not accumulate
+into a systematic quality gap in either direction.
+
+Notably, this **weakens the somatosensory "v2 drops emphasis" hypothesis**: here
+the two are at parity on italics (22 vs 21), so that earlier difference is better
+explained by run-to-run VLM variance than a systematic v2 regression.
+
+## Overall read across all three documents
+
+| Document | Type | Result |
+|---|---|---|
+| IRS Schedule C | dense tax form | wash; v2 slightly cleaner checkboxes (24 vs 11 glyphs) |
+| somatosensory | neuroscience prose + figures | leaned v1 (richer alt text, more emphasis) — but small sample |
+| Pascal 2606.30772 | equation-dense math paper | equivalent; math accurate in both, differences noise-level |
+
+Across a form, a prose+figure doc, and a genuinely math-heavy paper, **olmOCR-2
+does not show a measurable quality advantage over v1 on happypdf's inputs**, and
+the math case — where it was most expected to win — came out a dead heat. The
+differences seen are at the level of VLM run-to-run variance.
+
+The dependable, non-stochastic value of this change is therefore the
+**correctness/robustness fix** — pinning `olmocr>=0.4.0` and an explicit
+`--model`, so extraction no longer rides the olmocr CLI's shifting default — not
+an output-quality upgrade. That is still worth shipping. **Recommendation:**
+promote when convenient for the robustness win, but don't expect an accuracy jump;
+there's no quality reason to rush the cutover, and v1 stays deployed as a
+zero-cost fallback.
+
+Re-score any saved outputs for free (no GPU), e.g.:
+`python scripts/compare_olmocr_v1_v2.py --score-files output/Pascal2606.30772v1_v1_olmocr.md output/Pascal2606.30772v1_v2_olmocr2.md`
