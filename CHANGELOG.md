@@ -1,6 +1,13 @@
 # Changelog
 
-This project doesn't use formal semantic versioning yet — entries are grouped by date. See [GitHub Releases](https://github.com/BrendanWorks/happypdf/releases) for downloadable demo assets — latest is [v1.1](https://github.com/BrendanWorks/happypdf/releases/tag/v1.1), demo videos are attached to [v1.0](https://github.com/BrendanWorks/happypdf/releases/tag/v1.0).
+This project doesn't use formal semantic versioning yet — entries are grouped by date. See [GitHub Releases](https://github.com/BrendanWorks/happypdf/releases) for downloadable demo assets — latest is [v1.2](https://github.com/BrendanWorks/happypdf/releases/tag/v1.2), demo videos are attached to [v1.0](https://github.com/BrendanWorks/happypdf/releases/tag/v1.0).
+
+## v1.2 — 2026-07-12 — olmOCR-2 extraction upgrade
+
+- Upgraded PDF extraction to **olmOCR-2-7B-1025-FP8** and promoted it to production. The previous deployment ran the olmocr CLI with no `--model`, silently using the CLI default (`olmOCR-7B-0725-FP8`, i.e. olmOCR v1); the model could drift with the unpinned package. Extraction now pins `olmocr>=0.4.0` and passes an explicit `--model`, so it can no longer change out from under us.
+- Staged safely: deployed olmOCR-2 as a separate Modal app (`olmocr-v2`) alongside the v1 app, validated it, then repointed production by a single constant in `src/build_syllabus_slice.py`. The v1 app stays deployed as a one-line-revert fallback.
+- Validated on three documents before cutover (IRS Schedule C form, a neuroscience prose+figure paper, and a 14-page equation-dense math paper). Result: olmOCR-2 is **quality-equivalent** to v1 on these inputs — the math paper was a dead heat (identical LaTeX math extraction), the form slightly favored v2 (cleaner checkbox glyphs), the prose doc slightly favored v1. The dependable win is the correctness/pinning fix, not an accuracy jump. Full comparison in [`docs/olmocr_v2_deployment_log.md`](docs/olmocr_v2_deployment_log.md).
+- Added `scripts/compare_olmocr_v1_v2.py`, a health-checked v1-vs-v2 comparison harness with an offline re-scoring mode, and a README "Extraction Model" section documenting staging/production/revert.
 
 ## 2026-07-11 — Docker self-hosting, repo polish
 
