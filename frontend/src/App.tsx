@@ -350,7 +350,6 @@ function DemoPanel() {
       const fd = new FormData();
       fd.append('file', file);
       fd.append('reviewer_profile', reviewerProfile);
-      console.log('🎯 uploading with reviewer_profile:', reviewerProfile);
       if (byokKeys.anthropic) { fd.append('anthropic_api_key', byokKeys.anthropic); trackEvent('byok_authenticated', { provider: 'claude' }); }
       if (byokKeys.openai) { fd.append('openai_api_key', byokKeys.openai); trackEvent('byok_authenticated', { provider: 'openai' }); }
       const r = await fetch(`${API_BASE}/api/jobs/live`, { method: 'POST', body: fd });
