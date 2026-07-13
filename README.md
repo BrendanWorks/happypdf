@@ -120,7 +120,35 @@ This work extends Ai2's **SciA11y** research (Wang, Cachola, et al., ASSETS '21)
 
 ![happypdf pipeline animation](./videos/pipeline-demo.gif)
 
+## Extraction Model: olmOCR (v1 → olmOCR-2)
 
+Step 1 of the pipeline — turning the PDF into markdown — runs [olmOCR](https://github.com/allenai/olmocr) on a Modal H100. We are upgrading extraction from olmOCR v1 to **olmOCR-2-7B-1025-FP8**.
+
+**Why upgrade.** olmOCR-2 improves **table structure** and **math handling** over v1 — the areas that matter most for dense forms (e.g. IRS Schedule C) and technical documents. There is also a correctness fix: the v1 deployment calls the olmocr CLI **without** a `--model` flag, so it silently uses the CLI's default (`allenai/olmOCR-7B-0725-FP8`, i.e. v1). The v2 deployment **pins** `olmocr>=0.4.0` and passes an **explicit** `--model allenai/olmOCR-2-7B-1025-FP8`, so extraction can no longer drift with the package default. The FP8 weights need ~16–18 GB VRAM and fit comfortably on the H100.
+
+**Staging vs production (two independent Modal apps).**
+
+| | Modal app | Deploy file | Model |
+|---|---|---|---|
+| **Production** | `olmocr` | `modal/modal_olmocr_final.py` | olmocr CLI default (v1, `olmOCR-7B-0725-FP8`) |
+| **Staging** | `olmocr-v2` | `modal/modal_olmocr_v2.py` | explicit `olmOCR-2-7B-1025-FP8` |
+
+The pipeline resolves extraction by app name via `modal.Function.from_name("olmocr", "process_pdf")`, so **production is unaffected until that name is repointed.** Deploying `olmocr-v2` creates a separate app; on Modal, idle apps reserve no GPU, so the two coexist at zero standing cost.
+
+```bash
+# Deploy staging (leaves production "olmocr" untouched)
+modal deploy modal/modal_olmocr_v2.py
+
+# Smoke-test one PDF against staging
+modal run modal/modal_olmocr_v2.py --pdf-file benchmark/irs_schedule_c.pdf
+
+# Full v1-vs-v2 quality comparison (health-checks staging first, then compares)
+python scripts/compare_olmocr_v1_v2.py
+```
+
+**Promote to production (only after the comparison passes review).** Point the pipeline's extraction lookup at the v2 app by changing `OLMOCR_APP` in [`src/build_syllabus_slice.py`](src/build_syllabus_slice.py) from `"olmocr"` to `"olmocr-v2"`, then redeploy the API (`modal deploy src/modal_api.py`).
+
+**Revert.** Because production is selected by app name, revert is a one-line change back to `OLMOCR_APP = "olmocr"` plus an API redeploy — the original v1 app is never modified or torn down, so it remains a live safety net. To retire the staging app entirely: `modal app stop olmocr-v2`.
 
 ## The Enhancement & Optimization Loop
 
