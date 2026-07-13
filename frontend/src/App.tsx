@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, Fragment } from 'react';
 import {
   FileText,
   Upload,
@@ -167,14 +167,14 @@ function PipelineRoleDiagram({ highlightMode }: { highlightMode: KeyMode | null 
       id: 'ocr',
       label: 'olmOCR',
       sublabel: 'extraction',
-      icon: <Cpu size={13} />,
+      icon: <Cpu size={18} />,
       highlight: false,
     },
     {
       id: 'reviewers',
       label: 'Peer reviewers',
       sublabel: 'Gemini · GPT-4o · OLMo',
-      icon: <Users size={13} />,
+      icon: <Users size={18} />,
       highlight: highlightMode === 'openai' || highlightMode === 'both',
       highlightColor: 'emerald' as const,
     },
@@ -182,7 +182,7 @@ function PipelineRoleDiagram({ highlightMode }: { highlightMode: KeyMode | null 
       id: 'judge',
       label: 'Judge + patcher',
       sublabel: 'deduplicates · applies fixes',
-      icon: <Sparkles size={13} />,
+      icon: <Sparkles size={18} />,
       highlight: highlightMode === 'claude' || highlightMode === 'both',
       highlightColor: 'teal' as const,
     },
@@ -190,21 +190,21 @@ function PipelineRoleDiagram({ highlightMode }: { highlightMode: KeyMode | null 
       id: 'axe',
       label: 'axe-core',
       sublabel: 'rescore',
-      icon: <GitBranch size={13} />,
+      icon: <GitBranch size={18} />,
       highlight: false,
     },
   ];
 
   return (
-    <div className="rounded-xl border border-slate-700/40 bg-slate-900/60 p-4">
-      <p className="text-[10px] uppercase tracking-widest text-slate-500 font-semibold mb-3">
+    <div className="rounded-xl border border-slate-700/40 bg-slate-900/60 p-5 sm:p-6">
+      <p className="text-xs uppercase tracking-widest text-slate-500 font-semibold mb-4">
         Pipeline roles — use Claude, OpenAI, or both
       </p>
-      <div className="flex items-stretch gap-1.5">
+      <div className="flex flex-col sm:flex-row sm:items-stretch gap-3 sm:gap-2">
         {nodes.map((node, i) => (
-          <div key={node.id} className="flex items-center gap-1.5 flex-1 min-w-0">
+          <Fragment key={node.id}>
             <div
-              className={`flex-1 rounded-lg px-2.5 py-2.5 border transition-all ${
+              className={`flex-1 rounded-lg p-4 border transition-all ${
                 node.highlight
                   ? node.highlightColor === 'teal'
                     ? 'border-teal-500/50 bg-teal-500/10 ring-1 ring-teal-500/20'
@@ -212,23 +212,23 @@ function PipelineRoleDiagram({ highlightMode }: { highlightMode: KeyMode | null 
                   : 'border-slate-700/50 bg-slate-800/50'
               }`}
             >
-              <div className={`mb-1 ${
+              <div className={`mb-2 ${
                 node.highlight
                   ? node.highlightColor === 'teal' ? 'text-teal-400' : 'text-emerald-400'
                   : 'text-slate-500'
               }`}>
                 {node.icon}
               </div>
-              <p className={`text-[10px] font-semibold leading-tight mb-0.5 ${
+              <p className={`text-sm font-semibold leading-tight mb-1 ${
                 node.highlight
                   ? node.highlightColor === 'teal' ? 'text-teal-300' : 'text-emerald-300'
-                  : 'text-slate-300'
+                  : 'text-slate-200'
               }`}>
                 {node.label}
               </p>
-              <p className="text-[9px] text-slate-500 leading-tight">{node.sublabel}</p>
+              <p className="text-xs text-slate-500 leading-snug">{node.sublabel}</p>
               {node.highlight && (
-                <p className={`text-[9px] mt-1 font-medium leading-tight ${
+                <p className={`text-xs mt-1.5 font-medium leading-tight ${
                   node.highlightColor === 'teal' ? 'text-teal-400' : 'text-emerald-400'
                 }`}>
                   ← your key
@@ -236,12 +236,15 @@ function PipelineRoleDiagram({ highlightMode }: { highlightMode: KeyMode | null 
               )}
             </div>
             {i < nodes.length - 1 && (
-              <ArrowRight size={10} className="text-slate-700 shrink-0" />
+              <ArrowRight
+                size={16}
+                className="hidden sm:block self-center text-slate-700 shrink-0"
+              />
             )}
-          </div>
+          </Fragment>
         ))}
       </div>
-      <p className="text-[9px] text-slate-600 mt-2.5 leading-relaxed">
+      <p className="text-xs text-slate-600 mt-4 leading-relaxed">
         Bring whichever enterprise API key you already have. Neither Claude nor OpenAI is required to use the other. Each role is independent.
       </p>
     </div>
@@ -896,7 +899,7 @@ export default function App() {
             </div>
 
             {/* Architecture diagram */}
-            <div className="mb-16 max-w-2xl mx-auto">
+            <div className="mb-16 max-w-4xl mx-auto">
               <PipelineRoleDiagram highlightMode={null} />
             </div>
 
