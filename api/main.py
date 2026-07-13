@@ -74,6 +74,8 @@ import sys  # noqa: E402
 sys.path.insert(0, str(SRC))
 sys.path.insert(0, str(ROOT / "api"))
 
+from job_store import JobStore, mark_interrupted_if_stale  # noqa: E402
+
 # Pipeline stages the UI walks through (ids match the frontend).
 STAGES = [
     {"id": "uploading", "label": "Upload"},
@@ -120,37 +122,48 @@ def _rate_check() -> tuple[bool, int]:
     return True, c + 1
 
 
-# In-memory job store (local dev). job_id -> dict.
-JOBS: dict[str, dict] = {}
+# Job store: a modal.Dict on Modal (survives container recycles), else in-process.
+JOBS = JobStore()
 JOBS_LOCK = threading.Lock()
 
 
 def _new_job(kind: str, name: str) -> str:
     jid = uuid.uuid4().hex[:12]
+    now = time.time()
     with JOBS_LOCK:
-        JOBS[jid] = {
-            "id": jid,
-            "kind": kind,
-            "name": name,
-            "status": "running",
-            "stage": "uploading",
-            "stages": STAGES,
-            "baseline": None,
-            "rounds": [],
-            "final": None,
-            "enhancements": [],
-            "final_html": None,
-            "error": None,
-            "source": None,
-            "started": time.time(),
-            "reviewer_health": {},
-        }
+        JOBS.prune()  # drop long-dead records so the store stays bounded
+        JOBS.put(
+            jid,
+            {
+                "id": jid,
+                "kind": kind,
+                "name": name,
+                "status": "running",
+                "stage": "uploading",
+                "stages": STAGES,
+                "baseline": None,
+                "rounds": [],
+                "final": None,
+                "enhancements": [],
+                "final_html": None,
+                "error": None,
+                "source": None,
+                "started": now,
+                "updated": now,
+                "reviewer_health": {},
+            },
+        )
     return jid
 
 
 def _set(jid: str, **kw) -> None:
     with JOBS_LOCK:
-        JOBS[jid].update(kw)
+        rec = JOBS.get(jid)
+        if rec is None:
+            return
+        rec.update(kw)
+        rec["updated"] = time.time()
+        JOBS.put(jid, rec)  # write the whole record back (modal.Dict returns copies)
 
 
 def _load_snapshot(name: str) -> dict:
@@ -263,7 +276,10 @@ def _live(
         def on_round(entry, _patched, reviewer_health=None):
             _set(jid, stage=f"round{entry['round']}")
             with JOBS_LOCK:
-                JOBS[jid]["rounds"].append(
+                rec = JOBS.get(jid)
+                if rec is None:
+                    return
+                rec["rounds"].append(
                     {
                         "round": entry["round"],
                         "patches_applied": entry["patches_applied"],
@@ -275,7 +291,9 @@ def _live(
                     }
                 )
                 if reviewer_health:
-                    JOBS[jid]["reviewer_health"] = reviewer_health
+                    rec["reviewer_health"] = reviewer_health
+                rec["updated"] = time.time()
+                JOBS.put(jid, rec)  # write the whole record back (modal.Dict returns copies)
 
         summary = run_loop(
             baseline_html, reviewers.live_provider, label=filename, use_llm=True, on_round=on_round
@@ -389,6 +407,9 @@ def job_status(jid: str):
         job = JOBS.get(jid)
         if not job:
             raise HTTPException(404, "no such job")
+        # A job frozen at "running" (worker died on a container recycle) surfaces
+        # as a terminal error the frontend can act on, instead of a stuck spinner.
+        job = mark_interrupted_if_stale(job)
         out = {k: v for k, v in job.items() if k != "final_html"}
     out["stage_index"] = next((i for i, s in enumerate(STAGES) if s["id"] == out["stage"]), 0)
     out["has_html"] = job.get("final_html") is not None
