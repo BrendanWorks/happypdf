@@ -4,7 +4,7 @@ AccessComputing syllabus -> scored accessible HTML, full pipeline orchestrator.
 
 Pipeline:
     1. Load syllabus_NOTaccessible.pdf
-    2. olmOCR (Modal "olmocr"/process_pdf)            -> markdown
+    2. olmOCR-2 (Modal "olmocr-v2"/process_pdf)       -> markdown
     3. PyMuPDF                                         -> embedded images
     4. Qwen2-VL (Modal "pdfaccess-alttext")            -> alt text per image
     5. Markdown + alt text                             -> semantic HTML5
@@ -45,7 +45,10 @@ CACHE_ALT = OUTPUT_DIR / "syllabus_alt.json"  # cached alt-text map
 # axe-core resolved portably via path_resolver
 AXE_CANDIDATES = [AXE_LOCAL]
 
-OLMOCR_APP, OLMOCR_FN = "olmocr", "process_pdf"
+# Extraction endpoint (v1.2: promoted to olmOCR-2-7B-1025-FP8).
+# REVERT: set OLMOCR_APP back to "olmocr" and redeploy src/modal_api.py — the v1
+# app ("olmocr", modal/modal_olmocr_final.py) is still deployed as a fallback.
+OLMOCR_APP, OLMOCR_FN = "olmocr-v2", "process_pdf"
 ALTTEXT_APP, ALTTEXT_FN = "pdfaccess-alttext", "generate_alt_text"
 
 
