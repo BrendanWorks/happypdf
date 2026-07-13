@@ -8,6 +8,7 @@ This project doesn't use formal semantic versioning yet — entries are grouped 
 - Staged safely: deployed olmOCR-2 as a separate Modal app (`olmocr-v2`) alongside the v1 app, validated it, then repointed production by a single constant in `src/build_syllabus_slice.py`. The v1 app stays deployed as a one-line-revert fallback.
 - Validated on three documents before cutover (IRS Schedule C form, a neuroscience prose+figure paper, and a 14-page equation-dense math paper). Result: olmOCR-2 is **quality-equivalent** to v1 on these inputs — the math paper was a dead heat (identical LaTeX math extraction), the form slightly favored v2 (cleaner checkbox glyphs), the prose doc slightly favored v1. The dependable win is the correctness/pinning fix, not an accuracy jump. Full comparison in [`docs/olmocr_v2_deployment_log.md`](docs/olmocr_v2_deployment_log.md).
 - Added `scripts/compare_olmocr_v1_v2.py`, a health-checked v1-vs-v2 comparison harness with an offline re-scoring mode, and a README "Extraction Model" section documenting staging/production/revert.
+- Fixed a latent container crash-loop exposed on this deploy: a prior path-portability refactor imported `path_resolver` at `modal_api.py` module top level, which resolves at deploy time but not inside the Modal container (crash-loop `ModuleNotFoundError: path_resolver`). Guarded so it only runs at deploy time. Verified the live pipeline end-to-end after the fix (real PDF → olmOCR-2 extraction → 100% axe baseline).
 
 ## 2026-07-11 — Docker self-hosting, repo polish
 
