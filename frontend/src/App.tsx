@@ -330,10 +330,30 @@ function DemoPanel() {
   // ── API-driven (local dev with the backend running) ──
   const poll = (id: string) => {
     stopTimers();
+    // Bound transient failures (cold start / 5xx / network blip) so a truly
+    // unreachable backend can't leave us polling forever. ~30 * 600ms ≈ 18s.
+    let transientFailures = 0;
+    const MAX_TRANSIENT = 30;
+    const failWith = (msg: string) => {
+      stopTimers(); setBusy(false);
+      setClientError(msg);
+      trackEvent('remediation_failed');
+    };
     pollRef.current = window.setInterval(async () => {
       try {
         const r = await fetch(`${API_BASE}/api/jobs/${id}`);
-        if (!r.ok) return;
+        if (r.status === 404) {
+          // Job is gone: the single API container was recycled (deploy or idle
+          // scaledown) and its in-memory job state was lost. Stop and prompt a
+          // retry instead of polling a dead job id indefinitely.
+          failWith('Your conversion was interrupted (the server restarted). Please try uploading again.');
+          return;
+        }
+        if (!r.ok) {
+          if (++transientFailures >= MAX_TRANSIENT) failWith('Lost connection to the server. Please try again.');
+          return;
+        }
+        transientFailures = 0;
         const j = (await r.json()) as Job;
         setJob(j);
         if (j.status === 'done') {
@@ -343,7 +363,10 @@ function DemoPanel() {
           stopTimers(); setBusy(false);
           trackEvent('remediation_failed');
         }
-      } catch { /* keep polling */ }
+      } catch {
+        // Network error — transient; keep polling under the same cap.
+        if (++transientFailures >= MAX_TRANSIENT) failWith('Lost connection to the server. Please try again.');
+      }
     }, 600);
   };
   const apiLive = async (file: File) => {
