@@ -16,10 +16,23 @@ Deploy:  modal deploy src/modal_api.py
 """
 
 import modal
-from path_resolver import AXE_LOCAL, REPO, validate_paths
 
-# Validate paths at import time (fails fast if something is missing)
-validate_paths()
+# path_resolver + validate_paths run only at DEPLOY time (locally), where they
+# resolve the real paths used to build the image below. Inside the Modal container
+# this module is imported to serve the ASGI app, but path_resolver is mounted under
+# /root/happypdf/src (only added to sys.path inside fastapi_app, not at load time)
+# and its local paths don't exist there — the image is already built, so REPO and
+# AXE_LOCAL are just unused placeholders. Guarding this prevents a container crash
+# loop (ModuleNotFoundError: path_resolver) on deploy.
+try:
+    from path_resolver import AXE_LOCAL, REPO, validate_paths
+except ModuleNotFoundError:
+    from pathlib import Path
+
+    REPO = Path("/root/happypdf")
+    AXE_LOCAL = "/root/axe.min.js"
+else:
+    validate_paths()  # deploy-time: fail fast if a required local path is missing
 
 image = (
     modal.Image.debian_slim(python_version="3.11")
