@@ -2,6 +2,22 @@
 
 This project doesn't use formal semantic versioning yet — entries are grouped by date. See [GitHub Releases](https://github.com/BrendanWorks/happypdf/releases) for downloadable demo assets — latest is [v1.2](https://github.com/BrendanWorks/happypdf/releases/tag/v1.2), demo videos are attached to [v1.0](https://github.com/BrendanWorks/happypdf/releases/tag/v1.0).
 
+## v1.2.2 — 2026-07-14 — Faster conversions, honest wait times
+
+Speed (verified on staging: a 1-page live conversion end-to-end in 4.0 minutes, all three reviewers healthy):
+
+- **Alt text runs concurrently with extraction** — image extraction + Qwen2-VL don't depend on the olmOCR markdown, so their GPU cold start now disappears inside extraction's 2-4 minute window instead of adding ~1 minute after it.
+- **The OLMo reviewer is pre-warmed** while extraction runs (new bearer-authed `/warmup` endpoint + a fire-and-forget ping at job start), and stays warm 5 minutes between calls so review round 1 no longer pays a cold start inline. Its weights are now baked into the image at build time (same hardening the extraction app got in v1.2.1).
+- Generated HTML moved out of job records into per-key blobs — records are fetched whole on every poll and had grown to multi-MB after completion.
+
+Keeping the user informed (people wait better when they know why):
+
+- Uploads are page-counted instantly (PyMuPDF), which powers an honest estimate up front ("usually 5–10 minutes for 5 pages") and rejects corrupt or password-protected PDFs before any GPU spend.
+- Live per-stage timers with typical durations and a plain-language explanation of what each stage is doing; review rounds are now marked when they *start* (they were marked at completion, hiding the round-1 wait inside the previous stage).
+- Live reviewer chips (OLMo / Gemini / GPT-4o) while rounds run, instead of revealing reviewer health only at the end.
+- **Early preview**: the baseline conversion is published the moment it exists (`GET /api/jobs/{id}/html?version=baseline`), so users can open their document minutes before the enhanced version lands.
+- 12 new tests (84 total). All new API fields are optional; the UI tolerates older backends and vice versa, so the three deploy chunks (API, OLMo app, frontend) can ship independently.
+
 ## v1.2.1 — 2026-07-13 — Security hardening & stability maintenance
 
 Security (from a full code review of the API + pipeline):
