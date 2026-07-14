@@ -11,25 +11,43 @@ Chat template: <|endoftext|><|user|>\n...\n<|assistant|>\n...<|endoftext|>
 Inference time: ~3-5s per HTML chunk
 """
 
+import os
+import threading as _threading
 from typing import Optional
 
 from pydantic import BaseModel
 
 import modal
 
-app = modal.App("olmo-wcag-reviewer")
+MODEL_ID = "allenai/OLMo-2-1124-7B-Instruct"
+
+# Deploy-time override for an isolated staging copy:
+#   OLMO_APP_NAME=olmo-wcag-reviewer-staging modal deploy modal/modal_olmo_wcag.py
+# (point the staging API at it via OLMO_REVIEWER_URL)
+app = modal.App(os.environ.get("OLMO_APP_NAME", "olmo-wcag-reviewer"))
 
 # Base image with dependencies
-image = modal.Image.debian_slim(python_version="3.11").pip_install(
-    "torch",
-    "torchvision",
-    "transformers>=4.48.0",
-    "accelerate",
-    "Pillow",
-    "fastapi",
-    "uvicorn[standard]",
-    "pydantic>=2.0",
-    "python-multipart",
+image = (
+    modal.Image.debian_slim(python_version="3.11")
+    .pip_install(
+        "torch",
+        "torchvision",
+        "transformers>=4.48.0",
+        "accelerate",
+        "Pillow",
+        "fastapi",
+        "uvicorn[standard]",
+        "pydantic>=2.0",
+        "python-multipart",
+    )
+    # Bake the model weights into the image at BUILD time — the same fix
+    # applied to the olmOCR extraction app: runtime HuggingFace downloads on
+    # every cold start are slow and can degrade under repeated use. With local
+    # weights, cold start is just the model load onto the GPU.
+    .run_commands(
+        'python -c "from huggingface_hub import snapshot_download; '
+        f"snapshot_download('{MODEL_ID}')\""
+    )
 )
 
 
@@ -44,14 +62,14 @@ class OLMoWCAGReviewer:
 
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
 
-        # Load tokenizer and model
+        # Load tokenizer and model (weights are baked into the image)
         self.tokenizer = AutoTokenizer.from_pretrained(
-            "allenai/OLMo-2-1124-7B-Instruct",
+            MODEL_ID,
             trust_remote_code=True,
         )
 
         self.model = AutoModelForCausalLM.from_pretrained(
-            "allenai/OLMo-2-1124-7B-Instruct",
+            MODEL_ID,
             trust_remote_code=True,
             torch_dtype=torch.bfloat16 if self.device == "cuda" else torch.float32,
             device_map="auto" if self.device == "cuda" else self.device,
@@ -167,12 +185,16 @@ class OLMoWCAGReviewer:
 
 # Global model instance
 _model_instance = None
+_model_load_lock = _threading.Lock()
 
 
 def get_model():
+    """Thread-safe lazy model load — /warmup and /review can race, and a
+    double load would exceed the A10G's VRAM."""
     global _model_instance
-    if _model_instance is None:
-        _model_instance = OLMoWCAGReviewer()
+    with _model_load_lock:
+        if _model_instance is None:
+            _model_instance = OLMoWCAGReviewer()
     return _model_instance
 
 
@@ -180,6 +202,10 @@ def get_model():
     image=image,
     gpu="A10G",
     timeout=600,
+    # Stay warm 5 min between calls: the API pre-warms this model while olmOCR
+    # extraction runs (~2-4 min), and review rounds arrive 1-3 min apart — a
+    # short scaledown would throw that warm model away between uses.
+    scaledown_window=300,
     env={"PYTORCH_CUDA_ALLOC_CONF": "expandable_segments:True"},
     # Shared bearer token for /review. Create it once before deploying:
     #   modal secret create olmo-reviewer-auth OLMO_REVIEWER_TOKEN=$(openssl rand -hex 32)
@@ -240,6 +266,20 @@ def api():
     @app.get("/health")
     async def health():
         return {"status": "ok"}
+
+    @app.get("/warmup")
+    async def warmup(authorization: Optional[str] = Header(default=None)):
+        """Load the model into VRAM ahead of the first /review call.
+
+        The happypdf API pings this (fire-and-forget) when a live job starts,
+        so the 1-2 min model load overlaps olmOCR extraction instead of being
+        paid inline in review round 1. Auth-gated like /review — an open
+        warmup would let anyone boot the GPU on our bill."""
+        import asyncio
+
+        _check_auth(authorization)
+        await asyncio.to_thread(get_model)
+        return {"status": "warm"}
 
     return app
 

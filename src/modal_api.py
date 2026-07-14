@@ -84,7 +84,18 @@ app = modal.App(APP_NAME)
     max_containers=1,  # single container => consistent in-memory job state
     scaledown_window=1200,  # stay warm 20 min so a 5 min job + polls survive
     timeout=3600,
-    env={"HAPPYPDF_JOBS_DICT": JOBS_DICT, "HAPPYPDF_RATE_DICT": RATE_DICT},
+    env={
+        "HAPPYPDF_JOBS_DICT": JOBS_DICT,
+        "HAPPYPDF_RATE_DICT": RATE_DICT,
+        # Deploy-time override so a staging API can target a staging OLMo app
+        # (OLMO_APP_NAME=... modal deploy modal/modal_olmo_wcag.py) instead of
+        # sharing production's reviewer.
+        **(
+            {"OLMO_REVIEWER_URL": os.environ["OLMO_REVIEWER_URL"]}
+            if os.environ.get("OLMO_REVIEWER_URL")
+            else {}
+        ),
+    },
 )
 @modal.concurrent(max_inputs=20)  # serve polls concurrently with a running job
 @modal.asgi_app()
