@@ -399,6 +399,11 @@ def _live(
 # HAPPYPDF_DEEP_HEALTH=1, so local dev and pytest never make network calls.
 # ---------------------------------------------------------------------------
 HEALTH_TTL_S = int(os.environ.get("HAPPYPDF_HEALTH_TTL_S", str(24 * 3600)))
+# A FAILED check is re-validated on a short TTL instead of being remembered all
+# day: a transient provider blip (observed live 2026-07-14: one Google API
+# hiccup) otherwise poisons the cache and re-alerts the monitor every 30 min
+# until the container happens to recycle.
+HEALTH_FAIL_TTL_S = int(os.environ.get("HAPPYPDF_HEALTH_FAIL_TTL_S", "600"))
 _health_cache: dict = {"checked_at": 0.0, "checks": {}}
 _health_lock = threading.Lock()
 
@@ -431,18 +436,27 @@ def _run_deep_checks() -> dict[str, str]:
     if not key:
         checks["google_key"] = "missing"
     else:
-        try:
-            from google import genai
+        # One retry: a single transient API blip must not flag a valid key.
+        for attempt in (1, 2):
+            try:
+                from google import genai
 
-            # Keep the client referenced while consuming the lazy pager — an
-            # inline temporary gets GC'd first and raises "client has been
-            # closed" before the first page is fetched.
-            client = genai.Client(api_key=key)
-            next(iter(client.models.list()), None)
-            checks["google_key"] = "ok"
-        except Exception as e:
-            print(f"[VALIDATION] Google key check failed: {type(e).__name__}", flush=True)
-            checks["google_key"] = "invalid"
+                # Keep the client referenced while consuming the lazy pager — an
+                # inline temporary gets GC'd first and raises "client has been
+                # closed" before the first page is fetched.
+                client = genai.Client(api_key=key)
+                next(iter(client.models.list()), None)
+                checks["google_key"] = "ok"
+                break
+            except Exception as e:
+                print(
+                    f"[VALIDATION] Google key check failed (attempt {attempt}): "
+                    f"{type(e).__name__}",
+                    flush=True,
+                )
+                checks["google_key"] = "invalid"
+                if attempt == 1:
+                    time.sleep(2)
 
     # GPU pipeline functions must be resolvable by name (metadata only — this
     # hydrates the handle, it does not invoke anything or boot a container).
@@ -479,7 +493,10 @@ def _health_checks() -> tuple[dict[str, str], float]:
     if not _deep_health_enabled():
         return {"deep_checks": "disabled"}, 0.0
     with _health_lock:
-        if time.time() - _health_cache["checked_at"] > HEALTH_TTL_S:
+        cached = _health_cache["checks"]
+        all_ok = bool(cached) and all(v == "ok" for v in cached.values())
+        ttl = HEALTH_TTL_S if all_ok else HEALTH_FAIL_TTL_S
+        if time.time() - _health_cache["checked_at"] > ttl:
             _health_cache["checks"] = _run_deep_checks()
             _health_cache["checked_at"] = time.time()
         return dict(_health_cache["checks"]), _health_cache["checked_at"]
