@@ -309,16 +309,21 @@ Procurement friction is real for government and enterprise buyers. If an organiz
 
 **BYOK (user-supplied) credentials** — when you paste your own key into the settings panel:
 - The key is entered in your browser and sent once, over HTTPS, to power that single job's provider calls.
-- It's swapped into the backend's environment for the duration of that job only, then restored to the previous value — it is never persisted, logged, or reused across requests.
+- It is passed **explicitly down the call chain** (provider factory → judge → API client constructor) for that job only — it is never written to the process environment, so concurrent jobs with different credentials can never observe each other's keys, and there is no restore step that could race. It is never persisted, logged, or reused across requests.
 - Error messages are sanitized to avoid leaking API responses or credentials.
-- Job state (including any in-flight keys) is stored in memory, not in a database.
+- Job state is stored in a Modal Dict keyed by job id; BYOK keys are **not** part of job state — they live only in the worker thread's call stack for the duration of the job.
 
-**Verified end-to-end (July 2026):** ran a real live job with a real Anthropic key passed explicitly as the BYOK override, after deliberately poisoning the server's own default key in-process — the job only succeeded because the override actually took effect (using the poisoned default would have failed every Claude call), and the environment was confirmed restored to the poisoned placeholder afterward, not left holding the real key. The OpenAI key path uses the identical override/restore mechanism but wasn't separately exercised in this test.
+**History:** v1.2 verified the earlier environment-swap mechanism end-to-end with a real key. v1.2.1 replaced that mechanism entirely with explicit key plumbing after review flagged that environment mutation could leak keys between concurrent jobs.
 
 ### Transport security
 - Production endpoints use HTTPS.
 - CORS is restricted to approved `https://` origins.
 - The frontend connects directly to the Modal ASGI app.
+
+### Upload & output hardening
+- Live uploads are capped at 25 MB (`HAPPYPDF_MAX_UPLOAD_MB`) and content-sniffed (`%PDF-` magic bytes) before any GPU time is spent; the daily rate limit is persisted in a Modal Dict so container recycles can't reset it.
+- Generated HTML derives from PDF content and LLM output, so it is defense-in-depth sanitized: table fragments pass an allowlist sanitizer, markdown image conversion escapes attributes and rejects unsafe URL schemes, and the API serves job HTML with a `Content-Security-Policy: sandbox` header. Downloadable reports HTML-escape every manifest-derived field (including the uploaded filename).
+- The OLMo reviewer GPU endpoint requires a shared bearer token (`olmo-reviewer-auth` Modal secret). Without it, the endpoint would be publicly callable GPU compute. Self-hosters: `modal secret create olmo-reviewer-auth OLMO_REVIEWER_TOKEN=$(openssl rand -hex 32)` before deploying `modal/modal_olmo_wcag.py`.
 
 ### Data persistence
 - PDF content, intermediate HTML, and remediation results live in in-memory job state.

@@ -273,8 +273,14 @@ function DemoPanel() {
   };
   useEffect(() => stopTimers, []);
 
+  // Revoke the previous blob URL before dropping it — blob URLs are never
+  // garbage-collected while the page lives, so repeated demo runs would leak.
+  const clearHtmlUrl = () => {
+    setHtmlUrl((prev) => { if (prev) URL.revokeObjectURL(prev); return null; });
+  };
+
   const begin = (name: string) => {
-    setFileName(name); setBusy(true); setJob(null); setClientError(null); setHtmlUrl(null);
+    setFileName(name); setBusy(true); setJob(null); setClientError(null); clearHtmlUrl();
   };
 
   // ── Client-side replay (static host): animate a bundled real snapshot ──
@@ -331,9 +337,9 @@ function DemoPanel() {
   const poll = (id: string) => {
     stopTimers();
     // Bound transient failures (cold start / 5xx / network blip) so a truly
-    // unreachable backend can't leave us polling forever. ~30 * 600ms ≈ 18s.
+    // unreachable backend can't leave us polling forever. ~20 * 1500ms ≈ 30s.
     let transientFailures = 0;
-    const MAX_TRANSIENT = 30;
+    const MAX_TRANSIENT = 20;
     const failWith = (msg: string) => {
       stopTimers(); setBusy(false);
       setClientError(msg);
@@ -367,7 +373,7 @@ function DemoPanel() {
         // Network error — transient; keep polling under the same cap.
         if (++transientFailures >= MAX_TRANSIENT) failWith('Lost connection to the server. Please try again.');
       }
-    }, 600);
+    }, 1500); // each poll is a network read of the job store — 1.5s is plenty for UI pacing
   };
   const apiLive = async (file: File) => {
     begin(file.name);
@@ -402,7 +408,7 @@ function DemoPanel() {
 
   const reset = () => {
     stopTimers();
-    setJob(null); setJobId(null); setFileName(null); setBusy(false); setClientError(null); setHtmlUrl(null);
+    setJob(null); setJobId(null); setFileName(null); setBusy(false); setClientError(null); clearHtmlUrl();
   };
 
   const idle = !busy && !job && !clientError;

@@ -114,11 +114,15 @@ OPERATIONS = {
 # ---------------------------------------------------------------------------
 # Apply
 # ---------------------------------------------------------------------------
-def apply_patches(baseline_html: str, manifest: list[dict]) -> tuple[str, list[dict]]:
+def apply_patches(
+    baseline_html: str, manifest: list[dict], log_path: Path | None = None
+) -> tuple[str, list[dict]]:
     """Apply all patches or none. Returns (patched_html, applied_log).
 
     Raises PatchError (after logging) if any patch fails — the working tree is
-    discarded and nothing is persisted by the caller.
+    discarded and nothing is persisted by the caller. When log_path is given
+    (CLI use), the applied/failed log is also written there; library callers
+    rely on the returned log so concurrent jobs never clobber a shared file.
     """
     tree = html.document_fromstring(baseline_html)
     pristine = copy.deepcopy(tree)  # instant rollback target
@@ -152,7 +156,7 @@ def apply_patches(baseline_html: str, manifest: list[dict]) -> tuple[str, list[d
             applied.append(entry)
             log(f"  ✗ [{eid}] {op}: {e} — ROLLING BACK all {len(applied) - 1} applied patch(es)")
             _ = pristine  # discarded; nothing written
-            _write_log(applied, rolled_back=True)
+            _write_log(applied, rolled_back=True, log_path=log_path)
             raise PatchError(f"patch {i} failed ({e}); rolled back") from e
 
     # Preserve the leading audit comment + doctype that lxml drops on output.
@@ -163,13 +167,15 @@ def apply_patches(baseline_html: str, manifest: list[dict]) -> tuple[str, list[d
     )
     body = html.tostring(tree, encoding="unicode", doctype="<!DOCTYPE html>")
     patched_html = prefix + body
-    _write_log(applied, rolled_back=False)
+    _write_log(applied, rolled_back=False, log_path=log_path)
     return patched_html, applied
 
 
-def _write_log(applied: list[dict], rolled_back: bool) -> None:
-    OUT_LOG.parent.mkdir(parents=True, exist_ok=True)
-    OUT_LOG.write_text(
+def _write_log(applied: list[dict], rolled_back: bool, log_path: Path | None = None) -> None:
+    if log_path is None:
+        return
+    log_path.parent.mkdir(parents=True, exist_ok=True)
+    log_path.write_text(
         json.dumps(
             {
                 "rolled_back": rolled_back,
@@ -198,7 +204,7 @@ def main() -> int:
     manifest = json.loads(args.manifest.read_text())
     log(f"applying {len(manifest)} patch(es)...")
     try:
-        patched, applied = apply_patches(baseline, manifest)
+        patched, applied = apply_patches(baseline, manifest, log_path=OUT_LOG)
     except PatchError as e:
         log("=" * 70)
         log(f"ABORTED: {e}  (no output written; see {OUT_LOG})")

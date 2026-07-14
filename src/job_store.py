@@ -12,7 +12,9 @@ few operations api/main.py needs: get / put / `in` / prune.
 """
 
 import os
+import threading
 import time
+from datetime import datetime
 
 # Prune records older than this on job creation (keeps the Dict bounded).
 JOB_TTL_S = 24 * 3600
@@ -30,10 +32,13 @@ class JobStore:
     a modal.Dict returns copies — the caller must write the modified record back.
     """
 
-    def __init__(self, on_modal: bool | None = None):
+    def __init__(self, on_modal: bool | None = None, name: str | None = None):
         if on_modal is None:
             on_modal = os.environ.get("HAPPYPDF_ON_MODAL") == "1"
         self._on_modal = on_modal
+        # Staging deploys point at their own Dict via HAPPYPDF_JOBS_DICT so they
+        # never touch production job state.
+        self._name = name or os.environ.get("HAPPYPDF_JOBS_DICT", "happypdf-jobs")
         self._mem: dict[str, dict] = {}
         self._dict = None  # lazily created modal.Dict handle
 
@@ -46,7 +51,7 @@ class JobStore:
             # transient Modal hiccup can't crash-loop the container at startup.
             import modal
 
-            self._dict = modal.Dict.from_name("happypdf-jobs", create_if_missing=True)
+            self._dict = modal.Dict.from_name(self._name, create_if_missing=True)
         return self._dict
 
     def get(self, jid: str) -> dict | None:
@@ -89,6 +94,61 @@ class JobStore:
                 except Exception:
                     pass
         return removed
+
+
+class DailyRateLimiter:
+    """Persistent daily counter for the paid live path.
+
+    Backed by a modal.Dict on Modal so a container recycle can't reset the
+    day's count to zero (the old in-process counter did exactly that), with an
+    in-memory fallback for local dev/tests. Thread-safe within one process,
+    which is sufficient because the API is pinned to max_containers=1.
+    """
+
+    def __init__(self, on_modal: bool | None = None, name: str | None = None):
+        if on_modal is None:
+            on_modal = os.environ.get("HAPPYPDF_ON_MODAL") == "1"
+        self._on_modal = on_modal
+        self._name = name or os.environ.get("HAPPYPDF_RATE_DICT", "happypdf-rate-limit")
+        self._mem: dict[str, int] = {}
+        self._dict = None
+        self._lock = threading.Lock()
+
+    @property
+    def _backend(self):
+        if not self._on_modal:
+            return self._mem
+        if self._dict is None:
+            import modal
+
+            self._dict = modal.Dict.from_name(self._name, create_if_missing=True)
+        return self._dict
+
+    def check_and_increment(self, limit: int) -> tuple[bool, int]:
+        """Returns (allowed, count_after). Increments only when allowed."""
+        today = datetime.now().strftime("%Y-%m-%d")
+        with self._lock:
+            try:
+                count = int(self._backend.get(today) or 0)
+            except Exception:
+                count = 0  # a transient store hiccup must not block conversions
+            if count >= limit:
+                return False, count
+            count += 1
+            try:
+                self._backend[today] = count
+                # Drop old days so the store stays a handful of keys.
+                yesterday_and_older = [
+                    k for k in list(self._backend.keys()) if isinstance(k, str) and k < today
+                ]
+                for k in yesterday_and_older:
+                    try:
+                        del self._backend[k]
+                    except Exception:
+                        pass
+            except Exception:
+                pass
+            return True, count
 
 
 def mark_interrupted_if_stale(job: dict | None, now: float | None = None) -> dict | None:

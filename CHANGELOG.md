@@ -2,6 +2,30 @@
 
 This project doesn't use formal semantic versioning yet — entries are grouped by date. See [GitHub Releases](https://github.com/BrendanWorks/happypdf/releases) for downloadable demo assets — latest is [v1.2](https://github.com/BrendanWorks/happypdf/releases/tag/v1.2), demo videos are attached to [v1.0](https://github.com/BrendanWorks/happypdf/releases/tag/v1.0).
 
+## v1.2.1 — 2026-07-13 — Security hardening & stability maintenance
+
+Security (from a full code review of the API + pipeline):
+
+- **BYOK keys no longer touch the process environment.** The old mechanism swapped user keys into `os.environ` per job and restored them afterward; with `@modal.concurrent` allowing overlapping jobs, one user's key could be used (and billed) by another user's concurrent job, and the restore could race. Keys are now passed explicitly down the call chain (`reviewers.make_live_provider(...)` → `run_loop(byok=...)` → judge → API-client constructors). No environment mutation, no restore step.
+- **Fixed three HTML-injection paths** reachable from PDF content or reviewer output: the table-recovery path blanket-unescaped entities (document text like `<script>` became live markup — now allowlist-sanitized via lxml), markdown image conversion didn't escape `src`/surrounding text and had an escape-order bug that double-escaped quotes in alt text (rewritten to escape everything and reject `javascript:`/non-image `data:` URLs), and the downloadable report interpolated the uploaded filename and enhancement values unescaped (every manifest-derived field now passes `html.escape`). Job HTML is additionally served with a `Content-Security-Policy: sandbox` header.
+- **The OLMo reviewer GPU endpoint now requires a bearer token** (shared via the new `olmo-reviewer-auth` Modal secret). It was previously a publicly callable A10G with its URL hardcoded in a public repo.
+- **Upload guardrails:** 25 MB size cap and `%PDF-` magic-byte sniff before any GPU time is spent; the daily rate limit moved from an in-process counter (reset to zero on every container recycle, despite comments claiming otherwise) to a Modal-Dict-backed thread-safe counter. Path parameters (job id, demo name) are strictly validated before touching the filesystem or `Content-Disposition` headers, closing an encoded-slash path traversal in the demo snapshot loader.
+
+Stability:
+
+- BYOK key validation no longer blocks the event loop (it stalled every concurrent poll while a provider call hung); a setup failure in the live worker now marks the job as errored instead of leaving a stuck spinner; a 60s heartbeat keeps long extraction stages (cold-start olmOCR on a big PDF) from being falsely reported as interrupted by the 5-minute staleness check.
+- **Preservation gate fixes:** the gate now compares every round against the *original* baseline, so the 95% text-coverage allowance can't compound across rounds (three rounds could previously lose ~14% legally); the heading-order check now fails only on skips a round *introduced* — a document whose baseline already contained h1→h3 no longer fails every round for a defect the patches didn't cause.
+- Judge/applicator no longer write shared audit files at fixed paths during live jobs (concurrent jobs clobbered each other); the audit travels in the return value, and the CLI paths still write files.
+
+Quality & performance:
+
+- **Reviewers now see the document, not base64.** Embedded data-URI images (often hundreds of KB each) are stripped to placeholders before review, and Gemini/GPT context budgets raised from 8k chars (an OLMo constraint) to 60k — previously most of any image-heavy document was never reviewed at all.
+- **The judge's alt-text rewrites now attach the actual image** to Claude/GPT-4o vision calls instead of asking the model to describe an image it couldn't see.
+- One Chromium instance per job instead of a fresh launch per axe run (5+ launches saved per job); alt-text generation runs 3-wide in parallel (bounded, so a 25-image document doesn't trigger 25 GPU cold starts); the baseline is no longer axe-scored twice; job polls no longer serialize behind a global lock over network round-trips; frontend poll interval relaxed to 1.5s and blob URLs are revoked.
+- Staging deploys supported: `HAPPYPDF_APP_NAME=happypdf-api-staging modal deploy src/modal_api.py` creates a parallel app with its own isolated job/rate Dicts.
+- **Extraction app hardening** (found during this window's live verification, olmocr-v2 + v1 fallback): one extraction per container (`single_use_containers=True`) — a second call on a reused warm container hung forever on leftover GPU state from the previous vLLM's unclean shutdown; model weights are now baked into the image at build time — runtime HuggingFace downloads (~16 GB per cold start) had degraded until every extraction failed with "vllm server did not become ready" (cold start is now ~2.5-4 min, previously 8-9+ or a silent failure); the olmocr CLI's output is streamed to Modal logs instead of captured, so a stuck extraction is diagnosable instead of silent.
+- 33 new tests (67 total) covering the injection defenses, BYOK plumbing, rate limiter, gate fixes, and API guardrails.
+
 ## v1.2 — 2026-07-12 — olmOCR-2 extraction upgrade
 
 - Upgraded PDF extraction to **olmOCR-2-7B-1025-FP8** and promoted it to production. The previous deployment ran the olmocr CLI with no `--model`, silently using the CLI default (`olmOCR-7B-0725-FP8`, i.e. olmOCR v1); the model could drift with the unpinned package. Extraction now pins `olmocr>=0.4.0` and passes an explicit `--model`, so it can no longer change out from under us.

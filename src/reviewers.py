@@ -44,7 +44,11 @@ OLMO_URL = os.environ.get(
     "https://brendanworks--olmo-wcag-reviewer-api.modal.run",
 )
 
-MAX_HTML_CHARS = 8000  # OLMo has 4k token context; 8k chars ≈ 2k tokens leaves room for prompt
+# Per-reviewer context budgets. OLMo has a 4k-token context (8k chars ≈ 2k tokens
+# leaves room for the prompt); Gemini 2.5 Flash and GPT-4o-mini have 100k+ token
+# windows, so they get the whole document (bounded to keep cost sane).
+OLMO_MAX_HTML_CHARS = 8000
+MAX_HTML_CHARS = 60000
 RETRIES = 1  # one retry after the first failure
 BACKOFF_BASE = 2.0  # seconds: 2, 4, ...
 
@@ -145,18 +149,29 @@ def _valid_ids(html: str) -> set[str]:
     return set(re.findall(r'data-ir-id="([^"]+)"', html))
 
 
-def _clip(html: str) -> str:
-    return html if len(html) <= MAX_HTML_CHARS else html[:MAX_HTML_CHARS]
+def _strip_data_uris(html: str) -> str:
+    """Replace base64 data-URI image payloads with a placeholder before review.
+
+    The output HTML embeds every image as a data: URI so it is self-contained;
+    a single embedded image can be hundreds of KB of base64. Sending that to
+    reviewers wastes the entire context window on noise the models cannot read.
+    The <img> element, its data-ir-id, and its alt text (what reviewers actually
+    assess) are preserved."""
+    return re.sub(r'src="data:[^"]*"', 'src="embedded-image"', html)
+
+
+def _clip(html: str, limit: int = MAX_HTML_CHARS) -> str:
+    return html if len(html) <= limit else html[:limit]
 
 
 # ---------------------------------------------------------------------------
 # Individual reviewers (raw call -> text); normalization happens in the gather
 # ---------------------------------------------------------------------------
-async def _call_gemini(html: str) -> str:
+async def _call_gemini(html: str, api_key: str | None = None) -> str:
     from google import genai
     from google.genai import types
 
-    client = genai.Client(api_key=os.environ["GOOGLE_API_KEY"])
+    client = genai.Client(api_key=api_key or os.environ["GOOGLE_API_KEY"])
     resp = await client.aio.models.generate_content(
         model=GEMINI_MODEL,
         contents=f"HTML to review:\n{_clip(html)}",
@@ -168,10 +183,10 @@ async def _call_gemini(html: str) -> str:
     return resp.text
 
 
-async def _call_gpt(html: str) -> str:
+async def _call_gpt(html: str, api_key: str | None = None) -> str:
     from openai import AsyncOpenAI
 
-    client = AsyncOpenAI(api_key=os.environ["OPENAI_API_KEY"])
+    client = AsyncOpenAI(api_key=api_key or os.environ["OPENAI_API_KEY"])
     resp = await client.chat.completions.create(
         model=GPT_MODEL,
         response_format={"type": "json_object"},
@@ -183,19 +198,26 @@ async def _call_gpt(html: str) -> str:
     return resp.choices[0].message.content
 
 
-async def _call_olmo(html: str) -> str:
+async def _call_olmo(html: str, api_key: str | None = None) -> str:
     # Use a synchronous client in a worker thread: a per-round asyncio.run() closes
     # its loop before httpx's async client finishes TLS teardown, which spews
     # "Event loop is closed" noise. A sync client sidesteps that entirely while
     # still running in parallel with the other reviewers via the thread executor.
     import httpx
 
+    # The OLMo Modal endpoint requires a shared bearer token when the server has
+    # OLMO_REVIEWER_TOKEN set (see modal/modal_olmo_wcag.py). Self-hosted open
+    # deployments may leave it unset on both sides.
+    token = os.environ.get("OLMO_REVIEWER_TOKEN", "")
+    headers = {"Authorization": f"Bearer {token}"} if token else {}
+
     def _sync() -> str:
         with httpx.Client(timeout=300, follow_redirects=True) as client:
             r = client.post(
                 f"{OLMO_URL}/review",
+                headers=headers,
                 json={
-                    "html_chunk": _clip(html),
+                    "html_chunk": _clip(html, OLMO_MAX_HTML_CHARS),
                     "system_prompt": REVIEW_INSTRUCTION,
                     "max_tokens": 1024,
                 },
@@ -217,11 +239,11 @@ async def _call_olmo(html: str) -> str:
 REVIEWERS = {"olmo": _call_olmo, "gemini": _call_gemini, "gpt": _call_gpt}
 
 
-def _available(name: str) -> bool:
+def _available(name: str, openai_api_key: str | None = None) -> bool:
     if name == "gemini":
         return bool(os.environ.get("GOOGLE_API_KEY"))
     if name == "gpt":
-        return bool(os.environ.get("OPENAI_API_KEY"))
+        return bool(openai_api_key or os.environ.get("OPENAI_API_KEY"))
     return True  # olmo uses Modal auth
 
 
@@ -275,7 +297,10 @@ async def _run_one(name: str, fn, html: str, valid_ids: set[str]) -> tuple[str, 
 
 
 async def get_live_reviews(
-    html: str, round_num: int, profile: str = "default"
+    html: str,
+    round_num: int,
+    profile: str = "default",
+    openai_api_key: str | None = None,
 ) -> tuple[dict[str, list[dict]], dict[str, dict]]:
     """Call reviewers in parallel based on profile; return ({reviewer: [issues]}, {reviewer: health_info}).
 
@@ -283,13 +308,19 @@ async def get_live_reviews(
         html: HTML fragment to review
         round_num: review round number (for logging)
         profile: "default" (OLMo+Gemini+GPT) or "olmo-only" (OLMo only)
+        openai_api_key: optional BYOK OpenAI key for the GPT reviewer. Passed
+            explicitly (never via environment mutation) so concurrent jobs with
+            different credentials cannot leak keys to each other.
 
     Reviewers without credentials are skipped with a warning. Raises
     AllReviewersFailed if no reviewer produced a result."""
     load_env()
+    # valid_ids is computed on the full HTML; reviewers see a data-URI-stripped
+    # copy so their context budget goes to real content, not base64 payloads.
     valid_ids = _valid_ids(html)
+    review_html = _strip_data_uris(html)
     profile_reviewers = _get_profile_reviewers(profile)
-    active = {n: f for n, f in profile_reviewers.items() if _available(n)}
+    active = {n: f for n, f in profile_reviewers.items() if _available(n, openai_api_key)}
     skipped = [n for n in profile_reviewers if n not in active]
     if skipped:
         log(f"round {round_num}: skipping (no credentials): {', '.join(skipped)}")
@@ -298,7 +329,14 @@ async def get_live_reviews(
         f"({len(valid_ids)} addressable elements)"
     )
 
-    results = await asyncio.gather(*[_run_one(n, f, html, valid_ids) for n, f in active.items()])
+    def _bound(fn, name: str):
+        if name == "gpt" and openai_api_key:
+            return lambda h: fn(h, api_key=openai_api_key)
+        return fn
+
+    results = await asyncio.gather(
+        *[_run_one(n, _bound(f, n), review_html, valid_ids) for n, f in active.items()]
+    )
 
     reviews, health, failures = {}, {}, 0
     for name, issues in results:
@@ -320,6 +358,43 @@ async def get_live_reviews(
     return reviews, health
 
 
+def _run_coro_blocking(coro):
+    """Run a coroutine to completion from synchronous code.
+
+    Plain asyncio.run() fails with "cannot be called from a running event loop"
+    when the calling thread already hosts one — which is exactly the situation
+    inside the remediation loop, because Playwright's sync API (AxeScorer)
+    keeps an event loop running on the thread for the whole job. In that case
+    the coroutine runs in a fresh worker thread with its own loop."""
+    try:
+        asyncio.get_running_loop()
+    except RuntimeError:
+        return asyncio.run(coro)  # no loop here — the simple path
+    from concurrent.futures import ThreadPoolExecutor
+
+    with ThreadPoolExecutor(max_workers=1) as ex:
+        return ex.submit(asyncio.run, coro).result()
+
+
+def make_live_provider(profile: str | None = None, openai_api_key: str | None = None):
+    """Build a reviews_provider(round, html) bound to explicit credentials.
+
+    This is the BYOK entry point: the caller passes per-job credentials here
+    instead of mutating os.environ, so concurrent jobs can never observe each
+    other's keys. Falls back to the REVIEWER_PROFILE env var / hosted default
+    keys for anything not supplied."""
+    resolved_profile = profile or os.environ.get("REVIEWER_PROFILE", "default")
+
+    def provider(round_num: int, html: str) -> tuple[dict[str, list[dict]], dict[str, dict]]:
+        return _run_coro_blocking(
+            get_live_reviews(
+                html, round_num, profile=resolved_profile, openai_api_key=openai_api_key
+            )
+        )
+
+    return provider
+
+
 def live_provider(round_num: int, html: str) -> tuple[dict[str, list[dict]], dict[str, dict]]:
     """Synchronous adapter matching the loop's reviews_provider(round, html).
     Returns (reviews, health_info).
@@ -327,4 +402,4 @@ def live_provider(round_num: int, html: str) -> tuple[dict[str, list[dict]], dic
     Reads REVIEWER_PROFILE env var for profile selection ("default" or "olmo-only").
     """
     profile = os.environ.get("REVIEWER_PROFILE", "default")
-    return asyncio.run(get_live_reviews(html, round_num, profile=profile))
+    return _run_coro_blocking(get_live_reviews(html, round_num, profile=profile))
