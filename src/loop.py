@@ -13,13 +13,14 @@ Per round:
   1. Provider supplies the round's reviews (dict) or None to stop.
   2. Judge -> patch manifest (LLM-safe fixes go to Claude Opus 4.8 when use_llm).
   3. Applicator applies the manifest deterministically -> patched HTML.
-  4. Preservation gate compares the round's input to the patched output. Fail =>
-     the round is discarded (no progress) and the loop stops.
+  4. Preservation gate compares the ORIGINAL baseline to the patched output.
+     Fail => the round is discarded (no progress) and the loop stops.
   5. axe-core rescores. Converged when score >= threshold AND hard gates pass AND
      the round produced no new patches.
 
-Note: the gate is a pre/post comparison, so it runs after the applicator each
-round (against that round's input), not at the very top.
+Note: the gate always compares against the original baseline, not the previous
+round's output — otherwise the per-round text-coverage allowance would compound
+(0.95^3 ≈ 86% over three rounds) and quietly permit real content loss.
 
 Run:
   python src/loop.py            # needs ANTHROPIC_API_KEY for the LLM-safe fix
@@ -59,31 +60,61 @@ def log(msg: str) -> None:
     print(f"[{datetime.now().strftime('%H:%M:%S')}] {msg}", flush=True)
 
 
+class AxeScorer:
+    """Reusable axe-core runner that keeps one headless Chromium alive.
+
+    Launching Chromium costs ~1s; a 3-round job scores HTML five or more times,
+    so reusing the browser saves several seconds per job. Not thread-safe —
+    create one per job/thread (Playwright's sync API is thread-bound anyway).
+    Use as a context manager, or call axe_score() for a one-shot run.
+    """
+
+    def __init__(self):
+        axe_path = next((p for p in AXE_CANDIDATES if p and p.exists()), None)
+        if axe_path is None:
+            raise FileNotFoundError("axe-core not found")
+        self._axe_src = axe_path.read_text()
+        self._pw = None
+        self._browser = None
+
+    def __enter__(self) -> "AxeScorer":
+        self._pw = sync_playwright().start()
+        self._browser = self._pw.chromium.launch(headless=True)
+        return self
+
+    def __exit__(self, *exc) -> None:
+        if self._browser is not None:
+            self._browser.close()
+        if self._pw is not None:
+            self._pw.stop()
+        self._browser = self._pw = None
+
+    def score(self, html_str: str) -> dict:
+        with tempfile.NamedTemporaryFile("w", suffix=".html", delete=False) as f:
+            f.write(html_str)
+            tmp = Path(f.name)
+        try:
+            page = self._browser.new_page()
+            try:
+                page.goto(f"file://{tmp}")
+                page.evaluate(self._axe_src)
+                r = page.evaluate("async () => await axe.run()")
+            finally:
+                page.close()
+        finally:
+            tmp.unlink(missing_ok=True)
+        violations = r.get("violations", [])
+        passes = len(r.get("passes", []))
+        nv = len(violations)
+        score = round(passes / (passes + nv) * 100, 1) if (passes + nv) else 100.0
+        crit = sum(1 for v in violations if v.get("impact") in ("critical", "serious"))
+        return {"score": score, "violations": nv, "passes": passes, "critical_serious": crit}
+
+
 def axe_score(html_str: str) -> dict:
-    """Run axe-core on an HTML string in headless Chromium."""
-    axe_path = next((p for p in AXE_CANDIDATES if p and p.exists()), None)
-    if axe_path is None:
-        raise FileNotFoundError("axe-core not found")
-    axe_src = axe_path.read_text()
-    with tempfile.NamedTemporaryFile("w", suffix=".html", delete=False) as f:
-        f.write(html_str)
-        tmp = Path(f.name)
-    try:
-        with sync_playwright() as p:
-            b = p.chromium.launch(headless=True)
-            page = b.new_page()
-            page.goto(f"file://{tmp}")
-            page.evaluate(axe_src)
-            r = page.evaluate("async () => await axe.run()")
-            b.close()
-    finally:
-        tmp.unlink(missing_ok=True)
-    violations = r.get("violations", [])
-    passes = len(r.get("passes", []))
-    nv = len(violations)
-    score = round(passes / (passes + nv) * 100, 1) if (passes + nv) else 100.0
-    crit = sum(1 for v in violations if v.get("impact") in ("critical", "serious"))
-    return {"score": score, "violations": nv, "passes": passes, "critical_serious": crit}
+    """Run axe-core on an HTML string in headless Chromium (one-shot)."""
+    with AxeScorer() as scorer:
+        return scorer.score(html_str)
 
 
 def hard_gates_pass(gate_res: dict, axe: dict) -> bool:
@@ -100,12 +131,49 @@ def run_loop(
     max_rounds: int = MAX_ROUNDS,
     threshold: float = SCORE_THRESHOLD,
     on_round=None,
+    byok: dict | None = None,
+    baseline_axe: dict | None = None,
 ) -> dict:
     """Drive the remediation loop. `reviews_provider(round, current_html)` returns
     a reviews dict for the round, or None to stop. `on_round(entry, patched_html, reviewer_health)`
-    is an optional progress hook called after each accepted round. Returns a
-    summary dict."""
-    base_axe = axe_score(baseline_html)
+    is an optional progress hook called after each accepted round.
+
+    byok: optional per-job {"anthropic": key, "openai": key} threaded to the
+    judge's LLM-safe fixes — passed explicitly, never via os.environ, so
+    concurrent jobs cannot leak credentials to each other.
+    baseline_axe: pass a precomputed baseline score to skip rescoring the
+    identical HTML (the API scores the baseline before calling the loop).
+
+    Returns a summary dict."""
+    with AxeScorer() as scorer:
+        return _run_loop_inner(
+            baseline_html,
+            reviews_provider,
+            scorer,
+            label=label,
+            use_llm=use_llm,
+            max_rounds=max_rounds,
+            threshold=threshold,
+            on_round=on_round,
+            byok=byok,
+            baseline_axe=baseline_axe,
+        )
+
+
+def _run_loop_inner(
+    baseline_html: str,
+    reviews_provider,
+    scorer: AxeScorer,
+    *,
+    label: str,
+    use_llm: bool,
+    max_rounds: int,
+    threshold: float,
+    on_round,
+    byok: dict | None,
+    baseline_axe: dict | None,
+) -> dict:
+    base_axe = baseline_axe or scorer.score(baseline_html)
     log(
         f"[{label}] baseline: score {base_axe['score']}%  violations "
         f"{base_axe['violations']}  passes {base_axe['passes']}"
@@ -162,7 +230,7 @@ def run_loop(
             html_path.write_text(current)
             reviews_path.write_text(json.dumps(reviews))
             patches, rejected, deferred, audit = judge.build_manifest(
-                html_path, reviews_path, use_llm=use_llm
+                html_path, reviews_path, use_llm=use_llm, byok=byok
             )
 
         try:
@@ -181,8 +249,10 @@ def run_loop(
             stopped = "applicator_rollback"
             break
 
-        gate_res = gate.run_gate(current, patched)
-        axe = axe_score(patched)
+        # Gate against the ORIGINAL baseline (not the previous round) so the
+        # text-coverage allowance can't compound across rounds.
+        gate_res = gate.run_gate(baseline_html, patched)
+        axe = scorer.score(patched)
         entry = {
             "round": r,
             "patches_applied": len(applied),
@@ -190,6 +260,7 @@ def run_loop(
             "score": axe["score"],
             "violations": axe["violations"],
             "passes": axe["passes"],
+            "critical_serious": axe["critical_serious"],
             "gate_passed": gate_res["passed"],
             "gate_failed_checks": gate_res["failed_checks"],
             "gate_checks": [
@@ -237,13 +308,28 @@ def run_loop(
             log(f"[{label}] round {r}: converged (no remaining fixes)")
             break
 
+    # The final HTML is either the baseline (no accepted rounds — reuse the
+    # baseline score) or the last accepted round's output (already scored).
+    accepted_rounds = [e for e in rounds if e.get("status") == "accepted"]
+    if final is baseline_html:
+        final_axe = base_axe
+    elif accepted_rounds:
+        last = accepted_rounds[-1]
+        final_axe = {
+            "score": last["score"],
+            "violations": last["violations"],
+            "passes": last["passes"],
+            "critical_serious": last.get("critical_serious", 0),
+        }
+    else:
+        final_axe = scorer.score(final)
     return {
         "label": label,
         "baseline": base_axe,
         "rounds": rounds,
-        "rounds_accepted": len([r for r in rounds if r.get("status") == "accepted"]),
+        "rounds_accepted": len(accepted_rounds),
         "stopped_reason": stopped,
-        "final": axe_score(final),
+        "final": final_axe,
         "final_html": final,
         "reviewer_health": reviewer_health,
     }

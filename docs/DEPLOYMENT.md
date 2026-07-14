@@ -26,6 +26,18 @@ modal deploy modal/modal_olmocr_final.py     # deploys app "olmocr"
 modal deploy modal/modal_alttext_adapter.py  # deploys app "pdfaccess-alttext"
 ```
 
+If you also deploy the OLMo reviewer endpoint (`modal/modal_olmo_wcag.py`), create its
+auth secret first — the endpoint is a GPU-backed web URL and requires a shared bearer
+token so only your orchestrator can call it:
+
+```bash
+modal secret create olmo-reviewer-auth OLMO_REVIEWER_TOKEN=$(openssl rand -hex 32)
+modal deploy modal/modal_olmo_wcag.py        # deploys app "olmo-wcag-reviewer"
+```
+
+The same secret is attached to the API app (`src/modal_api.py`), which sends the token
+as `Authorization: Bearer <token>` on every review call.
+
 These are the same reference implementations kept in `modal/`. The orchestrator looks them up by name with `modal.Function.from_name(...)`, so they must exist as **deployed** (not ephemeral `modal run`) apps.
 
 ## 2. Install Dependencies

@@ -12,8 +12,13 @@ Design notes (why this isn't just `asgi_app()(lambda: app)`):
     AXE_CORE_PATH points the gate at the bundled axe-core.
   - Live conversions are rate-limited to HAPPYPDF_DAILY_LIMIT/day (Modal Dict).
 
-Deploy:  modal deploy src/modal_api.py
+Deploy:
+  prod:    modal deploy src/modal_api.py
+  staging: HAPPYPDF_APP_NAME=happypdf-api-staging modal deploy src/modal_api.py
+           (staging gets its own job/rate Dicts so it never touches prod state)
 """
+
+import os
 
 import modal
 
@@ -48,7 +53,7 @@ image = (
         "lxml==6.1.1",
         "beautifulsoup4==4.14.3",
         "playwright==1.60.0",
-        "modal",
+        "modal==1.4.3",  # match requirements.txt — an unpinned client can drift
     )
     .run_commands("playwright install --with-deps chromium")
     .add_local_file(AXE_LOCAL, "/root/axe.min.js")
@@ -56,16 +61,30 @@ image = (
     .add_local_dir(str(REPO / "api"), "/root/happypdf/api")
 )
 
-app = modal.App("happypdf-api")
+# Deploy-time override for a staging copy of the app. Staging must never share
+# prod's persistent Dicts, so the store names are derived from the app name.
+APP_NAME = os.environ.get("HAPPYPDF_APP_NAME", "happypdf-api")
+IS_PROD = APP_NAME == "happypdf-api"
+JOBS_DICT = "happypdf-jobs" if IS_PROD else f"{APP_NAME}-jobs"
+RATE_DICT = "happypdf-rate-limit" if IS_PROD else f"{APP_NAME}-rate-limit"
+
+app = modal.App(APP_NAME)
 
 
 @app.function(
     image=image,
-    secrets=[modal.Secret.from_name("happypdf-secrets")],
+    secrets=[
+        modal.Secret.from_name("happypdf-secrets"),
+        # Bearer token shared with the OLMo reviewer endpoint (see
+        # modal/modal_olmo_wcag.py). Create once:
+        #   modal secret create olmo-reviewer-auth OLMO_REVIEWER_TOKEN=$(openssl rand -hex 32)
+        modal.Secret.from_name("olmo-reviewer-auth"),
+    ],
     min_containers=0,  # scale to zero when idle — no standing cost
     max_containers=1,  # single container => consistent in-memory job state
     scaledown_window=1200,  # stay warm 20 min so a 5 min job + polls survive
     timeout=3600,
+    env={"HAPPYPDF_JOBS_DICT": JOBS_DICT, "HAPPYPDF_RATE_DICT": RATE_DICT},
 )
 @modal.concurrent(max_inputs=20)  # serve polls concurrently with a running job
 @modal.asgi_app()

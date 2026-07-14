@@ -88,7 +88,7 @@ def _table_shapes(doc) -> list[dict]:
 # ---------------------------------------------------------------------------
 def check_text_coverage(orig, patched) -> dict:
     o, p = _visible_word_count(orig), _visible_word_count(patched)
-    coverage = (p / o) if o else (1.0 if p == 0 else 1.0)
+    coverage = (p / o) if o else 1.0  # an empty original can't lose content
     # An empty original with surviving content is fine; an empty *patched* is not.
     passed = coverage >= TEXT_COVERAGE_THRESHOLD and (p > 0 or o == 0)
     return {
@@ -113,21 +113,49 @@ def check_image_count(orig, patched) -> dict:
     }
 
 
-def check_heading_order(orig, patched) -> dict:
-    before, after = _heading_levels(orig), _heading_levels(patched)
+def _heading_skips(levels: list[int]) -> list[dict]:
     skips, prev = [], None
-    for lvl in after:
+    for lvl in levels:
         if prev is not None and (lvl - prev) > HEADING_SKIP_TOLERANCE:
             skips.append({"from": prev, "to": lvl})
         prev = lvl
+    return skips
+
+
+def check_heading_order(orig, patched) -> dict:
+    """Fail only on skips the round *introduced*. A document whose original
+    already contains a skip (e.g. olmOCR emitted h1 -> h3) must not fail every
+    round for a defect the patches did not cause — that would permanently block
+    remediation of such documents."""
+    before, after = _heading_levels(orig), _heading_levels(patched)
+    orig_skips = _heading_skips(before)
+    patched_skips = _heading_skips(after)
+    # A skip pattern is "new" if it appears more times after patching than before.
+    counts_before: dict[tuple, int] = {}
+    for s in orig_skips:
+        key = (s["from"], s["to"])
+        counts_before[key] = counts_before.get(key, 0) + 1
+    new_skips = []
+    for s in patched_skips:
+        key = (s["from"], s["to"])
+        if counts_before.get(key, 0) > 0:
+            counts_before[key] -= 1
+        else:
+            new_skips.append(s)
     return {
         "name": "heading_order",
-        "passed": not skips,
+        "passed": not new_skips,
         "original_sequence": before,
         "patched_sequence": after,
         "tolerance": HEADING_SKIP_TOLERANCE,
-        "skips": skips,
-        "detail": f"before {before} -> after {after}; skips {skips or 'none'}",
+        "skips": patched_skips,
+        "preexisting_skips": orig_skips,
+        "new_skips": new_skips,
+        "detail": (
+            f"before {before} -> after {after}; "
+            f"new skips {new_skips or 'none'}"
+            + (f" (pre-existing: {orig_skips})" if orig_skips else "")
+        ),
     }
 
 

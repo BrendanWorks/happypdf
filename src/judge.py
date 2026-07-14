@@ -302,7 +302,7 @@ def _alt_text_system_prompt() -> str:
     )
 
 
-def _alt_text_user_prompt(g: Group, el: dict) -> str:
+def _alt_text_user_prompt(g: Group, el: dict, has_image: bool = False) -> str:
     """Shared user prompt for both Claude and OpenAI."""
     payload = {
         "wcag_criterion": g.wcag_criterion,
@@ -310,27 +310,64 @@ def _alt_text_user_prompt(g: Group, el: dict) -> str:
         "current_alt": el.get("alt", ""),
         "suggested_fix": g.suggested_fix,
     }
+    image_note = (
+        "The image itself is attached — base your alt text on what you actually see.\n"
+        if has_image
+        else "The image itself is NOT available — if the correct alt text cannot be "
+        "determined from the context alone, set safe=false.\n"
+    )
     return (
         "Peer reviewers flagged the alt text on an image. Context:\n"
         f"{json.dumps(payload, indent=2)}\n\n"
+        f"{image_note}"
         'Return JSON: {"new_value": "<improved alt text>", "safe": true|false, '
         '"confidence": 0.0-1.0, "reasoning": "<why this is correct and safe>"}'
     )
 
 
-def _generate_alt_text_claude(g: Group, el: dict) -> dict:
-    """Generate alt text using Claude API."""
+# Anthropic hard limit is ~5 MB per image; stay comfortably under it.
+MAX_IMAGE_B64_CHARS = 4_000_000
+
+
+def _data_uri_image(el: dict) -> tuple[str, str] | None:
+    """Return (media_type, base64_data) if the element embeds its image as a
+    data URI small enough to attach to a vision call, else None."""
+    src = (el.get("attrs") or {}).get("src", "")
+    m = re.match(r"data:(image/[\w.+-]+);base64,(.+)", src, re.S)
+    if not m:
+        return None
+    media_type, b64 = m.group(1), m.group(2)
+    if len(b64) > MAX_IMAGE_B64_CHARS:
+        return None
+    return media_type, b64
+
+
+def _generate_alt_text_claude(g: Group, el: dict, api_key: str | None = None) -> dict:
+    """Generate alt text using Claude API. Attaches the actual image when the
+    element embeds it as a data URI, so the model describes what it sees
+    instead of inventing a description from text alone."""
     import anthropic
 
     try:
-        client = anthropic.Anthropic()
+        client = anthropic.Anthropic(api_key=api_key) if api_key else anthropic.Anthropic()
+        content: list[dict] = []
+        image = _data_uri_image(el)
+        if image:
+            media_type, b64 = image
+            content.append(
+                {
+                    "type": "image",
+                    "source": {"type": "base64", "media_type": media_type, "data": b64},
+                }
+            )
+        content.append({"type": "text", "text": _alt_text_user_prompt(g, el, bool(image))})
         resp = client.messages.create(
             model="claude-opus-4-8",
             max_tokens=1024,
             thinking={"type": "adaptive"},
             output_config={"effort": "high"},
             system=_alt_text_system_prompt(),
-            messages=[{"role": "user", "content": _alt_text_user_prompt(g, el)}],
+            messages=[{"role": "user", "content": content}],
         )
         text = "".join(b.text for b in resp.content if b.type == "text")
         return _extract_json(text)
@@ -339,18 +376,27 @@ def _generate_alt_text_claude(g: Group, el: dict) -> dict:
         raise RuntimeError(f"Claude API error: {type(e).__name__}") from None
 
 
-def _generate_alt_text_openai(g: Group, el: dict) -> dict:
-    """Generate alt text using OpenAI API."""
+def _generate_alt_text_openai(g: Group, el: dict, api_key: str | None = None) -> dict:
+    """Generate alt text using OpenAI API. Attaches the actual image when
+    available (see _generate_alt_text_claude)."""
     from openai import OpenAI
 
     try:
-        client = OpenAI()
+        client = OpenAI(api_key=api_key) if api_key else OpenAI()
+        image = _data_uri_image(el)
+        user_content: list[dict] = []
+        if image:
+            media_type, b64 = image
+            user_content.append(
+                {"type": "image_url", "image_url": {"url": f"data:{media_type};base64,{b64}"}}
+            )
+        user_content.append({"type": "text", "text": _alt_text_user_prompt(g, el, bool(image))})
         resp = client.chat.completions.create(
             model="gpt-4o",
             max_tokens=1024,
             messages=[
                 {"role": "system", "content": _alt_text_system_prompt()},
-                {"role": "user", "content": _alt_text_user_prompt(g, el)},
+                {"role": "user", "content": user_content},
             ],
         )
         text = resp.choices[0].message.content or ""
@@ -360,31 +406,46 @@ def _generate_alt_text_openai(g: Group, el: dict) -> dict:
         raise RuntimeError(f"OpenAI API error: {type(e).__name__}") from None
 
 
-def generate_alt_text(g: Group, el: dict, provider: str | None = None) -> dict:
+def select_provider(byok: dict | None = None) -> str:
+    """Pick the alt-text provider from explicit BYOK keys first, then env.
+
+    Order: HAPPYPDF_ALT_TEXT_PROVIDER override > BYOK Anthropic > env Anthropic
+    > OpenAI. BYOK keys are per-job values passed down the call chain — never
+    read from (or written to) the process environment."""
+    override = os.environ.get("HAPPYPDF_ALT_TEXT_PROVIDER")
+    if override:
+        return override
+    byok = byok or {}
+    if byok.get("anthropic") or os.environ.get("ANTHROPIC_API_KEY"):
+        return "claude"
+    return "openai"
+
+
+def generate_alt_text(
+    g: Group, el: dict, provider: str | None = None, byok: dict | None = None
+) -> dict:
     """Generate alt text and judge safety using the specified provider (Claude or OpenAI).
 
     Args:
         g: Issue group (contains criterion, issue, suggested_fix)
-        el: Element dict (contains current alt text, tag)
+        el: Element dict (contains current alt text, tag, attrs incl. data-URI src)
         provider: 'claude' or 'openai'. If None, uses HAPPYPDF_ALT_TEXT_PROVIDER env var,
-                 then auto-selects based on available keys (Claude if both, OpenAI if only).
+                 then auto-selects based on available keys (Claude if any, else OpenAI).
+        byok: optional per-job keys {"anthropic": ..., "openai": ...} passed explicitly
+              so concurrent jobs cannot leak credentials through the environment.
 
     Returns:
         dict with keys: new_value, safe, confidence, reasoning
         Raises RuntimeError if API call fails.
     """
-    # Determine provider: explicit param > env var > auto-select
     if provider is None:
-        provider = os.environ.get("HAPPYPDF_ALT_TEXT_PROVIDER")
-
-    if provider is None:
-        # Auto-select: Claude if both keys available, else OpenAI
-        provider = "claude" if os.environ.get("ANTHROPIC_API_KEY") else "openai"
+        provider = select_provider(byok)
+    byok = byok or {}
 
     if provider == "claude":
-        return _generate_alt_text_claude(g, el)
+        return _generate_alt_text_claude(g, el, api_key=byok.get("anthropic"))
     elif provider == "openai":
-        return _generate_alt_text_openai(g, el)
+        return _generate_alt_text_openai(g, el, api_key=byok.get("openai"))
     else:
         raise ValueError(f"Unknown provider: {provider}. Use 'claude' or 'openai'.")
 
@@ -402,7 +463,20 @@ def _extract_json(text: str) -> dict:
 # ---------------------------------------------------------------------------
 # Manifest assembly
 # ---------------------------------------------------------------------------
-def build_manifest(html: Path, reviews: Path, use_llm: bool) -> tuple[list, list, list]:
+def build_manifest(
+    html: Path,
+    reviews: Path,
+    use_llm: bool,
+    byok: dict | None = None,
+    audit_path: Path | None = None,
+) -> tuple[list, list, list, list]:
+    """Synthesize peer reviews into (patches, rejected, deferred, audit).
+
+    byok: optional per-job {"anthropic": key, "openai": key} for LLM-safe fixes.
+    audit_path: when given, the audit trail is also written there (CLI use);
+    library callers get it in the return value only, so concurrent jobs never
+    clobber a shared file.
+    """
     index = parse_html(html)
     reviews_dict = load_reviews(reviews)
     total_reviewers = len(reviews_dict)
@@ -541,12 +615,12 @@ def build_manifest(html: Path, reviews: Path, use_llm: bool) -> tuple[list, list
             log(f"  … llm_safe deferred [{g.element_id}] (--no-llm)")
             continue
 
-        # Auto-select provider based on available credentials
-        provider = "claude" if os.environ.get("ANTHROPIC_API_KEY") else "openai"
+        # Auto-select provider from per-job BYOK keys first, then hosted defaults
+        provider = select_provider(byok)
         log(f"  → calling {provider.capitalize()} for llm_safe fix [{g.element_id}]...")
 
         try:
-            result = generate_alt_text(g, el, provider=provider)
+            result = generate_alt_text(g, el, provider=provider, byok=byok)
         except RuntimeError as e:
             # Log full error for operators; generic message for audit/user
             error_msg = str(e)
@@ -616,8 +690,9 @@ def build_manifest(html: Path, reviews: Path, use_llm: bool) -> tuple[list, list
         )
         log(f"  ✓ llm_safe patch [{g.element_id}] alt=\"{result.get('new_value','')[:60]}\"")
 
-    OUT_AUDIT.parent.mkdir(parents=True, exist_ok=True)
-    OUT_AUDIT.write_text(json.dumps(audit, indent=2))
+    if audit_path is not None:
+        audit_path.parent.mkdir(parents=True, exist_ok=True)
+        audit_path.write_text(json.dumps(audit, indent=2))
     return patches, rejected, deferred, audit
 
 
@@ -645,7 +720,7 @@ def main() -> int:
         return 1
 
     patches, rejected, deferred, audit = build_manifest(
-        args.html, args.reviews, use_llm=not args.no_llm
+        args.html, args.reviews, use_llm=not args.no_llm, audit_path=OUT_AUDIT
     )
 
     OUT_MANIFEST.parent.mkdir(parents=True, exist_ok=True)

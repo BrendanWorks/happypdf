@@ -14,8 +14,10 @@ or:
   python api/main.py
 """
 
+import asyncio
 import json
 import os
+import re
 import threading
 import time
 import uuid
@@ -74,7 +76,7 @@ import sys  # noqa: E402
 sys.path.insert(0, str(SRC))
 sys.path.insert(0, str(ROOT / "api"))
 
-from job_store import JobStore, mark_interrupted_if_stale  # noqa: E402
+from job_store import DailyRateLimiter, JobStore, mark_interrupted_if_stale  # noqa: E402
 
 # Pipeline stages the UI walks through (ids match the frontend).
 STAGES = [
@@ -105,22 +107,20 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Daily rate limit for the paid live path. Backed by a Modal Dict on Modal (shared
-# across container restarts), or an in-process counter locally.
+# Daily rate limit for the paid live path. Backed by a Modal Dict on Modal so a
+# container recycle can't reset the day's count; in-process locally.
 DAILY_LIMIT = int(os.environ.get("HAPPYPDF_DAILY_LIMIT", "20"))  # raised for demo testing
-_local_counts: dict[str, int] = {}
+RATE_LIMITER = DailyRateLimiter()
 
+# Upload guardrails for the paid live path: each accepted upload triggers real
+# H100 time, so reject obviously-invalid or oversized files before spending it.
+MAX_UPLOAD_MB = int(os.environ.get("HAPPYPDF_MAX_UPLOAD_MB", "25"))
+MAX_UPLOAD_BYTES = MAX_UPLOAD_MB * 1024 * 1024
 
-def _rate_check() -> tuple[bool, int]:
-    """Returns (allowed, count_after). Increments only when allowed.
-    Uses in-memory counter (safe for max_containers=1 single pinned container)."""
-    today = datetime.now().strftime("%Y-%m-%d")
-    c = _local_counts.get(today, 0)
-    if c >= DAILY_LIMIT:
-        return False, c
-    _local_counts[today] = c + 1
-    return True, c + 1
-
+# Job ids are uuid4().hex[:12]; demo snapshot names are short slugs. Anything
+# else in a path param is rejected before it reaches the filesystem or headers.
+JOB_ID_RE = re.compile(r"^[0-9a-f]{12}$")
+DEMO_NAME_RE = re.compile(r"^[a-z0-9_]{1,64}$")
 
 # Job store: a modal.Dict on Modal (survives container recycles), else in-process.
 JOBS = JobStore()
@@ -167,6 +167,10 @@ def _set(jid: str, **kw) -> None:
 
 
 def _load_snapshot(name: str) -> dict:
+    # Strict slug check: the name comes from a URL path parameter and is used
+    # to build a filesystem path — reject anything that isn't a known-safe slug.
+    if not DEMO_NAME_RE.match(name):
+        raise HTTPException(404, "unknown demo")
     f = SNAPSHOTS / f"{name}.json"
     if not f.exists():
         raise HTTPException(404, f"unknown demo: {name}")
@@ -215,6 +219,21 @@ def _replay(jid: str, name: str) -> None:
 # ---------------------------------------------------------------------------
 # Live worker — runs the real pipeline on an uploaded PDF
 # ---------------------------------------------------------------------------
+def _heartbeat(jid: str, stop: threading.Event, interval_s: float = 60.0) -> None:
+    """Touch the job's `updated` timestamp while the worker is alive.
+
+    Long stages (cold-start olmOCR on a big PDF) can exceed STALE_RUNNING_S
+    without any _set() call; without a heartbeat the poller would falsely tell
+    the user the job was interrupted while it is still running."""
+    while not stop.wait(interval_s):
+        with JOBS_LOCK:
+            rec = JOBS.get(jid)
+            if rec is None or rec.get("status") != "running":
+                return
+            rec["updated"] = time.time()
+            JOBS.put(jid, rec)
+
+
 def _live(
     jid: str,
     pdf_bytes: bytes,
@@ -223,37 +242,23 @@ def _live(
     openai_api_key: str | None = None,
     reviewer_profile: str = "default",
 ) -> None:
+    """Run the real pipeline. BYOK keys are passed explicitly down the call
+    chain (provider factory + judge byok dict) — never written to os.environ —
+    so concurrent jobs with different credentials cannot observe each other's
+    keys and there is no restore step that can race."""
     import tempfile
 
-    import build_syllabus_slice as bss
-    import reviewers
-    from loop import axe_score, run_loop
-
-    # Set up BYOK keys if provided (overrides environment)
-    old_anth = os.environ.get("ANTHROPIC_API_KEY")
-    old_openai = os.environ.get("OPENAI_API_KEY")
-    old_profile = os.environ.get("REVIEWER_PROFILE")
+    stop_heartbeat = threading.Event()
+    threading.Thread(target=_heartbeat, args=(jid, stop_heartbeat), daemon=True).start()
     try:
-        if anthropic_api_key:
-            os.environ["ANTHROPIC_API_KEY"] = anthropic_api_key
-        if openai_api_key:
-            os.environ["OPENAI_API_KEY"] = openai_api_key
-        os.environ["REVIEWER_PROFILE"] = reviewer_profile
+        import build_syllabus_slice as bss
+        import reviewers
+        from loop import axe_score, run_loop
 
-        reviewers.load_env()
-    except Exception as setup_err:
-        # Restore env vars before raising
-        if old_anth:
-            os.environ["ANTHROPIC_API_KEY"] = old_anth
-        else:
-            os.environ.pop("ANTHROPIC_API_KEY", None)
-        if old_openai:
-            os.environ["OPENAI_API_KEY"] = old_openai
-        else:
-            os.environ.pop("OPENAI_API_KEY", None)
-        raise setup_err
+        reviewers.load_env()  # hosted defaults from .env (only sets unset vars)
+        byok = {"anthropic": anthropic_api_key, "openai": openai_api_key}
+        provider = reviewers.make_live_provider(reviewer_profile, openai_api_key=openai_api_key)
 
-    try:
         _set(jid, source="live pipeline (olmOCR + Qwen2-VL + live reviewers + Claude judge)")
         _set(jid, stage="extracting")
         markdown = bss.strip_front_matter(bss.run_olmocr(pdf_bytes, filename))
@@ -271,7 +276,8 @@ def _live(
         baseline_html = bss.HtmlBuilder(markdown, images, alt_map, title=title).build()
 
         _set(jid, stage="axe_baseline")
-        _set(jid, baseline=axe_score(baseline_html))
+        baseline_axe = axe_score(baseline_html)
+        _set(jid, baseline=baseline_axe)
 
         def on_round(entry, _patched, reviewer_health=None):
             _set(jid, stage=f"round{entry['round']}")
@@ -296,7 +302,13 @@ def _live(
                 JOBS.put(jid, rec)  # write the whole record back (modal.Dict returns copies)
 
         summary = run_loop(
-            baseline_html, reviewers.live_provider, label=filename, use_llm=True, on_round=on_round
+            baseline_html,
+            provider,
+            label=filename,
+            use_llm=True,
+            on_round=on_round,
+            byok=byok,
+            baseline_axe=baseline_axe,
         )
         final_html = summary["final_html"]
         from build_snapshots import enhancements
@@ -322,19 +334,7 @@ def _live(
         print(f"[ERROR] Job {jid} failed: {type(e).__name__}: {e}", flush=True)
         _set(jid, status="error", error="Conversion failed. Check your API key and try again.")
     finally:
-        # Restore original environment variables
-        if old_anth:
-            os.environ["ANTHROPIC_API_KEY"] = old_anth
-        else:
-            os.environ.pop("ANTHROPIC_API_KEY", None)
-        if old_openai:
-            os.environ["OPENAI_API_KEY"] = old_openai
-        else:
-            os.environ.pop("OPENAI_API_KEY", None)
-        if old_profile:
-            os.environ["REVIEWER_PROFILE"] = old_profile
-        else:
-            os.environ.pop("REVIEWER_PROFILE", None)
+        stop_heartbeat.set()
 
 
 # ---------------------------------------------------------------------------
@@ -368,7 +368,21 @@ async def start_live(
 ):
     if not (file.filename or "").lower().endswith(".pdf"):
         raise HTTPException(400, "please upload a .pdf")
-    allowed, count = _rate_check()
+
+    # Size + content sniff before spending GPU time. Reading first: UploadFile
+    # spools to disk past 1 MB, so this doesn't hold a huge body in RAM twice.
+    data = await file.read()
+    if len(data) > MAX_UPLOAD_BYTES:
+        raise HTTPException(
+            413,
+            f"PDF too large ({len(data) / 1024 / 1024:.1f} MB). "
+            f"The hosted demo accepts up to {MAX_UPLOAD_MB} MB — self-host for larger files.",
+        )
+    # A real PDF starts with %PDF- within the first 1024 bytes (per spec).
+    if b"%PDF-" not in data[:1024]:
+        raise HTTPException(400, "This file doesn't look like a PDF. Please upload a real .pdf.")
+
+    allowed, count = RATE_LIMITER.check_and_increment(DAILY_LIMIT)
     if not allowed:
         raise HTTPException(
             429,
@@ -376,17 +390,18 @@ async def start_live(
             f"Try the instant replay demos, or self-host for unlimited runs.",
         )
 
-    # Validate BYOK keys upfront (fail fast)
+    # Validate BYOK keys upfront (fail fast). Run in a worker thread — these are
+    # blocking network calls, and blocking the event loop here would stall every
+    # concurrent poll request.
     if anthropic_api_key:
-        valid, err = validate_anthropic_key(anthropic_api_key)
+        valid, err = await asyncio.to_thread(validate_anthropic_key, anthropic_api_key)
         if not valid:
             raise HTTPException(400, err)
     if openai_api_key:
-        valid, err = validate_openai_key(openai_api_key)
+        valid, err = await asyncio.to_thread(validate_openai_key, openai_api_key)
         if not valid:
             raise HTTPException(400, err)
 
-    data = await file.read()
     jid = _new_job("live", file.filename)
     threading.Thread(
         target=_live,
@@ -403,14 +418,16 @@ async def start_live(
 
 @app.get("/api/jobs/{jid}")
 def job_status(jid: str):
-    with JOBS_LOCK:
-        job = JOBS.get(jid)
-        if not job:
-            raise HTTPException(404, "no such job")
-        # A job frozen at "running" (worker died on a container recycle) surfaces
-        # as a terminal error the frontend can act on, instead of a stuck spinner.
-        job = mark_interrupted_if_stale(job)
-        out = {k: v for k, v in job.items() if k != "final_html"}
+    # Reads don't need JOBS_LOCK: records are replaced whole (never mutated in
+    # place), so a get either sees the old or the new record. Holding the lock
+    # here would serialize every poll behind a network round-trip to the Dict.
+    job = JOBS.get(jid)
+    if not job:
+        raise HTTPException(404, "no such job")
+    # A job frozen at "running" (worker died on a container recycle) surfaces
+    # as a terminal error the frontend can act on, instead of a stuck spinner.
+    job = mark_interrupted_if_stale(job)
+    out = {k: v for k, v in job.items() if k != "final_html"}
     out["stage_index"] = next((i for i, s in enumerate(STAGES) if s["id"] == out["stage"]), 0)
     out["has_html"] = job.get("final_html") is not None
     return out
@@ -418,11 +435,16 @@ def job_status(jid: str):
 
 @app.get("/api/jobs/{jid}/html", response_class=HTMLResponse)
 def job_html(jid: str):
-    with JOBS_LOCK:
-        job = JOBS.get(jid)
+    job = JOBS.get(jid)
     if not job or not job.get("final_html"):
         raise HTTPException(404, "no html yet")
-    return HTMLResponse(job["final_html"])
+    # Defense in depth: the output HTML derives from PDF content and LLM output,
+    # so serve it with scripts/forms/plugins disabled. The document itself is
+    # static text + data-URI images and needs none of those.
+    return HTMLResponse(
+        job["final_html"],
+        headers={"Content-Security-Policy": "sandbox; script-src 'none'; object-src 'none'"},
+    )
 
 
 def _build_manifest_v2(job: dict = None, snap: dict = None, jid: str = None) -> dict:
@@ -610,11 +632,19 @@ def _build_manifest_v2(job: dict = None, snap: dict = None, jid: str = None) -> 
     return manifest
 
 
+def _safe_download_id(jid: str) -> str:
+    """jid comes from the URL path and ends up in a Content-Disposition header;
+    only real job ids and demo slugs are ever valid, so enforce exactly that."""
+    if JOB_ID_RE.match(jid) or DEMO_NAME_RE.match(jid):
+        return jid
+    raise HTTPException(404, "job not found")
+
+
 @app.get("/api/jobs/{jid}/manifest")
 def job_manifest(jid: str):
     """Return complete remediation manifest with all patches, decisions, and audit trail."""
-    with JOBS_LOCK:
-        job = JOBS.get(jid)
+    safe_id = _safe_download_id(jid)
+    job = JOBS.get(jid)
 
     # If not found in JOBS, check if it's a demo snapshot ID
     if not job:
@@ -631,7 +661,7 @@ def job_manifest(jid: str):
     return Response(
         content=json_str,
         media_type="application/json",
-        headers={"Content-Disposition": f'attachment; filename="{jid}_manifest.json"'},
+        headers={"Content-Disposition": f'attachment; filename="{safe_id}_manifest.json"'},
     )
 
 
@@ -643,8 +673,8 @@ def job_report(jid: str):
     sys.path.insert(0, str(SRC))
     from report_generator import generate_html_report
 
-    with JOBS_LOCK:
-        job = JOBS.get(jid)
+    safe_id = _safe_download_id(jid)
+    job = JOBS.get(jid)
 
     # If not found in JOBS, check if it's a demo snapshot ID
     if not job:
@@ -660,7 +690,7 @@ def job_report(jid: str):
     return Response(
         content=html,
         media_type="text/html",
-        headers={"Content-Disposition": f'attachment; filename="{jid}_report.html"'},
+        headers={"Content-Disposition": f'attachment; filename="{safe_id}_report.html"'},
     )
 
 

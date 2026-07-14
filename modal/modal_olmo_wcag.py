@@ -181,11 +181,20 @@ def get_model():
     gpu="A10G",
     timeout=600,
     env={"PYTORCH_CUDA_ALLOC_CONF": "expandable_segments:True"},
+    # Shared bearer token for /review. Create it once before deploying:
+    #   modal secret create olmo-reviewer-auth OLMO_REVIEWER_TOKEN=$(openssl rand -hex 32)
+    # The same secret is attached to the happypdf API (src/modal_api.py) so the
+    # orchestrator can authenticate. Without auth this endpoint is a publicly
+    # callable GPU — anyone with the URL could run free inference on your bill.
+    secrets=[modal.Secret.from_name("olmo-reviewer-auth")],
 )
 @modal.asgi_app()
 def api():
     """FastAPI app for WCAG review."""
-    from fastapi import FastAPI
+    import hmac
+    import os
+
+    from fastapi import FastAPI, Header, HTTPException
 
     app = FastAPI(title="OLMo WCAG Reviewer")
 
@@ -199,9 +208,18 @@ def api():
         success: bool
         error: Optional[str] = None
 
+    def _check_auth(authorization: str | None) -> None:
+        expected = os.environ.get("OLMO_REVIEWER_TOKEN", "")
+        if not expected:
+            return  # auth not configured (self-hosted open mode)
+        supplied = (authorization or "").removeprefix("Bearer ").strip()
+        if not hmac.compare_digest(supplied, expected):
+            raise HTTPException(401, "missing or invalid bearer token")
+
     @app.post("/review", response_model=ReviewResponse)
-    async def review(req: ReviewRequest):
+    async def review(req: ReviewRequest, authorization: Optional[str] = Header(default=None)):
         """Review HTML for WCAG violations."""
+        _check_auth(authorization)
         try:
             model = get_model()
             output = model.review_html(req.html_chunk, req.system_prompt, req.max_tokens)

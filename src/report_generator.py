@@ -1,7 +1,17 @@
 """Generate human-readable remediation reports from job manifests."""
 
+import html as html_lib
 from datetime import datetime
 from pathlib import Path
+
+
+def esc(value) -> str:
+    """HTML-escape a manifest value before interpolating it into the report.
+
+    Manifest strings are attacker-influenced: the document name is the uploaded
+    filename, and enhancement values come from reviewer LLM output (which reads
+    PDF content). Everything user- or model-derived must pass through here."""
+    return html_lib.escape(str(value), quote=True)
 
 
 def generate_html_report(manifest: dict, output_path: str = None) -> str:
@@ -15,8 +25,8 @@ def generate_html_report(manifest: dict, output_path: str = None) -> str:
         HTML string
     """
 
-    # Extract document name
-    doc_name = manifest.get("name", "PDF")
+    # Extract document name (escaped — it is the raw uploaded filename)
+    doc_name = esc(manifest.get("name", "PDF"))
 
     # Support both v1 (flat) and v2 (nested) manifest formats
     if "$schema" in manifest:
@@ -93,26 +103,27 @@ def generate_html_report(manifest: dict, output_path: str = None) -> str:
       </div>
 """
 
-    # Build enhancements HTML
+    # Build enhancements HTML. Every field here is escaped: element ids, tags,
+    # attributes, and values originate from reviewer LLM output over PDF content.
     enhancements_html = ""
     for e in enhancements:
-        element_id = e.get("element_id", "unknown")
-        html_tag = e.get("html_tag") or e.get("type", "element")
-        approval_status = e.get("approval_status", "approved").lower()
+        element_id = esc(e.get("element_id", "unknown"))
+        html_tag = esc(e.get("html_tag") or e.get("type", "element"))
+        approval_status = esc(e.get("approval_status", "approved")).lower()
 
         if "mutation" in e:
-            attribute = e["mutation"].get("attribute", "aria-label")
-            value = e["mutation"].get("value", "")
+            attribute = esc(e["mutation"].get("attribute", "aria-label"))
+            value = esc(e["mutation"].get("value", ""))
         else:
-            attribute = e.get("attribute", "aria-label")
-            value = e.get("value", "")
+            attribute = esc(e.get("attribute", "aria-label"))
+            value = esc(e.get("value", ""))
 
         if "audit" in e:
-            proposed_by = e["audit"].get("proposed_by", "olmo")
-            approved_by = e["audit"].get("approved_by", "claude")
+            proposed_by = esc(e["audit"].get("proposed_by", "olmo"))
+            approved_by = esc(e["audit"].get("approved_by", "claude"))
         else:
-            proposed_by = e.get("proposed_by", "olmo")
-            approved_by = e.get("approved_by", "claude")
+            proposed_by = esc(e.get("proposed_by", "olmo"))
+            approved_by = esc(e.get("approved_by", "claude"))
 
         # Build voting consensus if available
         voting_html = ""
@@ -130,7 +141,7 @@ def generate_html_report(manifest: dict, output_path: str = None) -> str:
                     else "vote-abstain" if vote == "abstain" else "vote-reject"
                 )
                 vote_list.append(
-                    f'<span class="vote {vote_class}">{vote_icon} {agent}: {vote}</span>'
+                    f'<span class="vote {vote_class}">{vote_icon} {esc(agent)}: {esc(vote)}</span>'
                 )
 
             voting_html = f"""
@@ -139,7 +150,7 @@ def generate_html_report(manifest: dict, output_path: str = None) -> str:
           <div class="vote-row">
             {''.join(vote_list)}
           </div>
-          <div class="agreement-score">Agreement: {agreement_score}%</div>
+          <div class="agreement-score">Agreement: {esc(agreement_score)}%</div>
         </div>
 """
 
@@ -170,7 +181,7 @@ def generate_html_report(manifest: dict, output_path: str = None) -> str:
     }
     for agent_id, health in reviewer_health.items():
         rounds_ran = health.get("rounds_ran", 0)
-        name, role = reviewer_names.get(agent_id, (agent_id.upper(), "Reviewer"))
+        name, role = reviewer_names.get(agent_id, (esc(agent_id).upper(), "Reviewer"))
         status = health.get("status", "UNKNOWN").lower()
         status_class = "success" if status == "success" else "failure"
         status_text = "Success" if status == "success" else "Failed"

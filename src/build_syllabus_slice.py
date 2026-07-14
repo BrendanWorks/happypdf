@@ -152,14 +152,32 @@ def extract_images(pdf_path: Path) -> list[dict]:
 # ---------------------------------------------------------------------------
 # Step 4: alt text (Qwen2-VL)
 # ---------------------------------------------------------------------------
+# Bounded client-side parallelism: 3 concurrent calls speeds up image-heavy
+# documents without letting Modal's autoscaler cold-start one GPU container per
+# image (25 embedded images must not mean 25 Qwen2-VL cold starts).
+ALTTEXT_CONCURRENCY = 3
+
+
 def generate_alt_text(images: list[dict]) -> dict[str, dict]:
     if not images:
         return {}
+    from concurrent.futures import ThreadPoolExecutor
+
     log(f"alt text: calling Modal {ALTTEXT_APP}/{ALTTEXT_FN} for {len(images)} image(s)...")
     fn = modal.Function.from_name(ALTTEXT_APP, ALTTEXT_FN)
+
+    def _one(img: dict) -> dict:
+        try:
+            return fn.remote(img["b64"], img["context"])
+        except Exception as e:  # a single failed image must not sink the job
+            return {"success": False, "error": f"{type(e).__name__}: {e}"}
+
+    workers = min(ALTTEXT_CONCURRENCY, len(images))
+    with ThreadPoolExecutor(max_workers=workers) as pool:
+        results = list(pool.map(_one, images))
+
     mapping = {}
-    for img in images:
-        res = fn.remote(img["b64"], img["context"])
+    for img, res in zip(images, results, strict=True):
         if not res.get("success"):
             log(f"  {img['filename']}: FAILED ({res.get('error', '?')[:80]}) -> filename fallback")
             res = {
@@ -210,44 +228,109 @@ class HtmlBuilder:
         return cls._esc(t).replace('"', "&quot;")
 
     @staticmethod
-    def _convert_markdown_images(text: str) -> str:
-        """Convert markdown image syntax ![alt](src) to HTML <img> tags."""
+    def _safe_src(src: str) -> bool:
+        """Only allow image sources that cannot carry executable content."""
+        s = src.strip().lower()
+        if s.startswith("javascript:") or s.startswith("vbscript:"):
+            return False
+        if s.startswith("data:") and not s.startswith("data:image/"):
+            return False
+        return True
 
-        def replace_image(match):
-            alt = match.group(1)
-            src = match.group(2)
-            # Escape alt text for HTML attribute
-            alt_escaped = (
-                alt.replace('"', "&quot;")
-                .replace("&", "&amp;")
-                .replace("<", "&lt;")
-                .replace(">", "&gt;")
-            )
-            return f'<img src="{src}" alt="{alt_escaped}">'
+    @classmethod
+    def _convert_markdown_images(cls, text: str) -> str:
+        """Convert markdown image syntax ![alt](src) to HTML <img> tags.
 
-        # Match markdown image syntax: ![alt text](image.png)
-        return re.sub(r"!\[([^\]]*)\]\(([^\)]+)\)", replace_image, text)
+        Everything is escaped: the text segments around images are HTML-escaped
+        and alt/src are attribute-escaped, so document content can never inject
+        markup (e.g. `![a](x" onerror=...)` becomes a harmless quoted value).
+        Unsafe URL schemes are dropped, keeping the alt as visible text."""
+        out, last = [], 0
+        for m in re.finditer(r"!\[([^\]]*)\]\(([^\)]+)\)", text):
+            out.append(cls._esc(text[last : m.start()]))
+            alt, src = m.group(1), m.group(2).strip()
+            if cls._safe_src(src):
+                out.append(f'<img src="{cls._attr(src)}" alt="{cls._attr(alt)}">')
+            else:
+                out.append(cls._esc(alt))
+            last = m.end()
+        out.append(cls._esc(text[last:]))
+        return "".join(out)
 
-    @staticmethod
-    def _fix_table_html(tbl: str) -> str:
-        """Fix HTML entities in table content that should be actual HTML tags.
+    # Tags/attributes permitted in olmOCR-emitted table fragments. Everything
+    # else is stripped (tag dropped, text kept) so PDF text like "<script>" can
+    # never reach the output HTML as live markup.
+    SANITIZE_ALLOWED_TAGS = frozenset(
+        {
+            "table",
+            "thead",
+            "tbody",
+            "tfoot",
+            "tr",
+            "th",
+            "td",
+            "caption",
+            "colgroup",
+            "col",
+            "p",
+            "br",
+            "strong",
+            "em",
+            "b",
+            "i",
+            "u",
+            "sub",
+            "sup",
+            "span",
+            "ul",
+            "ol",
+            "li",
+        }
+    )
+    SANITIZE_ALLOWED_ATTRS = frozenset(
+        {"colspan", "rowspan", "scope", "headers", "id", "lang", "data-ir-id"}
+    )
 
-        Handles cases where table cells are escaped as HTML entities:
-        - &lt;td&gt; becomes <td>
-        - &lt;th&gt; becomes <th>
-        - &lt;/td&gt; becomes </td>
-        - &lt;/th&gt; becomes </th>
+    @classmethod
+    def _sanitize_fragment(cls, fragment: str) -> str:
+        """Allowlist-sanitize an HTML fragment from extraction output.
+
+        Drops disallowed tags (keeping their text content) and strips all
+        attributes except the structural ones tables need. Unparseable input is
+        escaped wholesale rather than passed through."""
+        from lxml import html as lxml_html
+
+        try:
+            root = lxml_html.fragment_fromstring(fragment, create_parent="div")
+        except Exception:
+            return cls._esc(fragment)
+        for el in list(root.iter()):
+            if el is root:
+                continue
+            if not isinstance(el.tag, str) or el.tag.lower() not in cls.SANITIZE_ALLOWED_TAGS:
+                el.drop_tag()  # keep text, remove the element itself
+                continue
+            for attr in list(el.attrib):
+                if attr.lower() not in cls.SANITIZE_ALLOWED_ATTRS:
+                    del el.attrib[attr]
+        parts = [cls._esc(root.text or "")]
+        for child in root:
+            parts.append(lxml_html.tostring(child, encoding="unicode"))
+        return "".join(parts)
+
+    @classmethod
+    def _fix_table_html(cls, tbl: str) -> str:
+        """Unescape entity-encoded table tags from olmOCR, then sanitize.
+
+        olmOCR sometimes emits table markup as HTML entities (&lt;td&gt; for
+        <td>). Unescaping is required to recover the structure, but it also
+        un-escapes anything else in the cell text — so the result MUST pass
+        through the allowlist sanitizer before entering the output document.
         """
-        # Unescape HTML entities that represent table tags
-        tbl = tbl.replace("&lt;th ", "<th ")
-        tbl = tbl.replace("&lt;/th&gt;", "</th>")
-        tbl = tbl.replace("&lt;td ", "<td ")
-        tbl = tbl.replace("&lt;/td&gt;", "</td>")
-        tbl = tbl.replace("&lt;/tr&gt;", "</tr>")
-        tbl = tbl.replace("&lt;tr&gt;", "<tr>")
         tbl = tbl.replace("&gt;", ">")
         tbl = tbl.replace("&lt;", "<")
-        return tbl
+        tbl = tbl.replace("&amp;", "&")
+        return cls._sanitize_fragment(tbl)
 
     def _heading(self, line: str):
         m = re.match(r"^(#+)\s+(.+)$", line)
@@ -354,19 +437,17 @@ class HtmlBuilder:
                 i += 1
                 continue
 
-            # Convert markdown images to HTML img tags
-            content = self._convert_markdown_images(raw)
-
-            # If markdown images were converted, keep the HTML; otherwise escape
-            if "![" in raw and "<img" in content:
-                # Images converted successfully, keep the generated HTML
-                pass
-            elif "&lt;" in raw and ("&lt;th" in raw or "&lt;td" in raw or "&lt;tr" in raw):
-                # OLMo output HTML entities for table tags; unescape them
-                content = raw.replace("&lt;", "<").replace("&gt;", ">").replace("&amp;", "&")
+            if "&lt;" in raw and ("&lt;th" in raw or "&lt;td" in raw or "&lt;tr" in raw):
+                # olmOCR emitted entity-encoded table tags mid-paragraph:
+                # recover the markup, then allowlist-sanitize it — the blanket
+                # unescape would otherwise turn document text into live HTML.
+                content = self._sanitize_fragment(
+                    raw.replace("&lt;", "<").replace("&gt;", ">").replace("&amp;", "&")
+                )
             else:
-                # Regular text - escape special characters for HTML
-                content = self._esc(raw)
+                # Escapes plain text and converts ![alt](src) images safely
+                # (segments outside image syntax are HTML-escaped too).
+                content = self._convert_markdown_images(raw)
 
             # Add language attribute if this is foreign language text
             lang_attr = self._get_language_attr(raw)
