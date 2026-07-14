@@ -358,6 +358,24 @@ async def get_live_reviews(
     return reviews, health
 
 
+def _run_coro_blocking(coro):
+    """Run a coroutine to completion from synchronous code.
+
+    Plain asyncio.run() fails with "cannot be called from a running event loop"
+    when the calling thread already hosts one — which is exactly the situation
+    inside the remediation loop, because Playwright's sync API (AxeScorer)
+    keeps an event loop running on the thread for the whole job. In that case
+    the coroutine runs in a fresh worker thread with its own loop."""
+    try:
+        asyncio.get_running_loop()
+    except RuntimeError:
+        return asyncio.run(coro)  # no loop here — the simple path
+    from concurrent.futures import ThreadPoolExecutor
+
+    with ThreadPoolExecutor(max_workers=1) as ex:
+        return ex.submit(asyncio.run, coro).result()
+
+
 def make_live_provider(profile: str | None = None, openai_api_key: str | None = None):
     """Build a reviews_provider(round, html) bound to explicit credentials.
 
@@ -368,7 +386,7 @@ def make_live_provider(profile: str | None = None, openai_api_key: str | None = 
     resolved_profile = profile or os.environ.get("REVIEWER_PROFILE", "default")
 
     def provider(round_num: int, html: str) -> tuple[dict[str, list[dict]], dict[str, dict]]:
-        return asyncio.run(
+        return _run_coro_blocking(
             get_live_reviews(
                 html, round_num, profile=resolved_profile, openai_api_key=openai_api_key
             )
@@ -384,4 +402,4 @@ def live_provider(round_num: int, html: str) -> tuple[dict[str, list[dict]], dic
     Reads REVIEWER_PROFILE env var for profile selection ("default" or "olmo-only").
     """
     profile = os.environ.get("REVIEWER_PROFILE", "default")
-    return asyncio.run(get_live_reviews(html, round_num, profile=profile))
+    return _run_coro_blocking(get_live_reviews(html, round_num, profile=profile))

@@ -164,6 +164,27 @@ class TestDataUriHandling:
         assert judge._data_uri_image(big) is None
 
 
+class TestRunCoroBlocking:
+    def test_works_without_event_loop(self):
+        async def probe():
+            return 42
+
+        assert reviewers._run_coro_blocking(probe()) == 42
+
+    def test_works_inside_playwright_sync_context(self):
+        """Regression: Playwright's sync API (AxeScorer) keeps an event loop
+        running on the thread for the whole job, which made plain asyncio.run()
+        in the reviewers provider fail with 'cannot be called from a running
+        event loop' — every live job then stopped with reviewers_failed."""
+        from loop import AxeScorer
+
+        async def probe():
+            return "ok"
+
+        with AxeScorer():
+            assert reviewers._run_coro_blocking(probe()) == "ok"
+
+
 # ── Rate limiter ────────────────────────────────────────────────────────────
 
 
