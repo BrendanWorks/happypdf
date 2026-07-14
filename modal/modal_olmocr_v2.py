@@ -72,6 +72,16 @@ image = (
         # Pin FastAPI to < 0.137 to avoid the incompatibility
         "pip install 'fastapi<0.137'",
     )
+    # Bake the model weights into the image at BUILD time. Downloading ~16 GB
+    # from HuggingFace on every cold start made vLLM miss its server-ready
+    # timeout whenever HF was slow (observed live 2026-07-13: repeated cold
+    # downloads degraded until every extraction failed with "vllm server did
+    # not become ready"). With weights in the image, containers never touch
+    # HF at runtime and cold start is just the vLLM model load.
+    .run_commands(
+        'python -c "from huggingface_hub import snapshot_download; '
+        f"snapshot_download('{MODEL_ID}')\""
+    )
 )
 
 app = modal.App("olmocr-v2", image=image)
@@ -91,7 +101,7 @@ app = modal.App("olmocr-v2", image=image)
     # live 2026-07-13: back-to-back conversions froze the second job at
     # "extracting" with zero output). Fresh container per call = clean boot.
     # Traffic is sparse enough that calls were effectively always cold anyway.
-    max_inputs=1,
+    single_use_containers=True,
 )
 def process_pdf(pdf_bytes: bytes, filename: str = "document.pdf") -> dict:
     """
@@ -138,7 +148,7 @@ def process_pdf(pdf_bytes: bytes, filename: str = "document.pdf") -> dict:
             "--pdfs",
             str(input_pdf),
             "--max_server_ready_timeout",
-            "300",  # 5 minutes for vLLM server to become ready
+            "600",  # headroom for vLLM model load; weights are local (baked into image)
         ]
         logger.info("[olmocr-v2] EXACT COMMAND LINE:")
         for i, arg in enumerate(cmd):
@@ -150,26 +160,32 @@ def process_pdf(pdf_bytes: bytes, filename: str = "document.pdf") -> dict:
             "CUDA_VISIBLE_DEVICES": "0",
         }
 
-        result = subprocess.run(
+        # Stream the CLI's output live instead of capturing it. With captured
+        # output a hung run is completely silent — observed live 2026-07-13: a
+        # stuck extraction produced zero logs for 30+ minutes and could only be
+        # diagnosed by killing the container. Streaming makes progress (model
+        # download, vLLM startup, per-page work) visible in `modal app logs`.
+        proc = subprocess.Popen(
             cmd,
-            capture_output=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
             text=True,
-            timeout=3600,
             env=env,
         )
+        output_lines: list[str] = []
+        assert proc.stdout is not None
+        for line in proc.stdout:
+            print(f"[olmocr-v2] {line.rstrip()}", flush=True)
+            output_lines.append(line)
+        returncode = proc.wait(timeout=60)  # streams ended; exit is imminent
+        output = "".join(output_lines)
 
-        logger.info(f"[olmocr-v2] Exit code: {result.returncode}")
+        logger.info(f"[olmocr-v2] Exit code: {returncode}")
 
-        # Log FULL output for debugging (not truncated)
-        if result.stdout:
-            logger.info(f"[olmocr-v2 stdout - FULL OUTPUT]\n{result.stdout}")
-        if result.stderr:
-            logger.warning(f"[olmocr-v2 stderr - FULL OUTPUT]\n{result.stderr}")
-
-        if result.returncode != 0:
-            error_msg = f"olmocr failed (exit {result.returncode})"
-            if result.stderr:
-                error_msg += f"\n{result.stderr[:1000]}"
+        if returncode != 0:
+            error_msg = f"olmocr failed (exit {returncode})"
+            if output:
+                error_msg += f"\n{output[-1000:]}"
             raise RuntimeError(error_msg)
 
         # Find markdown output file (olmocr may nest files in subdirectories)
