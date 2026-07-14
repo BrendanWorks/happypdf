@@ -1,0 +1,61 @@
+# Scheduled production monitor. GitHub emails the repo owner automatically when
+# a scheduled workflow run fails, so every check below doubles as an alert.
+#
+# Cost discipline: probes touch ONLY the CPU-backed API container and the
+# static site. Never probe the GPU endpoints (olmo-wcag-reviewer, olmocr-v2,
+# pdfaccess-alttext) on a schedule — each cold probe boots a GPU container.
+# The API's /api/health performs the deep dependency checks itself using cheap
+# metadata/list calls (cached server-side, see api/main.py).
+name: Monitor
+
+on:
+  schedule:
+    - cron: "*/30 * * * *"
+  workflow_dispatch:
+
+env:
+  API: https://brendanworks--happypdf-api-fastapi-app.modal.run
+  SITE: https://happypdf.org
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: API deep health (liveness + provider keys + Modal functions)
+        run: |
+          set -euo pipefail
+          # Generous timeout + retries: a cold container boot plus the first
+          # deep-check refresh can take ~30s; transient blips shouldn't page.
+          R=$(curl -sS -m 180 --retry 2 --retry-delay 20 --retry-all-errors "$API/api/health")
+          echo "$R" | jq .
+          test "$(echo "$R" | jq -r .status)" = "ok"
+          for c in anthropic_key openai_key google_key olmocr_function alttext_function; do
+            v=$(echo "$R" | jq -r ".checks.$c")
+            if [ "$v" != "ok" ]; then
+              echo "::error::health check '$c' = '$v'"
+              exit 1
+            fi
+          done
+
+      - name: Site serves the frontend
+        run: |
+          set -euo pipefail
+          code=$(curl -s -o /dev/null -w '%{http_code}' -m 60 --retry 2 --retry-delay 10 "$SITE")
+          test "$code" = "200"
+          curl -s -m 60 "$SITE" | grep -q 'happypdf' || { echo "::error::unexpected page content"; exit 1; }
+
+      - name: Demo manifest endpoint returns valid JSON
+        run: |
+          set -euo pipefail
+          curl -sS -m 120 --retry 2 --retry-delay 15 --retry-all-errors \
+            "$API/api/jobs/syllabus/manifest" | jq -e '.["$schema"]' >/dev/null
+
+      - name: Upload guardrail still rejects non-PDF content
+        run: |
+          set -euo pipefail
+          # Content sniffing runs before the rate check, so this consumes no
+          # conversion quota and spends no GPU time.
+          code=$(printf 'not a pdf' | curl -s -o /dev/null -w '%{http_code}' -m 120 \
+            -X POST "$API/api/jobs/live" -F 'file=@-;filename=probe.pdf;type=application/pdf')
+          test "$code" = "400"

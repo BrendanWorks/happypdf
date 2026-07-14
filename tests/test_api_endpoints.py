@@ -85,6 +85,45 @@ class TestPathParameterHygiene:
         assert r.headers["content-disposition"] == 'attachment; filename="syllabus_manifest.json"'
 
 
+class TestDeepHealth:
+    def test_disabled_locally_no_network(self, client, monkeypatch):
+        """Outside Modal (and without the opt-in flag) health must not make
+        provider/network calls — pytest and local dev stay offline."""
+        monkeypatch.delenv("HAPPYPDF_ON_MODAL", raising=False)
+        monkeypatch.delenv("HAPPYPDF_DEEP_HEALTH", raising=False)
+        monkeypatch.setattr(
+            api_main, "_run_deep_checks", lambda: (_ for _ in ()).throw(AssertionError)
+        )
+        r = client.get("/api/health")
+        assert r.status_code == 200
+        body = r.json()
+        assert body["status"] == "ok"
+        assert body["checks"] == {"deep_checks": "disabled"}
+
+    def test_degraded_when_a_check_fails(self, client, monkeypatch):
+        monkeypatch.setenv("HAPPYPDF_DEEP_HEALTH", "1")
+        monkeypatch.setattr(
+            api_main,
+            "_run_deep_checks",
+            lambda: {"anthropic_key": "ok", "openai_key": "invalid"},
+        )
+        monkeypatch.setitem(api_main._health_cache, "checked_at", 0.0)
+        r = client.get("/api/health")
+        assert r.json()["status"] == "degraded"
+        assert r.json()["checks"]["openai_key"] == "invalid"
+
+    def test_checks_are_cached(self, client, monkeypatch):
+        monkeypatch.setenv("HAPPYPDF_DEEP_HEALTH", "1")
+        calls = []
+        monkeypatch.setattr(
+            api_main, "_run_deep_checks", lambda: calls.append(1) or {"anthropic_key": "ok"}
+        )
+        monkeypatch.setitem(api_main._health_cache, "checked_at", 0.0)
+        client.get("/api/health")
+        client.get("/api/health")
+        assert len(calls) == 1  # second request served from cache
+
+
 class TestServedHtmlHeaders:
     def test_final_html_served_with_csp_sandbox(self, client):
         jid = api_main._new_job("live", "t.pdf")

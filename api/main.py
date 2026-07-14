@@ -338,11 +338,119 @@ def _live(
 
 
 # ---------------------------------------------------------------------------
+# Deep health checks — provider-key validity + Modal function resolvability.
+#
+# Motivation: the hosted secret carried a dead OpenAI key and no Anthropic /
+# Google keys for weeks, and nothing noticed until a live review of the logs
+# (jobs silently degraded to OLMo-only with no LLM judge). These checks make
+# that state visible in /api/health, where the scheduled monitor workflow
+# (.github/workflows/monitor.yml) alerts on it.
+#
+# Cost/safety: only cheap calls — provider models.list() and Modal metadata
+# lookups; never boots a GPU. Results are cached for HEALTH_TTL_S; a cold
+# container's first /api/health pays ~5s once. Disabled outside Modal unless
+# HAPPYPDF_DEEP_HEALTH=1, so local dev and pytest never make network calls.
+# ---------------------------------------------------------------------------
+HEALTH_TTL_S = int(os.environ.get("HAPPYPDF_HEALTH_TTL_S", str(24 * 3600)))
+_health_cache: dict = {"checked_at": 0.0, "checks": {}}
+_health_lock = threading.Lock()
+
+
+def _deep_health_enabled() -> bool:
+    return (
+        os.environ.get("HAPPYPDF_ON_MODAL") == "1" or os.environ.get("HAPPYPDF_DEEP_HEALTH") == "1"
+    )
+
+
+def _run_deep_checks() -> dict[str, str]:
+    """Each check is 'ok', 'missing', 'invalid', or 'unavailable'."""
+    checks: dict[str, str] = {}
+
+    key = os.environ.get("ANTHROPIC_API_KEY")
+    if not key:
+        checks["anthropic_key"] = "missing"
+    else:
+        ok, _ = validate_anthropic_key(key)
+        checks["anthropic_key"] = "ok" if ok else "invalid"
+
+    key = os.environ.get("OPENAI_API_KEY")
+    if not key:
+        checks["openai_key"] = "missing"
+    else:
+        ok, _ = validate_openai_key(key)
+        checks["openai_key"] = "ok" if ok else "invalid"
+
+    key = os.environ.get("GOOGLE_API_KEY")
+    if not key:
+        checks["google_key"] = "missing"
+    else:
+        try:
+            from google import genai
+
+            # Keep the client referenced while consuming the lazy pager — an
+            # inline temporary gets GC'd first and raises "client has been
+            # closed" before the first page is fetched.
+            client = genai.Client(api_key=key)
+            next(iter(client.models.list()), None)
+            checks["google_key"] = "ok"
+        except Exception as e:
+            print(f"[VALIDATION] Google key check failed: {type(e).__name__}", flush=True)
+            checks["google_key"] = "invalid"
+
+    # GPU pipeline functions must be resolvable by name (metadata only — this
+    # hydrates the handle, it does not invoke anything or boot a container).
+    try:
+        import build_syllabus_slice as bss
+        import modal
+
+        for label, (app_name, fn_name) in {
+            "olmocr_function": (bss.OLMOCR_APP, bss.OLMOCR_FN),
+            "alttext_function": (bss.ALTTEXT_APP, bss.ALTTEXT_FN),
+        }.items():
+            try:
+                modal.Function.from_name(app_name, fn_name).hydrate()
+                checks[label] = "ok"
+            except Exception as e:
+                print(
+                    f"[VALIDATION] {label} ({app_name}/{fn_name}) unresolvable: "
+                    f"{type(e).__name__}",
+                    flush=True,
+                )
+                checks[label] = "unavailable"
+    except Exception:
+        checks["olmocr_function"] = checks["alttext_function"] = "unavailable"
+
+    return checks
+
+
+def _health_checks() -> tuple[dict[str, str], float]:
+    """Return (checks, checked_at), refreshing the cache when stale.
+
+    The refresh is synchronous — only the monitor calls this endpoint, and a
+    once-per-TTL ~5s probe is preferable to serving 'pending' after cold start.
+    """
+    if not _deep_health_enabled():
+        return {"deep_checks": "disabled"}, 0.0
+    with _health_lock:
+        if time.time() - _health_cache["checked_at"] > HEALTH_TTL_S:
+            _health_cache["checks"] = _run_deep_checks()
+            _health_cache["checked_at"] = time.time()
+        return dict(_health_cache["checks"]), _health_cache["checked_at"]
+
+
+# ---------------------------------------------------------------------------
 # Endpoints
 # ---------------------------------------------------------------------------
 @app.get("/api/health")
 def health():
-    return {"status": "ok", "jobs": len(JOBS)}
+    checks, checked_at = _health_checks()
+    degraded = any(v not in ("ok", "disabled") for v in checks.values())
+    return {
+        "status": "degraded" if degraded else "ok",
+        "jobs": len(JOBS),
+        "checks": checks,
+        "checks_age_s": round(time.time() - checked_at) if checked_at else None,
+    }
 
 
 @app.get("/api/demos")
