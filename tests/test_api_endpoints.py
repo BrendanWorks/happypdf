@@ -44,8 +44,12 @@ class TestUploadGuardrails:
 
     def test_rate_limit_returns_429(self, client, monkeypatch):
         monkeypatch.setattr(api_main, "DAILY_LIMIT", 0)
+        import fitz
+
+        doc = fitz.open()
+        doc.new_page()
         r = client.post(
-            "/api/jobs/live", files={"file": ("x.pdf", b"%PDF-1.7 tiny", "application/pdf")}
+            "/api/jobs/live", files={"file": ("x.pdf", doc.tobytes(), "application/pdf")}
         )
         assert r.status_code == 429
 

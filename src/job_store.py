@@ -76,6 +76,19 @@ class JobStore:
         except Exception:
             return 0
 
+    def put_blob(self, jid: str, name: str, text: str) -> None:
+        """Store a large text blob (e.g. generated HTML) under its own key.
+
+        Job records are fetched whole on every poll (~1.5s interval per
+        client), so multi-MB HTML must not live inside them. Blob records
+        carry their own `updated` timestamp so prune() ages them out with the
+        same TTL as jobs."""
+        self._backend[f"{jid}:{name}"] = {"updated": time.time(), "text": text}
+
+    def get_blob(self, jid: str, name: str) -> str | None:
+        rec = self._backend.get(f"{jid}:{name}")
+        return rec.get("text") if isinstance(rec, dict) else None
+
     def prune(self, ttl_s: float = JOB_TTL_S) -> int:
         """Delete records last updated more than ttl_s ago. Returns count removed."""
         cutoff = time.time() - ttl_s
