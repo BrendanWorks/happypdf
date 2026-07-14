@@ -85,6 +85,13 @@ app = modal.App("olmocr-v2", image=image)
     gpu="H100",
     timeout=3600,
     memory=40960,
+    # One extraction per container. Each call boots its own vLLM server via the
+    # olmocr CLI; a SECOND call on a reused warm container can hang forever on
+    # leftover GPU state from the previous vLLM's unclean shutdown (observed
+    # live 2026-07-13: back-to-back conversions froze the second job at
+    # "extracting" with zero output). Fresh container per call = clean boot.
+    # Traffic is sparse enough that calls were effectively always cold anyway.
+    max_inputs=1,
 )
 def process_pdf(pdf_bytes: bytes, filename: str = "document.pdf") -> dict:
     """

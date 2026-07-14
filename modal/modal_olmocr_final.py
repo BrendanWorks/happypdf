@@ -64,6 +64,10 @@ app = modal.App("olmocr", image=image)
     gpu="H100",
     timeout=3600,
     memory=40960,
+    # One extraction per container — a second call on a reused warm container
+    # can hang on leftover GPU state from the previous vLLM's unclean shutdown.
+    # See modal_olmocr_v2.py (same fix, where it was observed live 2026-07-13).
+    max_inputs=1,
 )
 def process_pdf(pdf_bytes: bytes, filename: str = "document.pdf") -> dict:
     """
