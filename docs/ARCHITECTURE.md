@@ -32,10 +32,10 @@ All deployment modes use the same codebase. **Credential selection and reviewer 
 
 - **Extraction** is always olmOCR. It runs on your Modal account in every mode.
 - **Alt text** is Qwen2-VL today; it can be swapped for any vision model behind the same `generate_alt_text(image_b64, context) -> {alt_text, ...}` contract.
-- **Peer review / judge** (rounds 2-3) uses `reviewers.live_provider`, which branches based on environment variables:
-  - `REVIEWER_PROFILE=default` (or unset): OLMo + Gemini + GPT in parallel (default).
+- **Peer review / judge** (review rounds) uses `reviewers.make_live_provider(profile, ...)`:
+  - `REVIEWER_PROFILE=default` (or unset): OLMo + Gemini + GPT-4o mini in parallel (default).
   - `REVIEWER_PROFILE=olmo-only`: OLMo only (single-model review).
-  - Credentials come from the environment (`.env`, Modal secrets, or user-supplied BYOK override for that job).
+  - Hosted credentials come from the environment (`.env`, Modal secrets). **BYOK keys are passed explicitly down the call chain per job** — never written to the process environment — so concurrent jobs with different credentials cannot observe each other's keys (changed in v1.2.1).
 
 **Why this matters:** Adding OLMo-only mode required only 50 lines of code (a profile selector + filter logic) because the loop, judge, applicator, and gate don't know or care how many reviewers there are. The same code paths work whether it's three models or one. This is the payoff of "review-source agnostic" design — new modes are cheap to add.
 
@@ -45,13 +45,13 @@ The GPU work runs as deployed Modal functions, called from the local orchestrato
 
 | App | Function | GPU | Role |
 |-----|----------|-----|------|
-| `olmocr` | `process_pdf(pdf_bytes, filename)` | H100 | Runs the official olmOCR CLI (vLLM + Qwen2.5-VL), returns markdown |
+| `olmocr-v2` | `process_pdf(pdf_bytes, filename)` | H100 | Runs the official olmOCR-2 CLI (vLLM + Qwen2.5-VL backbone), returns markdown; weights baked into the image, one extraction per container (`olmocr` remains as the v1 fallback app) |
 | `pdfaccess-alttext` | `generate_alt_text(image_b64, context)` | H100 | Qwen2-VL alt text generation |
-| `olmo-wcag-reviewer` | OLMo peer review | A100/H100 | WCAG peer review (rounds 2-3, reference impl in `modal/`) |
+| `olmo-wcag-reviewer` | OLMo peer review (bearer-token auth) | A10G | WCAG peer review across rounds; pre-warmed at job start via `/warmup` |
 
 Reference implementations live in `modal/`. They are already deployed; the directory is kept for transparency and redeployment, not imported by the orchestrator.
 
-Cold-start cost is dominated by olmOCR (~3-4 minutes to bring up the vLLM server on a cold H100). Qwen2-VL alt text is ~1-1.5 minutes cold. This is exactly why the orchestrator caches their outputs.
+Cold-start cost is dominated by olmOCR (~2.5-4 minutes to boot vLLM from image-local weights on a cold H100). Qwen2-VL alt text is ~1-1.5 minutes cold, but runs concurrently with extraction so its cold start is hidden. The CLI orchestrator additionally caches both outputs to disk so HTML/scoring iteration is free.
 
 ## axe-core Integration
 
@@ -75,7 +75,7 @@ The reported score is simply `passes / (passes + violations)`. It is a useful si
 
 A simpler approach would be to generate new UUIDs for each element on each run. But then the patch manifest wouldn't be reproducible — "replace element X" would mean different things across runs, making the audit trail unverifiable.
 
-We chose deterministic hashing over UUIDs specifically to make the remediation process auditable. When you can say "here's the exact element we changed, here's the hash of its content," the audit trail becomes a *legal artifact*, not just a log.
+We chose deterministic hashing over UUIDs specifically to make the remediation process auditable. When you can say "here's the exact element we changed, here's the hash of its content," the audit trail becomes precise and independently reproducible, not just a log.
 
 The trade-off: collision handling. Two elements with identical normalized text hash to the same ID (e.g., repeated separator lines). We detect and document collisions rather than silently emitting duplicates. Upstream filtering would eliminate the collisions but add complexity; we chose to be transparent about it instead.
 

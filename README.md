@@ -188,7 +188,7 @@ All documents converge quickly with zero content loss. Manifest and report downl
 | Furnace (Amana) | Technical | 11.9M | 16 | 96.3% (26 pass) | 96.8% (30 pass) | 2 | Appliance manual; loop stopped after round 2 when round 3 would have regressed the axe score |
 | Hands-Only CPR Sheet | Medical | 219K | 1 | 100% (22 pass) | 100% (22 pass) | 1 | Emergency procedure; OLMo reviewer failed outright, loop continued with Gemini + GPT |
 
-**Comprehensive Test Suite (13 PDFs Total)** — Full details and raw files in [`benchmark/`](benchmark/). All 13 rows above are backed by real generated output committed to the repo — no estimated or placeholder numbers.
+**Comprehensive Test Suite (13 PDFs Total)** — Full details and raw files in [`benchmark/`](benchmark/). All 13 rows above are backed by real generated output committed to the repo — no estimated or placeholder numbers. Document provenance and licensing notes are in [`benchmark/README.md`](benchmark/README.md) — the hosted demo offers original-PDF downloads only for the two public-domain documents.
 
 **Key Metrics:**
 - **Total PDFs tested:** 13

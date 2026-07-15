@@ -1,131 +1,48 @@
-# The Preservation Gate: Mathematical Proof of Content Integrity
+# The Preservation Gate: What It Checks and What It Guarantees
 
-## The Problem We're Solving
+## The Problem It Solves
 
-Accessibility remediation is inherently risky: you're transforming a document using automated tools. What if the transformation silently *loses* content? A word, an image, a row from a table — gone, and nobody notices until the document is in production.
+Accessibility remediation transforms a document with automated tools. The risk is silent content loss: a patch that drops a paragraph, an enhancement that swallows a table row. Scores and violation counts don't catch that — a document can score *better* after losing content.
 
-Traditional accessibility tools have no answer to this question. They report scores and violations, but they don't prove that every element from the source still exists in the output.
+happypdf's **preservation gate** guards against this: every review round's output is compared against the original converted document, and a round that damages content is discarded rather than shipped.
 
-happypdf solves this with the **preservation gate**: a mathematical check that proves zero content loss.
+## The Actual Contract
 
-## The Contract
+The gate runs after each remediation round and compares the patched HTML against the **original baseline HTML** (always the original — never the previous round — so per-round tolerances cannot compound). Implemented in [`src/gate.py`](../src/gate.py):
 
-Every remediation job must satisfy this invariant:
+| Check | Rule | Why this rule |
+|---|---|---|
+| `text_coverage` | Patched visible-text word count ≥ **95%** of the original | HTML normalization legitimately drops a little whitespace/artifact text; losing a real paragraph, list, or table blows well past 5% |
+| `image_count` | Must never decrease | Every `<img>` from the conversion must survive |
+| `table_structure` | Table count must never decrease | Same, for `<table>` elements |
+| `heading_order` | No **new** heading-level skips (e.g. h1→h3) introduced by patches | A skip breaks the screen-reader outline; pre-existing skips in the source aren't blamed on the round |
 
-```
-preserve_input_words == preserve_output_words
-preserve_input_images == preserve_output_images
-preserve_input_tables == preserve_output_tables
-preserve_content_hashes == true  // no text truncation or character loss
-```
+A round that fails **any** check is discarded — its patches are thrown away, the loop stops, and the output is the last version that passed. Every check's before→after numbers are recorded in the round's `gate_checks` (visible in the job manifest and API responses), e.g.:
 
-If any assertion fails, the job **fails**. No output is produced. The user sees exactly what went wrong.
-
-## How It Works
-
-### 1. Input Measurement
-
-When the PDF is parsed into markdown (via olmOCR), we extract and measure:
-
-```python
-input_artifacts = {
-    "words": count_words(markdown),
-    "images": count_images(markdown),
-    "tables": count_tables(markdown),
-    "text_hash": sha256(normalized_text),  # every word, normalized
-}
+```json
+{"name": "text_coverage", "passed": true,
+ "detail": "314 -> 314 words (100.0%); threshold 95%"}
 ```
 
-### 2. HTML Generation
+## What This Guarantees
 
-The HTML generator processes the markdown, creates semantic structure, and generates IDs. Before producing output:
+- **No round can trade content for score.** A patch set that loses text, images, or tables is rejected even if it would improve the axe result.
+- **Tolerances don't compound.** Because every round is measured against the original, three rounds can't each shave 5%.
+- **The evidence is in every job.** The per-round `gate_checks` ship in the manifest — real numbers from the run, not a claim.
 
-```python
-output_artifacts = {
-    "words": count_words(html),
-    "images": count_images(html),  
-    "tables": count_tables(html),
-    "text_hash": sha256(normalized_text),
-}
-```
+## What This Does *Not* Guarantee
 
-### 3. The Gate
+- ❌ **Extraction fidelity.** The gate compares HTML before and after *remediation*. It does not verify the PDF→markdown OCR step — if olmOCR misreads or misses text on the page, the gate never sees it. OCR quality is a property of the input and the extraction model.
+- ❌ **Exact word-for-word identity.** The text check is a ≥95% coverage threshold against the original, not a hash or character-level comparison.
+- ❌ Text *correctness*, alt-text *quality*, or WCAG *conformance* — those are the jobs of the reviewers, the judge, axe-core, and ultimately human review (axe-core covers roughly 30–40% of WCAG).
 
-The preservation check is deterministic and local:
+The gate is a **safety net against remediation-induced loss**, not a mathematical proof of end-to-end integrity. Treat it as "automation can't quietly make the document worse," not as a compliance certificate.
 
-```python
-assert output_artifacts["words"] == input_artifacts["words"], \
-    f"Lost {input_artifacts['words'] - output_artifacts['words']} words"
-assert output_artifacts["images"] == input_artifacts["images"], \
-    f"Lost {input_artifacts['images'] - output_artifacts['images']} images"
-assert output_artifacts["tables"] == input_artifacts["tables"], \
-    f"Lost {input_artifacts['tables'] - output_artifacts['tables']} tables"
-assert output_artifacts["text_hash"] == input_artifacts["text_hash"], \
-    "Content hash mismatch — text was truncated or altered"
-```
+## How It Fits the Loop
 
-If all assertions pass, the HTML is safe to remediate.
+1. Each round's reviewer findings become a deterministic patch manifest, applied to elements by stable `data-ir-id`.
+2. The patched HTML is gated against the original baseline (checks above).
+3. axe-core rescores; a round that *increases* violations is also rejected (regression guard).
+4. Only rounds that pass both gates count as progress.
 
-## What This Proves
-
-✅ **Every word from the input is in the output** (word-count check)  
-✅ **Every image from the input is in the output** (image-count check)  
-✅ **Every table from the input is in the output** (table-count check)  
-✅ **No text was silently truncated** (content hash check)  
-
-## What This Does *Not* Prove
-
-❌ The text is *correct* (OCR can misread text)  
-❌ Images have *meaningful* alt text (alt text is generated, not curated)  
-❌ The remediation actually *improves* accessibility (that's what axe-core scores)  
-❌ The document meets *all* WCAG success criteria (axe-core covers ~30-40%)  
-
-The preservation gate is a **safety net**, not a completeness guarantee. It prevents silent data loss. The axe-core score, multi-model review, and human judgment provide completeness.
-
-## Why This Matters
-
-### For Compliance Teams
-
-Many organizations are mandated to remediate document archives without losing content. The preservation gate lets you automate with confidence — you have a mathematical proof that nothing was lost.
-
-### For Legal Risk
-
-If a lawsuit later claims "you lost my document's critical information," happypdf can show the preservation report: word counts match exactly, content hash matches, no data loss occurred. The proof is in the manifest, not a subjective claim.
-
-### For Accessibility Ethics
-
-Accessibility isn't just about passing rules. It's about not making things *worse*. The preservation gate ensures that remediation is always additive — you can only improve, never degrade.
-
-## Benchmark Evidence
-
-From the v1.1 test suite (13 PDFs):
-
-| Document | Input Words | Output Words | Input Tables | Output Tables | Status |
-|----------|-------------|--------------|--------------|---------------|--------|
-| AccessComputing Syllabus | 2,847 | 2,847 | 3 | 3 | ✅ PASS |
-| IRS Schedule C | 1,204 | 1,204 | 5 | 5 | ✅ PASS |
-| Navy Bulletin 1943 | 3,156 | 3,156 | 0 | 0 | ✅ PASS |
-| Somatosensory | 4,821 | 4,821 | 2 | 2 | ✅ PASS |
-| Cosmic Story Mat | 1,847 | 1,847 | 0 | 0 | ✅ PASS |
-| Furnace (Amana) | 12,459 | 12,459 | 18 | 18 | ✅ PASS |
-| ... | ... | ... | ... | ... | ✅ PASS |
-
-**Total across suite:** 52,418 words preserved, 94 tables preserved, 0 failures.
-
-## The Remediation Loop Respects the Gate
-
-Even during the multi-round review loop (rounds 2-3), when models suggest patches and enhancements:
-
-1. Each patch targets a specific element by stable `data-ir-id`.
-2. The applicator applies patches deterministically.
-3. **Before output, the preservation gate runs again.**
-4. If a patch somehow lost content (hallucinated text removal, etc.), the gate catches it and rejects the round.
-5. The loop reverts and tries the next round.
-
-This means the gate is enforced at **every stage**, not just the baseline.
-
-## Conclusion
-
-The preservation gate is not a perfect guarantee of accessibility — that requires human expertise and comprehensive WCAG audits. But it *is* a guarantee that automation didn't make things worse. For organizations remediation document archives at scale, that guarantee is foundational.
-
-See the manifest output in any happypdf job for the real numbers.
+See any live job's manifest (`GET /api/jobs/{id}/manifest`) for the real per-round gate numbers.

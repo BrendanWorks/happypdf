@@ -822,9 +822,9 @@ function DemoPanel() {
                     </a>
                   </div>
                 </div>
-                {job.kind === 'replay' && (
-                  <a href={`https://github.com/BrendanWorks/happypdf/raw/main/benchmark/${job.id === 'syllabus' ? 'syllabus_NOTaccessible' : job.id === 'navy_bulletin' ? 'navy_bulletin' : 'irs_schedule_c'}.pdf`} target="_blank" rel="noopener noreferrer" className="block text-center text-xs text-slate-400 hover:text-slate-300 transition-colors">
-                    ↓ Download original PDF
+                {job.kind === 'replay' && (job.id === 'navy_bulletin' || job.id === 'irs_schedule_c') && (
+                  <a href={`https://github.com/BrendanWorks/happypdf/raw/main/benchmark/${job.id === 'navy_bulletin' ? 'navy_bulletin' : 'irs_schedule_c'}.pdf`} target="_blank" rel="noopener noreferrer" className="block text-center text-xs text-slate-400 hover:text-slate-300 transition-colors">
+                    ↓ Download original PDF (public domain)
                   </a>
                 )}
               </div>
@@ -1261,8 +1261,8 @@ export default function App() {
                 a="BYOK is Bring Your Own Keys — you connect your existing Claude or ChatGPT enterprise API credentials. If your organization already pays for Claude or GPT-4o API access through enterprise agreements, HappyPDF uses those credentials at no additional cost. This sidesteps the procurement process that blocks most AI tools from reaching enterprise teams."
               />
               <FaqItem
-                q="How is this different from DocAccess or SentraCheck?"
-                a="Commercial tools are closed-box, paid per conversion, and don't expose their logic. HappyPDF is fully open source — the pipeline, scoring formula, and patch logic are all public. The enhancements summary shows every ARIA attribute added and why."
+                q="How is this different from commercial remediation tools?"
+                a="Most commercial remediation tools are closed-box: you pay per conversion and can't inspect how changes were decided. HappyPDF is fully open source — the pipeline, scoring formula, and patch logic are all public, and the enhancements summary shows every ARIA attribute added and why."
               />
               <FaqItem
                 q="Why three rounds maximum?"
@@ -1331,10 +1331,10 @@ export default function App() {
             <a href="https://pointcheck.org/" rel="noopener noreferrer" className="hover:text-slate-300 transition-colors flex items-center gap-1">
               PointCheck <ExternalLink size={11} />
             </a>
-            <a href="#" className="hover:text-slate-300 transition-colors">
+            <a href="https://github.com/BrendanWorks/happypdf" rel="noopener noreferrer" className="hover:text-slate-300 transition-colors">
               GitHub
             </a>
-            <a href="#" className="hover:text-slate-300 transition-colors">
+            <a href="https://arxiv.org/abs/2105.00076v1" rel="noopener noreferrer" className="hover:text-slate-300 transition-colors">
               Research
             </a>
           </div>
