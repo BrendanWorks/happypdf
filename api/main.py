@@ -145,11 +145,14 @@ def _new_job(kind: str, name: str) -> str:
                 "rounds": [],
                 "final": None,
                 "enhancements": [],
-                "final_html": None,
                 "error": None,
                 "source": None,
                 "started": now,
                 "updated": now,
+                "stage_started": now,
+                "page_count": None,
+                "has_baseline_html": False,
+                "has_final_html": False,
                 "reviewer_health": {},
             },
         )
@@ -161,6 +164,9 @@ def _set(jid: str, **kw) -> None:
         rec = JOBS.get(jid)
         if rec is None:
             return
+        # Stamp stage transitions so the UI can show truthful per-stage timers.
+        if "stage" in kw and kw["stage"] != rec.get("stage"):
+            rec["stage_started"] = time.time()
         rec.update(kw)
         rec["updated"] = time.time()
         JOBS.put(jid, rec)  # write the whole record back (modal.Dict returns copies)
@@ -202,12 +208,13 @@ def _replay(jid: str, name: str) -> None:
             time.sleep(0.9)
             revealed.append(rnd)
             _set(jid, rounds=list(revealed))
+        JOBS.put_blob(jid, "final_html", snap["final_html"])
         _set(
             jid,
             stage="done",
             final=snap["final"],
             enhancements=snap["enhancements"],
-            final_html=snap["final_html"],
+            has_final_html=True,
             stopped_reason=snap["stopped_reason"],
             total_seconds=snap["total_seconds"],
             status="done",
@@ -234,6 +241,26 @@ def _heartbeat(jid: str, stop: threading.Event, interval_s: float = 60.0) -> Non
             JOBS.put(jid, rec)
 
 
+def _warm_olmo_reviewer() -> None:
+    """Fire-and-forget pre-warm of the OLMo reviewer GPU endpoint.
+
+    Booting the A10G and loading the 7B model takes ~1-2 min; doing it while
+    olmOCR extraction runs (2-4 min) means review round 1 hits a warm model
+    instead of paying that cold start inline. Tolerates servers that don't
+    have /warmup yet (older deploys 404) and any network failure — worst case
+    round 1 is simply as slow as it used to be."""
+    try:
+        import httpx
+
+        from reviewers import OLMO_URL
+
+        token = os.environ.get("OLMO_REVIEWER_TOKEN", "")
+        headers = {"Authorization": f"Bearer {token}"} if token else {}
+        httpx.get(f"{OLMO_URL}/warmup", headers=headers, timeout=300)
+    except Exception:
+        pass
+
+
 def _live(
     jid: str,
     pdf_bytes: bytes,
@@ -247,9 +274,11 @@ def _live(
     so concurrent jobs with different credentials cannot observe each other's
     keys and there is no restore step that can race."""
     import tempfile
+    from concurrent.futures import ThreadPoolExecutor
 
     stop_heartbeat = threading.Event()
     threading.Thread(target=_heartbeat, args=(jid, stop_heartbeat), daemon=True).start()
+    threading.Thread(target=_warm_olmo_reviewer, daemon=True).start()
     try:
         import build_syllabus_slice as bss
         import reviewers
@@ -261,26 +290,37 @@ def _live(
 
         _set(jid, source="live pipeline (olmOCR + Qwen2-VL + live reviewers + Claude judge)")
         _set(jid, stage="extracting")
-        markdown = bss.strip_front_matter(bss.run_olmocr(pdf_bytes, filename))
-
-        _set(jid, stage="alt_text")
         with tempfile.NamedTemporaryFile("wb", suffix=".pdf", delete=False) as f:
             f.write(pdf_bytes)
             pdf_path = Path(f.name)
-        images = bss.extract_images(pdf_path)
-        alt_map = bss.generate_alt_text(images) if images else {}
+
+        # Image extraction + alt text don't depend on the olmOCR markdown, so
+        # they run concurrently with extraction — the alt-text GPU's cold start
+        # overlaps olmOCR's 2-4 min instead of adding ~1 min after it.
+        def _images_and_alt():
+            images = bss.extract_images(pdf_path)
+            return images, (bss.generate_alt_text(images) if images else {})
+
+        with ThreadPoolExecutor(max_workers=1) as pool:
+            alt_future = pool.submit(_images_and_alt)
+            markdown = bss.strip_front_matter(bss.run_olmocr(pdf_bytes, filename))
+            _set(jid, stage="alt_text")
+            images, alt_map = alt_future.result()
         pdf_path.unlink(missing_ok=True)
 
         _set(jid, stage="html")
         title = bss.extract_title_from_markdown(markdown)
         baseline_html = bss.HtmlBuilder(markdown, images, alt_map, title=title).build()
+        # The converted document exists NOW — publish it so users can preview
+        # while the review rounds run (the enhanced version replaces it later).
+        JOBS.put_blob(jid, "baseline_html", baseline_html)
+        _set(jid, has_baseline_html=True)
 
         _set(jid, stage="axe_baseline")
         baseline_axe = axe_score(baseline_html)
         _set(jid, baseline=baseline_axe)
 
         def on_round(entry, _patched, reviewer_health=None):
-            _set(jid, stage=f"round{entry['round']}")
             with JOBS_LOCK:
                 rec = JOBS.get(jid)
                 if rec is None:
@@ -307,6 +347,10 @@ def _live(
             label=filename,
             use_llm=True,
             on_round=on_round,
+            # Mark the stage as the round STARTS — most of a round's wall clock
+            # is the reviews themselves, and marking at completion hid that
+            # wait inside the previous stage's timer.
+            on_round_start=lambda r: _set(jid, stage=f"round{r}"),
             byok=byok,
             baseline_axe=baseline_axe,
         )
@@ -318,11 +362,14 @@ def _live(
         except Exception as e:
             print(f"Warning: enhancements calculation failed: {e}")
             enhancements_list = []
+        # Large HTML lives in its own blob key, not the job record — polls
+        # fetch the whole record every 1.5s and must stay small.
+        JOBS.put_blob(jid, "final_html", final_html)
         _set(
             jid,
             stage="done",
             final=summary["final"],
-            final_html=final_html,
+            has_final_html=True,
             enhancements=enhancements_list,
             stopped_reason=summary["stopped_reason"],
             status="done",
@@ -352,6 +399,11 @@ def _live(
 # HAPPYPDF_DEEP_HEALTH=1, so local dev and pytest never make network calls.
 # ---------------------------------------------------------------------------
 HEALTH_TTL_S = int(os.environ.get("HAPPYPDF_HEALTH_TTL_S", str(24 * 3600)))
+# A FAILED check is re-validated on a short TTL instead of being remembered all
+# day: a transient provider blip (observed live 2026-07-14: one Google API
+# hiccup) otherwise poisons the cache and re-alerts the monitor every 30 min
+# until the container happens to recycle.
+HEALTH_FAIL_TTL_S = int(os.environ.get("HAPPYPDF_HEALTH_FAIL_TTL_S", "600"))
 _health_cache: dict = {"checked_at": 0.0, "checks": {}}
 _health_lock = threading.Lock()
 
@@ -384,18 +436,27 @@ def _run_deep_checks() -> dict[str, str]:
     if not key:
         checks["google_key"] = "missing"
     else:
-        try:
-            from google import genai
+        # One retry: a single transient API blip must not flag a valid key.
+        for attempt in (1, 2):
+            try:
+                from google import genai
 
-            # Keep the client referenced while consuming the lazy pager — an
-            # inline temporary gets GC'd first and raises "client has been
-            # closed" before the first page is fetched.
-            client = genai.Client(api_key=key)
-            next(iter(client.models.list()), None)
-            checks["google_key"] = "ok"
-        except Exception as e:
-            print(f"[VALIDATION] Google key check failed: {type(e).__name__}", flush=True)
-            checks["google_key"] = "invalid"
+                # Keep the client referenced while consuming the lazy pager — an
+                # inline temporary gets GC'd first and raises "client has been
+                # closed" before the first page is fetched.
+                client = genai.Client(api_key=key)
+                next(iter(client.models.list()), None)
+                checks["google_key"] = "ok"
+                break
+            except Exception as e:
+                print(
+                    f"[VALIDATION] Google key check failed (attempt {attempt}): "
+                    f"{type(e).__name__}",
+                    flush=True,
+                )
+                checks["google_key"] = "invalid"
+                if attempt == 1:
+                    time.sleep(2)
 
     # GPU pipeline functions must be resolvable by name (metadata only — this
     # hydrates the handle, it does not invoke anything or boot a container).
@@ -432,7 +493,10 @@ def _health_checks() -> tuple[dict[str, str], float]:
     if not _deep_health_enabled():
         return {"deep_checks": "disabled"}, 0.0
     with _health_lock:
-        if time.time() - _health_cache["checked_at"] > HEALTH_TTL_S:
+        cached = _health_cache["checks"]
+        all_ok = bool(cached) and all(v == "ok" for v in cached.values())
+        ttl = HEALTH_TTL_S if all_ok else HEALTH_FAIL_TTL_S
+        if time.time() - _health_cache["checked_at"] > ttl:
             _health_cache["checks"] = _run_deep_checks()
             _health_cache["checked_at"] = time.time()
         return dict(_health_cache["checks"]), _health_cache["checked_at"]
@@ -490,6 +554,25 @@ async def start_live(
     if b"%PDF-" not in data[:1024]:
         raise HTTPException(400, "This file doesn't look like a PDF. Please upload a real .pdf.")
 
+    # Parse the PDF for a page count (instant, local). This powers honest wait
+    # estimates in the UI, and rejects files olmOCR could never read anyway
+    # (corrupt or password-protected) before any GPU time is spent.
+    try:
+        import fitz
+
+        with fitz.open(stream=data, filetype="pdf") as doc:
+            if doc.needs_pass:
+                raise HTTPException(
+                    400, "This PDF is password-protected. Please remove the password and retry."
+                )
+            page_count = doc.page_count
+    except HTTPException:
+        raise
+    except Exception:
+        raise HTTPException(
+            400, "This PDF couldn't be read. It may be corrupt — try re-exporting it."
+        ) from None
+
     allowed, count = RATE_LIMITER.check_and_increment(DAILY_LIMIT)
     if not allowed:
         raise HTTPException(
@@ -511,6 +594,7 @@ async def start_live(
             raise HTTPException(400, err)
 
     jid = _new_job("live", file.filename)
+    _set(jid, page_count=page_count)
     threading.Thread(
         target=_live,
         args=(jid, data, file.filename),
@@ -526,6 +610,10 @@ async def start_live(
 
 @app.get("/api/jobs/{jid}")
 def job_status(jid: str):
+    # Strict id check: blob keys share the store namespace (jid:name), so an
+    # unvalidated path param could read a blob record through this endpoint.
+    if not JOB_ID_RE.match(jid):
+        raise HTTPException(404, "no such job")
     # Reads don't need JOBS_LOCK: records are replaced whole (never mutated in
     # place), so a get either sees the old or the new record. Holding the lock
     # here would serialize every poll behind a network round-trip to the Dict.
@@ -535,22 +623,35 @@ def job_status(jid: str):
     # A job frozen at "running" (worker died on a container recycle) surfaces
     # as a terminal error the frontend can act on, instead of a stuck spinner.
     job = mark_interrupted_if_stale(job)
-    out = {k: v for k, v in job.items() if k != "final_html"}
+    out = {k: v for k, v in job.items() if k not in ("final_html", "baseline_html")}
     out["stage_index"] = next((i for i, s in enumerate(STAGES) if s["id"] == out["stage"]), 0)
-    out["has_html"] = job.get("final_html") is not None
+    # has_final_html is the blob-era flag; final_html-in-record is the legacy
+    # shape (pre-blob jobs still live in the store for up to 24h after deploy).
+    out["has_html"] = bool(job.get("has_final_html") or job.get("final_html") is not None)
+    out["has_baseline_html"] = bool(job.get("has_baseline_html"))
     return out
 
 
 @app.get("/api/jobs/{jid}/html", response_class=HTMLResponse)
-def job_html(jid: str):
-    job = JOBS.get(jid)
-    if not job or not job.get("final_html"):
+def job_html(jid: str, version: str = "final"):
+    """Serve generated HTML. version=final (default) is the enhanced output;
+    version=baseline is the pre-review conversion, available minutes earlier
+    so users can preview while the review rounds run."""
+    if not JOB_ID_RE.match(jid) or version not in ("final", "baseline"):
+        raise HTTPException(404, "no html yet")
+    html = JOBS.get_blob(jid, f"{version}_html")
+    if html is None and version == "final":
+        # Legacy fallback: jobs created before the blob store kept the HTML
+        # inline on the record.
+        job = JOBS.get(jid)
+        html = (job or {}).get("final_html")
+    if not html:
         raise HTTPException(404, "no html yet")
     # Defense in depth: the output HTML derives from PDF content and LLM output,
     # so serve it with scripts/forms/plugins disabled. The document itself is
     # static text + data-URI images and needs none of those.
     return HTMLResponse(
-        job["final_html"],
+        html,
         headers={"Content-Security-Policy": "sandbox; script-src 'none'; object-src 'none'"},
     )
 

@@ -75,6 +75,10 @@ type Job = {
   final: Metric | null;
   enhancements: Enhancement[];
   has_html: boolean;
+  has_baseline_html?: boolean;
+  page_count?: number | null;
+  started?: number;
+  stage_started?: number;
   source: string | null;
   stopped_reason?: string;
   reviewer_health?: { [key: string]: { status: string; round?: number; rounds_ran?: number } };
@@ -110,6 +114,55 @@ const STAGES: StageDef[] = [
   { id: 'round3', label: 'Peer review · Round 3' },
   { id: 'done', label: 'Output ready' },
 ];
+
+// Why each stage takes the time it takes — shown under the active stage so the
+// wait is explained, not just displayed. Ranges come from measured prod runs.
+const STAGE_INFO: Record<string, { blurb: string; typical: string }> = {
+  extracting: {
+    blurb: 'A GPU server boots and reads your pages visually — no fragile text-layer parsing. The first conversion in a while pays the hardware start-up.',
+    typical: '2–4 min',
+  },
+  alt_text: {
+    blurb: 'Qwen2-VL writes a description for every embedded image. This runs alongside extraction, so it is usually already finished.',
+    typical: 'a few seconds',
+  },
+  html: {
+    blurb: 'Your document becomes semantic HTML5 — landmarks, headings, tables, and stable element IDs for safe patching.',
+    typical: 'seconds',
+  },
+  axe_baseline: {
+    blurb: 'A real headless Chromium runs the axe-core accessibility audit on the fresh conversion.',
+    typical: '~30 s',
+  },
+  round1: {
+    blurb: 'OLMo, Gemini, and GPT-4o review the document in parallel; Claude judges their findings and applies safe patches.',
+    typical: '1–2 min',
+  },
+  round2: {
+    blurb: 'The reviewers re-check the improved document. Rounds stop as soon as no safe fixes remain.',
+    typical: '30–90 s',
+  },
+  round3: {
+    blurb: 'Final review pass — most documents converge before reaching it.',
+    typical: '30–90 s',
+  },
+};
+
+// Honest wall-clock estimate from measured prod timings: ~3 min fixed overhead
+// (GPU boots + scoring) + ~20 s per page + ~2 min of review rounds.
+function estimateRange(pageCount?: number | null): string {
+  if (!pageCount) return 'usually 4–7 minutes';
+  const est = 180 + 20 * pageCount + 120;
+  const lo = Math.max(2, Math.round((est * 0.8) / 60));
+  const hi = Math.round((est * 1.5) / 60);
+  return `usually ${lo}–${hi} minutes for ${pageCount} page${pageCount > 1 ? 's' : ''}`;
+}
+
+function fmtElapsed(seconds: number): string {
+  const s = Math.max(0, Math.floor(seconds));
+  const m = Math.floor(s / 60);
+  return m > 0 ? `${m}m ${(s % 60).toString().padStart(2, '0')}s` : `${s}s`;
+}
 
 // ─── Score ring ──────────────────────────────────────────────────────────────
 
@@ -266,6 +319,13 @@ function DemoPanel() {
   const [reviewerProfile, setReviewerProfile] = useState<'default' | 'olmo-only'>('default');
   const pollRef = useRef<number | null>(null);
   const timerRef = useRef<number | null>(null);
+  // 1s tick that drives the elapsed/per-stage timers while a job runs.
+  const [nowS, setNowS] = useState(() => Date.now() / 1000);
+  useEffect(() => {
+    if (!busy) return;
+    const t = window.setInterval(() => setNowS(Date.now() / 1000), 1000);
+    return () => window.clearInterval(t);
+  }, [busy]);
 
   const stopTimers = () => {
     if (pollRef.current !== null) { window.clearInterval(pollRef.current); pollRef.current = null; }
@@ -418,6 +478,19 @@ function DemoPanel() {
   const hasResults = !!job?.baseline;
   const maxRound = done && job ? Math.max(1, job.rounds.length) : 3;
   const htmlHref = HAS_API && jobId && job?.kind === 'live' ? `${API_BASE}/api/jobs/${jobId}/html` : htmlUrl;
+  const isLive = job?.kind === 'live';
+  // Server timestamps are epoch seconds; clamp against clock skew.
+  const totalElapsed = isLive && job?.started ? Math.max(0, nowS - job.started) : null;
+  const stageElapsed = isLive && job?.stage_started ? Math.max(0, nowS - job.stage_started) : null;
+  const inReviewRound = !done && !!job?.stage.startsWith('round');
+  // Reviewers expected this run (the profile is chosen client-side), overlaid
+  // with live statuses from the backend as rounds complete.
+  const expectedReviewers = reviewerProfile === 'olmo-only' ? ['olmo'] : ['olmo', 'gemini', 'gpt'];
+  const reviewerLabel = (m: string) => (m === 'gpt' ? 'GPT-4o' : m === 'olmo' ? 'OLMo' : 'Gemini');
+  const baselinePreviewHref =
+    HAS_API && jobId && isLive && job?.has_baseline_html && !done
+      ? `${API_BASE}/api/jobs/${jobId}/html?version=baseline`
+      : null;
 
   return (
     <div className="bg-slate-900 rounded-2xl border border-slate-700/60 overflow-hidden">
@@ -554,6 +627,21 @@ function DemoPanel() {
               )}
             </div>
 
+            {isLive && !done && job?.status === 'running' && (
+              <div className="flex items-center justify-between px-3 py-2 rounded-lg bg-slate-800/60 border border-slate-700/40 text-xs">
+                <span className="text-slate-400">
+                  {totalElapsed !== null && (
+                    <span className="font-mono text-slate-300">{fmtElapsed(totalElapsed)}</span>
+                  )}
+                  {totalElapsed !== null && ' elapsed · '}
+                  {estimateRange(job?.page_count)}
+                </span>
+                {job?.page_count ? (
+                  <span className="text-slate-500 font-mono shrink-0 ml-3">{job.page_count} page{job.page_count > 1 ? 's' : ''}</span>
+                ) : null}
+              </div>
+            )}
+
             <div className="space-y-1.5">
               {stages
                 .filter((s) => s.id !== 'uploading' && !(s.id.startsWith('round') && Number(s.id.slice(5)) > maxRound))
@@ -561,20 +649,62 @@ function DemoPanel() {
                   const i = stages.findIndex((x) => x.id === s.id);
                   const isDone = i < current || (s.id === 'done' && done);
                   const active = i === current && !done;
+                  const info = active ? STAGE_INFO[s.id] : undefined;
                   return (
-                    <div key={s.id} className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-all ${active ? 'bg-teal-400/10 border border-teal-400/20' : isDone ? 'opacity-60' : 'opacity-30'}`}>
-                      {isDone ? (
-                        <CheckCircle size={14} className="text-emerald-400 shrink-0" />
-                      ) : active ? (
-                        <RefreshCw size={14} className="text-teal-400 animate-spin shrink-0" />
-                      ) : (
-                        <div className="w-3.5 h-3.5 rounded-full border border-slate-600 shrink-0" />
+                    <div key={s.id} className={`px-3 py-2 rounded-lg text-sm transition-all ${active ? 'bg-teal-400/10 border border-teal-400/20' : isDone ? 'opacity-60' : 'opacity-30'}`}>
+                      <div className="flex items-center gap-3">
+                        {isDone ? (
+                          <CheckCircle size={14} className="text-emerald-400 shrink-0" />
+                        ) : active ? (
+                          <RefreshCw size={14} className="text-teal-400 animate-spin shrink-0" />
+                        ) : (
+                          <div className="w-3.5 h-3.5 rounded-full border border-slate-600 shrink-0" />
+                        )}
+                        <span className={isDone ? 'text-slate-300' : active ? 'text-teal-300' : 'text-slate-500'}>{s.label}</span>
+                        {active && isLive && stageElapsed !== null && (
+                          <span className="ml-auto text-xs font-mono text-slate-500 shrink-0">
+                            {fmtElapsed(stageElapsed)}
+                            {info ? ` · typ. ${info.typical}` : ''}
+                          </span>
+                        )}
+                      </div>
+                      {active && isLive && info && (
+                        <p className="mt-1.5 ml-[26px] text-xs text-slate-500 leading-relaxed">{info.blurb}</p>
                       )}
-                      <span className={isDone ? 'text-slate-300' : active ? 'text-teal-300' : 'text-slate-500'}>{s.label}</span>
                     </div>
                   );
                 })}
             </div>
+
+            {inReviewRound && isLive && (
+              <div className="border border-slate-700/60 rounded-xl p-3">
+                <p className="text-xs text-slate-500 font-medium uppercase tracking-wider mb-2">Reviewing now</p>
+                <div className="flex flex-wrap gap-2">
+                  {expectedReviewers.map((m) => {
+                    const h = job?.reviewer_health?.[m];
+                    const failed = h?.status === 'failed';
+                    return (
+                      <span key={m} className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs border ${failed ? 'border-rose-500/30 bg-rose-500/10 text-rose-300' : 'border-slate-700/60 bg-slate-800/60 text-slate-300'}`}>
+                        {failed ? <AlertTriangle size={11} /> : <RefreshCw size={11} className="animate-spin text-teal-400" />}
+                        {reviewerLabel(m)}
+                      </span>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {baselinePreviewHref && (
+              <a
+                href={baselinePreviewHref}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center justify-center gap-2 px-4 py-2.5 bg-slate-800 hover:bg-slate-700 border border-teal-500/30 text-teal-300 text-sm rounded-lg transition-colors"
+              >
+                <Eye size={14} />
+                Preview your document now — enhancements still applying
+              </a>
+            )}
 
             {job?.status === 'error' && (
               <div className="text-xs text-rose-300 bg-rose-500/10 border border-rose-500/30 rounded-lg px-3 py-2 font-mono">{job.error}</div>

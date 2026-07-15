@@ -6,6 +6,7 @@ job or calls Modal/provider APIs.
 """
 
 import sys
+import time
 from pathlib import Path
 
 import pytest
@@ -44,8 +45,12 @@ class TestUploadGuardrails:
 
     def test_rate_limit_returns_429(self, client, monkeypatch):
         monkeypatch.setattr(api_main, "DAILY_LIMIT", 0)
+        import fitz
+
+        doc = fitz.open()
+        doc.new_page()
         r = client.post(
-            "/api/jobs/live", files={"file": ("x.pdf", b"%PDF-1.7 tiny", "application/pdf")}
+            "/api/jobs/live", files={"file": ("x.pdf", doc.tobytes(), "application/pdf")}
         )
         assert r.status_code == 429
 
@@ -122,6 +127,21 @@ class TestDeepHealth:
         client.get("/api/health")
         client.get("/api/health")
         assert len(calls) == 1  # second request served from cache
+
+    def test_failed_checks_use_short_ttl(self, client, monkeypatch):
+        """A transient failure must be re-checked soon, not remembered for 24h
+        (a cached blip re-alerted the monitor every 30 min on 2026-07-14)."""
+        monkeypatch.setenv("HAPPYPDF_DEEP_HEALTH", "1")
+        results = [{"google_key": "invalid"}, {"google_key": "ok"}]
+        monkeypatch.setattr(api_main, "_run_deep_checks", lambda: results.pop(0))
+        monkeypatch.setitem(api_main._health_cache, "checked_at", 0.0)
+        assert client.get("/api/health").json()["status"] == "degraded"
+        # Simulate the failure sitting in cache longer than the fail-TTL but
+        # far less than the 24h success-TTL.
+        monkeypatch.setitem(
+            api_main._health_cache, "checked_at", time.time() - api_main.HEALTH_FAIL_TTL_S - 1
+        )
+        assert client.get("/api/health").json()["status"] == "ok"  # re-checked
 
 
 class TestServedHtmlHeaders:

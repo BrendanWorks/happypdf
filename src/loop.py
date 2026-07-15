@@ -131,12 +131,16 @@ def run_loop(
     max_rounds: int = MAX_ROUNDS,
     threshold: float = SCORE_THRESHOLD,
     on_round=None,
+    on_round_start=None,
     byok: dict | None = None,
     baseline_axe: dict | None = None,
 ) -> dict:
     """Drive the remediation loop. `reviews_provider(round, current_html)` returns
     a reviews dict for the round, or None to stop. `on_round(entry, patched_html, reviewer_health)`
-    is an optional progress hook called after each accepted round.
+    is an optional progress hook called after each accepted round;
+    `on_round_start(round_num)` fires as a round BEGINS, so callers can surface
+    truthful stage timing (a round spends most of its wall clock in reviews —
+    marking it only at completion hides that wait inside the previous stage).
 
     byok: optional per-job {"anthropic": key, "openai": key} threaded to the
     judge's LLM-safe fixes — passed explicitly, never via os.environ, so
@@ -155,6 +159,7 @@ def run_loop(
             max_rounds=max_rounds,
             threshold=threshold,
             on_round=on_round,
+            on_round_start=on_round_start,
             byok=byok,
             baseline_axe=baseline_axe,
         )
@@ -170,6 +175,7 @@ def _run_loop_inner(
     max_rounds: int,
     threshold: float,
     on_round,
+    on_round_start,
     byok: dict | None,
     baseline_axe: dict | None,
 ) -> dict:
@@ -188,6 +194,8 @@ def _run_loop_inner(
 
     for r in range(1, max_rounds + 1):
         t0 = time.time()
+        if on_round_start:
+            on_round_start(r)
         try:
             reviews, round_health = reviews_provider(r, current)
             # Merge round health into overall tracker
