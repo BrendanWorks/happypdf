@@ -28,8 +28,7 @@ app = modal.App(os.environ.get("OLMO_APP_NAME", "olmo-wcag-reviewer"))
 
 # Base image with dependencies
 image = (
-    modal.Image.debian_slim(python_version="3.11")
-    .pip_install(
+    modal.Image.debian_slim(python_version="3.11").pip_install(
         "torch",
         "torchvision",
         "transformers>=4.48.0",
