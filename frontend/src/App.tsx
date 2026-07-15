@@ -1018,7 +1018,7 @@ export default function App() {
                 {/* Mini stats */}
                 <div className="mt-10 flex flex-wrap gap-6 justify-center lg:justify-start">
                   {[
-                    { val: '99.5%', label: 'avg. final score' },
+                    { val: '99.3%', label: 'avg. final score' },
                     { val: '3', label: 'max remediation rounds' },
                     { val: '0', label: 'API key needed*' },
                   ].map(({ val, label }) => (

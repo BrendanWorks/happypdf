@@ -157,48 +157,46 @@ The initial HTML generator frequently produces **zero axe-core violations**. But
 
 Typical enhancements include ARIA labels for tables, navigational roles, improved image descriptions, and better section relationships.
 
-```
-
-```
-
 ## Benchmark Results
 
-All documents converge quickly with zero content loss. Manifest and report downloads verified for all PDFs.
+All 13 documents complete end-to-end with the preservation gate passing on every accepted round. Manifest and report downloads verified.
 
 **Core Benchmarks (3 Demos)**
 
-| Document              | Type            | Size  | Pages | Baseline | Final  | Rounds |
-|-----------------------|-----------------|-------|-------|----------|--------|--------|
-| AccessComputing Syllabus | Clean digital | 1.2M | 8 | 100% (26 pass) | 100% (31 pass) | 2 |
-| IRS Schedule C        | Dense form     | 1.1M | 7 | 100% (23 pass) | 100% (28 pass) | 3 |
-| Navy Bulletin 1943    | OCR'd prose    | 876K | 6 | 100% (20 pass) | 100% (20 pass) | 1 |
+| Document              | Type            | Size  | Pages | Baseline | Final  | Rounds | Time (min) |
+|-----------------------|-----------------|-------|-------|----------|--------|--------|------------|
+| AccessComputing Syllabus | Clean digital | 86K | 1 | 100% (27 pass) | 100% (32 pass) | 3 | 3.8 |
+| IRS Schedule C | Dense form | 120K | 2 | 100% (23 pass) | 100% (33 pass) | 3 | 6.2 |
+| Navy Bulletin 1943 | OCR'd prose | 4.4M | 11 | 100% (20 pass) | 100% (25 pass) | 2 | 5.1 |
 
 **Extended Test Suite (10 Additional Documents)**
 
-| Document | Type | Size | Pages | Baseline | Final | Rounds | Notes |
-|----------|------|------|-------|----------|-------|--------|-------|
-| Chapter 6: Assessment | Academic | 4.2M | 13 | 100% (26 pass) | 100% (26 pass) | 1 | Image-heavy extraction |
-| Blood Pressure Instructions | Medical | 163K | 1 | 100% (26 pass) | 100% (26 pass) | 1 | Device manual, visuals |
-| Creating a One Pager | Business | 1.3M | 5 | 100% (26 pass) | 100% (31 pass) | 2 | Mixed text & graphics |
-| Dry Lab Protocol | Scientific | 1.3M | 3 | 100% (20 pass) | 100% (20 pass) | 1 | Text-heavy instructions |
-| Example Document | Sample | 343K | 3 | 100% (27 pass) | 100% (32 pass) | 2 | Generic test document |
-| Invoice Sample | Financial | 146K | 1 | 100% (23 pass) | 100% (28 pass) | 3 | Structured form, dense |
-| Somatosensory | Scientific | 132K | 4 | 96.0% (24 pass) | 96.7% (29 pass) | 2 | Neural system reference; 1 baseline violation not resolved by round 2 |
-| Cosmic Story Mat | Instructional | 447K | 6 | 100% (22 pass) | 100% (22 pass) | 1 | Children's literature, 25 embedded images; OLMo reviewer timed out then succeeded on retry |
-| Furnace (Amana) | Technical | 11.9M | 16 | 96.3% (26 pass) | 96.8% (30 pass) | 2 | Appliance manual; loop stopped after round 2 when round 3 would have regressed the axe score |
-| Hands-Only CPR Sheet | Medical | 219K | 1 | 100% (22 pass) | 100% (22 pass) | 1 | Emergency procedure; OLMo reviewer failed outright, loop continued with Gemini + GPT |
+| Document | Type | Size | Pages | Baseline | Final | Rounds | Time (min) | Notes |
+|----------|------|------|-------|----------|-------|--------|------------|-------|
+| Chapter 6: Assessment | Academic | 4.2M | 13 | 96.3% (26 pass) | 96.9% (31 pass) | 3 | 8.2 | 1 baseline violation not resolvable by a safe deterministic fix |
+| Blood Pressure Instructions | Medical | 163K | 1 | 100% (26 pass) | 100% (31 pass) | 2 | 4.4 | — |
+| Creating a One Pager | Business | 1.3M | 5 | 100% (26 pass) | 100% (31 pass) | 2 | 3.5 | — |
+| Dry Lab Protocol | Scientific | 1.3M | 3 | 100% (20 pass) | 100% (20 pass) | 0 | 4.6 | loop reverted a round that would have regressed the axe score, kept the last good version |
+| Example Document | Sample | 343K | 3 | 100% (26 pass) | 100% (31 pass) | 1 | 4.0 | loop reverted a round that would have regressed the axe score, kept the last good version |
+| Invoice Sample | Financial | 146K | 1 | 100% (23 pass) | 100% (28 pass) | 2 | 3.1 | — |
+| Somatosensory | Scientific | 132K | 4 | 96% (24 pass) | 96.7% (29 pass) | 3 | 4.4 | 1 baseline violation not resolvable by a safe deterministic fix |
+| Cosmic Story Mat | Instructional | 447K | 6 | 100% (22 pass) | 100% (22 pass) | 1 | 4.7 | — |
+| Furnace (Amana) | Technical | 11.9M | 16 | 96.3% (26 pass) | 96.9% (31 pass) | 3 | 7.9 | 1 baseline violation not resolvable by a safe deterministic fix |
+| Hands-Only CPR Sheet | Medical | 219K | 1 | 100% (22 pass) | 100% (27 pass) | 2 | 3.6 | — |
 
-**Comprehensive Test Suite (13 PDFs Total)** — Full details and raw files in [`benchmark/`](benchmark/). All 13 rows above are backed by real generated output committed to the repo — no estimated or placeholder numbers. Document provenance and licensing notes are in [`benchmark/README.md`](benchmark/README.md) — the hosted demo offers original-PDF downloads only for the two public-domain documents.
+**Measured live on v1.2.2 (2026-07-15)** — every row is a real end-to-end conversion through the deployed pipeline (olmOCR-2 extraction → parallel alt text → semantic HTML → axe baseline → three-reviewer loop with Claude judge). Raw per-job records are committed in [`benchmark/v122_live_run/`](benchmark/v122_live_run/). Sizes and page counts are measured from the actual files.
 
 **Key Metrics:**
 - **Total PDFs tested:** 13
-- **Average baseline score:** 99.4%
-- **Average final score:** 99.5%
-- **Average rounds to convergence:** 1.7
-- **Baseline violations:** 0 violations in 11/13 documents (Somatosensory and Furnace each had 1, neither resolved by an available deterministic fix)
-- **Reviewer resilience:** across 13 live runs, one reviewer failed outright once and timed-out-then-recovered once; in both cases the loop correctly continued with the remaining reviewers rather than blocking
-- **Total ARIA enhancements:** 34 across the suite
-- **Total test coverage:** 132 KB to 11.9 MB | 1–16 pages
+- **Average baseline score:** 99.1%
+- **Average final score:** 99.3%
+- **Average accepted rounds:** 2.1
+- **Average wall-clock time:** 4.9 minutes end-to-end (1-16 pages)
+- **Baseline violations:** 10/13 documents started at 0 violations; 3 carried a violation with no safe deterministic fix
+- **Safety systems exercised for real:** the axe-regression guard reverted a worsening round on two documents, and the preservation gate passed on every accepted round across the suite
+- **Total ARIA enhancements:** 41 across the suite
+
+**Comprehensive Test Suite (13 PDFs Total)** — Document provenance and licensing notes are in [`benchmark/README.md`](benchmark/README.md) — the hosted demo offers original-PDF downloads only for the two public-domain documents.
 
 ## Project Status & Roadmap
 
