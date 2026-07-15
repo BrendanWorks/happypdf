@@ -135,7 +135,7 @@ const STAGE_INFO: Record<string, { blurb: string; typical: string }> = {
     typical: '~30 s',
   },
   round1: {
-    blurb: 'OLMo, Gemini, and GPT-4o review the document in parallel; Claude judges their findings and applies safe patches.',
+    blurb: 'OLMo, Gemini, and GPT-4o mini review the document in parallel; a deterministic judge dedupes their findings and applies safe patches.',
     typical: '1–2 min',
   },
   round2: {
@@ -226,7 +226,7 @@ function PipelineRoleDiagram({ highlightMode }: { highlightMode: KeyMode | null 
     {
       id: 'reviewers',
       label: 'Peer reviewers',
-      sublabel: 'Gemini · GPT-4o · OLMo',
+      sublabel: 'Gemini · GPT-4o mini · OLMo',
       icon: <Users size={18} />,
       highlight: highlightMode === 'openai' || highlightMode === 'both',
       highlightColor: 'emerald' as const,
@@ -486,7 +486,7 @@ function DemoPanel() {
   // Reviewers expected this run (the profile is chosen client-side), overlaid
   // with live statuses from the backend as rounds complete.
   const expectedReviewers = reviewerProfile === 'olmo-only' ? ['olmo'] : ['olmo', 'gemini', 'gpt'];
-  const reviewerLabel = (m: string) => (m === 'gpt' ? 'GPT-4o' : m === 'olmo' ? 'OLMo' : 'Gemini');
+  const reviewerLabel = (m: string) => (m === 'gpt' ? 'GPT-4o mini' : m === 'olmo' ? 'OLMo' : 'Gemini');
   const baselinePreviewHref =
     HAS_API && jobId && isLive && job?.has_baseline_html && !done
       ? `${API_BASE}/api/jobs/${jobId}/html?version=baseline`
@@ -546,7 +546,7 @@ function DemoPanel() {
                           onChange={(e) => setReviewerProfile(e.target.value as 'default' | 'olmo-only')}
                           className="w-3 h-3 cursor-pointer"
                         />
-                        <span>Default (OLMo + Gemini + GPT-4o)</span>
+                        <span>Default (OLMo + Gemini + GPT-4o mini)</span>
                       </label>
                       <label className="flex items-center gap-2 text-xs text-slate-300 cursor-pointer hover:text-slate-200 transition-colors">
                         <input
@@ -994,7 +994,7 @@ export default function App() {
                 <p className="text-slate-400 text-lg leading-relaxed mb-8 max-w-xl mx-auto lg:mx-0">
                   HappyPDF converts inaccessible PDFs into WCAG 2.2 AA–validated HTML using a
                   multi-model iterative remediation pipeline. Built on Ai2's olmOCR extraction and
-                  OLMo peer review, with optional support for Claude, Gemini, and GPT-4o.
+                  OLMo peer review, with optional support for Claude, Gemini, and GPT-4o mini.
                 </p>
 
                 <div className="flex flex-col sm:flex-row gap-3 justify-center lg:justify-start">
@@ -1018,7 +1018,7 @@ export default function App() {
                 {/* Mini stats */}
                 <div className="mt-10 flex flex-wrap gap-6 justify-center lg:justify-start">
                   {[
-                    { val: '100%', label: 'avg. final score' },
+                    { val: '99.5%', label: 'avg. final score' },
                     { val: '3', label: 'max remediation rounds' },
                     { val: '0', label: 'API key needed*' },
                   ].map(({ val, label }) => (
@@ -1075,7 +1075,7 @@ export default function App() {
                   {
                     step: '01',
                     title: 'olmOCR extraction',
-                    body: 'Allenai/olmOCR-2-7B-1025 (Qwen2.5-VL backbone) runs on Modal H100 for pure vision-based PDF extraction — no fragile text-layer anchoring. The same model generates alt text for every image with a screen-reader–tuned prompt.',
+                    body: 'Allenai/olmOCR-2-7B-1025 (Qwen2.5-VL backbone) runs on Modal H100 for pure vision-based PDF extraction — no fragile text-layer anchoring. A separate Qwen2-VL model generates alt text for every embedded image with a screen-reader–tuned prompt, running in parallel with extraction.',
                     side: 'left',
                   },
                   {
@@ -1093,7 +1093,7 @@ export default function App() {
                   {
                     step: '04',
                     title: 'Multi-model peer review (×3 rounds)',
-                    body: 'Gemini, GPT-4o, and OLMo-2 review HTML chunks in parallel against 79 validated WCAG 2.2 criteria. Claude deduplicates findings, flags hallucinated criteria, and produces a typed patch manifest. Deterministic Python applies patches. Rounds stop early when no critical violations remain.',
+                    body: 'Gemini, GPT-4o mini, and OLMo-2 review the HTML in parallel. A deterministic judge deduplicates findings, rejects hallucinated or unsafe fixes (unknown element IDs, structurally invalid attributes), and produces a typed patch manifest; Claude generates vision-checked alt text. Rounds stop when no safe fixes remain.',
                     side: 'right',
                   },
                   {
@@ -1147,7 +1147,7 @@ export default function App() {
               <FeatureRow
                 icon={<ShieldCheck size={18} />}
                 title="Hallucination gating"
-                body="Every peer reviewer output is validated against 79 real WCAG 2.2 criterion IDs. Invented criteria are flagged with hallucinated: true — never silently removed or applied."
+                body="Reviewer findings that cite element IDs not present in the document are dropped, and structurally impossible fixes (like alt text on a non-image) are rejected as hallucinations — logged in the audit trail, never applied."
               />
               <FeatureRow
                 icon={<BarChart3 size={18} />}
@@ -1162,7 +1162,7 @@ export default function App() {
               <FeatureRow
                 icon={<Layers size={18} />}
                 title="Safe patch application"
-                body="Patches target elements by stable ID. A content preservation gate verifies that text, images, headings, and tables are never lost or reordered."
+                body="Patches target elements by stable ID. A content preservation gate verifies against the original document that text coverage, images, tables, and heading structure are never lost."
               />
               <FeatureRow
                 icon={<Code2 size={18} />}
@@ -1196,7 +1196,7 @@ export default function App() {
                 badge="Free"
                 badgeColor="bg-slate-700 text-slate-300"
                 lines={[
-                  'All open-weight models (OLMo, Llama, Mistral)',
+                  'Open-weight models (olmOCR-2, OLMo-2, Qwen2-VL)',
                   'Runs on Modal or your own hardware',
                   'Zero cost per conversion',
                   'Lower quality ceiling than proprietary APIs',
@@ -1209,7 +1209,7 @@ export default function App() {
                 badgeColor="bg-teal-500/10 text-teal-400 border border-teal-500/20"
                 lines={[
                   'Claude as judge + fixer',
-                  'Gemini, GPT-4o, OLMo as peer reviewers',
+                  'Gemini, GPT-4o mini, OLMo as peer reviewers',
                   'Best output quality',
                   'Cost scales with document size and rounds',
                 ]}
@@ -1266,7 +1266,7 @@ export default function App() {
               />
               <FaqItem
                 q="Why three rounds maximum?"
-                a="Stopping criteria are issue-based, not score-based: no critical violations + no content preservation failures + no reading order regressions. The round cap prevents over-remediation. In practice the IRS Schedule C benchmark reaches all hard gates in two rounds."
+                a="Each round must clear hard gates: no critical/serious axe violations, content preserved against the original (text coverage, images, tables, heading structure), and no axe-score regression. The loop stops as soon as a round produces no new safe fixes, and the three-round cap prevents over-remediation. The IRS Schedule C benchmark converges in three rounds."
               />
             </div>
           </div>
