@@ -43,8 +43,8 @@ Manual remediation is effective but slow, expensive, and difficult to scale. hap
 
 happypdf processes PDFs through a reproducible pipeline:
 
-1. **Extract content** using olmOCR (Ai2's vision-based PDF extraction system, powered by Qwen2-VL).
-2. **Generate context-aware alt text** by re-prompting Qwen2-VL on each extracted image, preserving page layout context.
+1. **Extract content** using olmOCR-2 (Ai2's vision-based PDF extraction system, Qwen2.5-VL backbone).
+2. **Generate context-aware alt text** with a separate Qwen2-VL model on each extracted image, prompted with surrounding page text (runs in parallel with extraction).
 3. **Build semantic HTML5** with landmarks, headings, tables, images, and stable element IDs.
 4. **Score accessibility** using axe-core in a real headless Chromium browser.
 5. **Review & enhance** via multi-model peer reviewers + judge model.
@@ -57,7 +57,7 @@ The result is remediated, WCAG-scored HTML plus a detailed, human-readable manif
 
 Most accessibility tools force a binary choice: pay per conversion or build it yourself. happypdf offers a better path.
 
-**Bring Your Own Keys (BYOK)** lets you use your existing Claude, ChatGPT Enterprise, or Gemini credentials. If your organization already has approved AI contracts, happypdf routes remediation through them at **no additional licensing cost**.
+**Bring Your Own Keys (BYOK)** lets you use your existing Claude (Anthropic) or ChatGPT (OpenAI) enterprise credentials. If your organization already has approved AI contracts, happypdf routes remediation through them at **no additional licensing cost**.
 
 ### Why This Matters
 - **Zero new procurement friction** — Use models your security and legal teams have already approved.
@@ -87,21 +87,23 @@ There is a configurable reviewer pipeline controlled by the `REVIEWER_PROFILE` e
 | :--- | :--- | :--- | :--- | :--- | :--- |
 | **Hosted (default)** | `default` (or unset) | OLMo + Gemini + GPT (parallel consensus) | happypdf-provisioned keys | Per conversion | Quick testing, highest quality, default experience |
 | **BYOK / Enterprise** | `default` | OLMo + Gemini + GPT (same pipeline) | Your own Claude / OpenAI keys | Your existing contracts | Organizations with approved AI access |
-| **OLMo-Only (air-gapped)** | `olmo-only` | OLMo only (Modal) | Modal auth only | Your Modal account | Restricted sectors, no external API calls, local self-hosting |
+| **OLMo-Only (single-model review)** | `olmo-only` | OLMo only (Modal) | Modal auth (+ judge keys optional) | Your Modal account | Restricted sectors, minimal external API surface, local self-hosting |
 
 ### OLMo-Only Mode
 
-Set `REVIEWER_PROFILE=olmo-only` to run single-model review with only OLMo (no Claude/GPT/Gemini). This is useful for:
-- **Government & Defense** — No external API calls, full control over compute.
-- **Restricted Networks** — Air-gapped environments with local Modal deployment.
+Set `REVIEWER_PROFILE=olmo-only` to run single-model review with only OLMo (no Gemini/GPT reviewers). This is useful for:
+- **Government & Defense** — Minimal external API surface, full control over review compute.
+- **Restricted Networks** — Reviews stay on your Modal deployment.
 - **Cost-Conscious Workflows** — Single model vs. three-model consensus.
 
-**Trade-off:** Single-model review catches fewer failure modes than multi-model consensus, so quality may drop slightly (5-10% fewer WCAG suggestions). But you get complete data sovereignty and can run entirely on customer infrastructure.
+**Scope note:** this profile removes the *peer reviewers'* external calls only. Extraction and alt text are still remote Modal GPU calls in every mode, and the judge's LLM-safe fixes (alt-text rewrites) still call Claude/OpenAI when those keys are configured — with no judge keys, those fixes are routed to human review instead. It is not an air-gapped mode.
+
+**Trade-off:** Single-model review catches fewer failure modes than multi-model consensus, so quality may drop slightly (5-10% fewer WCAG suggestions). But review inference stays within your own Modal account.
 
 **Usage:**
 ```bash
 # Docker
-docker compose up --build --env REVIEWER_PROFILE=olmo-only
+REVIEWER_PROFILE=olmo-only docker compose up --build
 
 # Local
 export REVIEWER_PROFILE=olmo-only
@@ -120,35 +122,26 @@ This work extends Ai2's **SciA11y** research (Wang, Cachola, et al., ASSETS '21)
 
 ![happypdf pipeline animation](./videos/pipeline-demo.gif)
 
-## Extraction Model: olmOCR (v1 → olmOCR-2)
+## Extraction Model: olmOCR-2
 
-Step 1 of the pipeline — turning the PDF into markdown — runs [olmOCR](https://github.com/allenai/olmocr) on a Modal H100. We are upgrading extraction from olmOCR v1 to **olmOCR-2-7B-1025-FP8**.
-
-**Why upgrade.** olmOCR-2 improves **table structure** and **math handling** over v1 — the areas that matter most for dense forms (e.g. IRS Schedule C) and technical documents. There is also a correctness fix: the v1 deployment calls the olmocr CLI **without** a `--model` flag, so it silently uses the CLI's default (`allenai/olmOCR-7B-0725-FP8`, i.e. v1). The v2 deployment **pins** `olmocr>=0.4.0` and passes an **explicit** `--model allenai/olmOCR-2-7B-1025-FP8`, so extraction can no longer drift with the package default. The FP8 weights need ~16–18 GB VRAM and fit comfortably on the H100.
-
-**Staging vs production (two independent Modal apps).**
+Step 1 of the pipeline — turning the PDF into markdown — runs [olmOCR](https://github.com/allenai/olmocr) on a Modal H100. **Production runs olmOCR-2-7B-1025-FP8** (promoted in v1.2 after a staged v1-vs-v2 comparison); the original v1 app stays deployed as a one-line-revert fallback.
 
 | | Modal app | Deploy file | Model |
 |---|---|---|---|
-| **Production** | `olmocr` | `modal/modal_olmocr_final.py` | olmocr CLI default (v1, `olmOCR-7B-0725-FP8`) |
-| **Staging** | `olmocr-v2` | `modal/modal_olmocr_v2.py` | explicit `olmOCR-2-7B-1025-FP8` |
+| **Production** | `olmocr-v2` | `modal/modal_olmocr_v2.py` | explicit `olmOCR-2-7B-1025-FP8`, weights baked into the image |
+| **Fallback** | `olmocr` | `modal/modal_olmocr_final.py` | olmocr CLI default (v1, `olmOCR-7B-0725-FP8`) |
 
-The pipeline resolves extraction by app name via `modal.Function.from_name("olmocr", "process_pdf")`, so **production is unaffected until that name is repointed.** Deploying `olmocr-v2` creates a separate app; on Modal, idle apps reserve no GPU, so the two coexist at zero standing cost.
+The production deployment pins `olmocr>=0.4.0`, passes an explicit `--model` (so extraction can't drift with the package default), bakes the ~16 GB weights into the image at build time (no runtime HuggingFace dependency), runs one extraction per container (`single_use_containers=True` — a reused warm container can hang the vLLM boot), and streams the CLI's output to Modal logs so a stuck extraction is diagnosable.
 
 ```bash
-# Deploy staging (leaves production "olmocr" untouched)
+# Deploy / update production extraction
 modal deploy modal/modal_olmocr_v2.py
 
-# Smoke-test one PDF against staging
+# Smoke-test one PDF
 modal run modal/modal_olmocr_v2.py --pdf-file benchmark/irs_schedule_c.pdf
-
-# Full v1-vs-v2 quality comparison (health-checks staging first, then compares)
-python scripts/compare_olmocr_v1_v2.py
 ```
 
-**Promote to production (only after the comparison passes review).** Point the pipeline's extraction lookup at the v2 app by changing `OLMOCR_APP` in [`src/build_syllabus_slice.py`](src/build_syllabus_slice.py) from `"olmocr"` to `"olmocr-v2"`, then redeploy the API (`modal deploy src/modal_api.py`).
-
-**Revert.** Because production is selected by app name, revert is a one-line change back to `OLMOCR_APP = "olmocr"` plus an API redeploy — the original v1 app is never modified or torn down, so it remains a live safety net. To retire the staging app entirely: `modal app stop olmocr-v2`.
+**Revert.** The pipeline resolves extraction by app name (`OLMOCR_APP` in [`src/build_syllabus_slice.py`](src/build_syllabus_slice.py)); set it back to `"olmocr"` and redeploy the API to fall back to v1.
 
 ## The Enhancement & Optimization Loop
 
@@ -225,7 +218,7 @@ All documents converge quickly with zero content loss. Manifest and report downl
 - Visual-artifact filtering for the element ID builder (repeated separator lines etc. can hash-collide into duplicate IDs — currently detected and logged, not filtered upstream) and a second-pass classifier to reduce heading-promotion false positives; see `docs/ARCHITECTURE.md`
 - Download full package ZIP (HTML output + JSON manifest + Report + Original PDF)
 - CLI instance for batch processing and local runs
-- Persistent job storage (Supabase) to handle long-running PDF processing
+- Upgrade job storage from Modal Dict (current, 24h TTL) to Supabase for long-term history and batch dashboards
 - JAWS / NVDA screen reader validation
 - Batch processing dashboard
 - Expanded documentation and examples
@@ -258,6 +251,18 @@ npm install --legacy-peer-deps
 # Set up Modal credentials
 export MODAL_TOKEN_ID=your_token_id
 export MODAL_TOKEN_SECRET=your_token_secret
+
+# Create the OLMo reviewer auth secret (required — the API deploy references it)
+modal secret create olmo-reviewer-auth OLMO_REVIEWER_TOKEN=$(openssl rand -hex 32)
+```
+
+**OLMo reviewer for self-hosts:** the code's default `OLMO_REVIEWER_URL` points at the
+hosted demo's endpoint, which requires *its* bearer token — your deployment will skip the
+OLMo reviewer (and continue with Gemini/GPT) unless you deploy your own and point at it:
+
+```bash
+modal deploy modal/modal_olmo_wcag.py   # deploys app "olmo-wcag-reviewer" under your account
+export OLMO_REVIEWER_URL=https://<your-workspace>--olmo-wcag-reviewer-api.modal.run
 ```
 
 ### Run Locally
@@ -326,10 +331,10 @@ Procurement friction is real for government and enterprise buyers. If an organiz
 - The OLMo reviewer GPU endpoint requires a shared bearer token (`olmo-reviewer-auth` Modal secret). Without it, the endpoint would be publicly callable GPU compute. Self-hosters: `modal secret create olmo-reviewer-auth OLMO_REVIEWER_TOKEN=$(openssl rand -hex 32)` before deploying `modal/modal_olmo_wcag.py`.
 
 ### Data persistence
-- PDF content, intermediate HTML, and remediation results live in in-memory job state.
-- No database, Redis, or persistent storage is required for jobs.
+- Job state (progress, scores, enhancement metadata) and generated HTML live in a [Modal Dict](https://modal.com/docs/guide/dicts-and-queues) so conversions survive container restarts; records are pruned after **24 hours**.
+- Uploaded PDF bytes are held in memory only for the duration of the job and are never written to the job store.
+- No external database or Redis is required.
 - Temporary files are created with Python's `tempfile` module and deleted after processing.
-- Modal containers scale down after idle periods, clearing in-memory state.
 
 ### Analytics
 The hosted site (happypdf.org) uses Google Analytics (GA4) to understand traffic and usage.
@@ -368,7 +373,7 @@ For self-hosted deployments:
 
 ### The Preservation Gate is Your Safety Net
 
-While automation has limits, the preservation gate is absolute: **every word, image, and table in the output is accounted for.** The orchestrator runs a bit-level check: word count, image count, table count, and content-addressed hashes. If any element is missing, the job fails. You can see exactly where remediation succeeded and where it needs human attention, without risk of silent data loss.
+While automation has limits, the preservation gate is strict and always compared against the **original** document (never the previous round, so tolerances cannot compound): visible-text word coverage must stay ≥ 95%, image and table counts must never decrease, and patches must not introduce new heading-level skips. Any failing check discards the round and stops the loop, so remediation can never quietly trade content for score.
 
 See [`docs/PRESERVATION_PROOF.md`](docs/PRESERVATION_PROOF.md) for the mathematical contract.
 

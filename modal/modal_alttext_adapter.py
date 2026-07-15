@@ -38,7 +38,7 @@ def generate_alt_text(
     max_tokens: int = 150,
 ) -> dict:
     """
-    Generate alt text from base64 image using Qwen2.5-VL.
+    Generate alt text from base64 image using Qwen2-VL.
 
     Args:
         image_b64: Base64-encoded image
@@ -79,7 +79,7 @@ def generate_alt_text(
         else:
             full_prompt = f"{base_prompt}\n\nAlt text:"
 
-        print("[AltText] Loading Qwen2.5-VL...")
+        print("[AltText] Loading Qwen2-VL...")
         processor = AutoProcessor.from_pretrained("Qwen/Qwen2-VL-7B-Instruct")
         model = Qwen2VLForConditionalGeneration.from_pretrained(
             "Qwen/Qwen2-VL-7B-Instruct",
