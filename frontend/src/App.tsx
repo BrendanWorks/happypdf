@@ -98,8 +98,9 @@ function ConsentBanner() {
 
   return (
     <div className="fixed bottom-0 inset-x-0 z-[100] border-t border-slate-800 bg-slate-900/98 backdrop-blur-sm">
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 py-4 flex flex-col sm:flex-row items-center gap-4">
-        <p className="text-sm text-slate-300 flex-1">
+      {/* Compact on phones — the banner was eating ~40% of a 375px viewport */}
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 py-3 sm:py-4 flex flex-col sm:flex-row items-center gap-3 sm:gap-4">
+        <p className="text-xs sm:text-sm text-slate-300 flex-1">
           We use Google Analytics to see aggregate site usage (page views, upload counts). We never send file names, file contents, or API keys to analytics.{' '}
           <a href="/privacy.html" className="underline text-teal-400 hover:text-teal-300">
             Privacy Policy
@@ -435,15 +436,17 @@ function DemoPanel() {
       enhancements: [], has_html: false, source: snap.source, error: null,
       reviewer_health: snap.reviewer_health,
     };
+    // Replay pacing: slow enough that each stage's explainer blurb can be
+    // read as it activates — the demo doubles as a narrated pipeline tour.
     const steps: { stage: string; delay: number; apply?: () => void }[] = [
       { stage: 'uploading', delay: 350 },
-      { stage: 'extracting', delay: 1000 },
-      { stage: 'alt_text', delay: 800 },
-      { stage: 'html', delay: 600 },
-      { stage: 'axe_baseline', delay: 700, apply: () => { cur.baseline = snap.baseline; } },
+      { stage: 'extracting', delay: 2600 },
+      { stage: 'alt_text', delay: 2200 },
+      { stage: 'html', delay: 1800 },
+      { stage: 'axe_baseline', delay: 2200, apply: () => { cur.baseline = snap.baseline; } },
     ];
     snap.rounds.forEach((rnd) =>
-      steps.push({ stage: `round${rnd.round}`, delay: 850, apply: () => { cur.rounds = [...cur.rounds, rnd]; } }),
+      steps.push({ stage: `round${rnd.round}`, delay: 2400, apply: () => { cur.rounds = [...cur.rounds, rnd]; } }),
     );
     steps.push({
       stage: 'done', delay: 300, apply: () => {
@@ -723,7 +726,7 @@ function DemoPanel() {
                   const i = stages.findIndex((x) => x.id === s.id);
                   const isDone = i < current || (s.id === 'done' && done);
                   const active = i === current && !done;
-                  const info = active ? STAGE_INFO[s.id] : undefined;
+                  const info = STAGE_INFO[s.id];
                   return (
                     <div key={s.id} className={`px-3 py-2 rounded-lg text-sm transition-all ${active ? 'bg-teal-400/10 border border-teal-400/20' : isDone ? 'opacity-60' : 'opacity-30'}`}>
                       <div className="flex items-center gap-3">
@@ -742,7 +745,11 @@ function DemoPanel() {
                           </span>
                         )}
                       </div>
-                      {active && isLive && info && (
+                      {/* Blurbs show for the active stage (live AND demo
+                          replays) and persist on completed stages so the
+                          pipeline stays explained after the run finishes.
+                          The row's opacity-60 dims persisted ones. */}
+                      {(active || isDone) && info && (
                         <p className="mt-1.5 ml-[26px] text-xs text-slate-400 leading-relaxed">{info.blurb}</p>
                       )}
                     </div>
@@ -1059,10 +1066,15 @@ export default function App() {
               </span>
             </div>
 
+            {/* min-w-0 on grid children: grid items default to min-width:auto,
+                so one long unbreakable token can force the whole column wider
+                than the viewport and clip every sibling (buttons, demo panel). */}
             <div className="grid lg:grid-cols-2 gap-12 items-center">
-              <div className="text-center lg:text-left">
+              <div className="min-w-0 text-center lg:text-left">
                 <h1 className="text-4xl sm:text-5xl lg:text-[3.25rem] font-extrabold text-white leading-[1.1] tracking-tight mb-6">
-                  PDF&nbsp;→&nbsp;accessible&nbsp;HTML.{' '}
+                  {/* Normal spaces — the old nbsp chain made this one ~398px
+                      unbreakable token, wider than a 375px phone. */}
+                  PDF → accessible HTML.{' '}
                   <span className="text-teal-400">Validated.</span>{' '}
                   <span className="text-slate-400">Open.</span>
                 </h1>
@@ -1109,7 +1121,7 @@ export default function App() {
               </div>
 
               {/* Demo panel */}
-              <div id="demo" className="w-full">
+              <div id="demo" className="w-full min-w-0">
                 <DemoPanel />
               </div>
             </div>
@@ -1402,7 +1414,8 @@ export default function App() {
             </span>
           </div>
 
-          <div className="flex items-center gap-6">
+          {/* flex-wrap: six links at gap-6 are ~478px — wider than a phone */}
+          <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2">
             <a href="https://pointcheck.org/" rel="noopener noreferrer" className="hover:text-slate-300 transition-colors flex items-center gap-1">
               PointCheck <ExternalLink size={11} />
             </a>
