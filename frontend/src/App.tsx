@@ -137,6 +137,45 @@ type Round = {
 };
 type Enhancement = { element_id: string; attribute: string; value: string };
 type StageDef = { id: string; label: string };
+// PointCheck-derived report blocks (report-only; present on live jobs once
+// the API ships Phases 1-3 — every section renders only when its block
+// exists, so older jobs and demo snapshots simply don't show them).
+type PointcheckFinding = {
+  check: string;
+  criterion: string;
+  severity: string;
+  description: string;
+  examples?: string[];
+  fix?: string;
+};
+type PointcheckBlock = {
+  findings?: PointcheckFinding[];
+  counts?: Record<string, number>;
+  error?: string;
+};
+type AltJudgeImage = {
+  filename: string;
+  success: boolean;
+  score: number | null;
+  critique: string;
+  long_desc_opinion: boolean | null;
+};
+type AltTextReview = {
+  judge_model?: string;
+  images?: AltJudgeImage[];
+  images_judged?: number;
+  flagged_low_quality?: string[];
+  avg_score?: number | null;
+  status?: string;
+};
+type FidelityFinding = { type: string; severity: string; description: string };
+type FidelityBlock = {
+  status: string;
+  findings?: FidelityFinding[];
+  pages_analyzed?: number;
+  pages_total?: number;
+};
+
 type Job = {
   id: string;
   kind: 'replay' | 'live';
@@ -157,7 +196,18 @@ type Job = {
   source: string | null;
   stopped_reason?: string;
   reviewer_health?: { [key: string]: { status: string; round?: number; rounds_ran?: number } };
+  pointcheck?: PointcheckBlock | null;
+  alt_text_review?: AltTextReview | null;
+  fidelity?: FidelityBlock | null;
   error: string | null;
+};
+
+// Shared severity accents for PointCheck-derived findings.
+const SEVERITY_STYLE: Record<string, string> = {
+  critical: 'border-rose-500/30 bg-rose-500/10 text-rose-200',
+  serious: 'border-amber-500/30 bg-amber-500/10 text-amber-200',
+  moderate: 'border-yellow-500/20 bg-yellow-500/5 text-yellow-200/90',
+  minor: 'border-slate-700/60 bg-slate-800/40 text-slate-300',
 };
 type Snapshot = {
   id: string;
@@ -170,6 +220,9 @@ type Snapshot = {
   stopped_reason: string;
   final_html: string;
   reviewer_health?: { [key: string]: { status: string; round?: number; rounds_ran?: number } };
+  pointcheck?: PointcheckBlock | null;
+  alt_text_review?: AltTextReview | null;
+  fidelity?: FidelityBlock | null;
 };
 
 const DEMOS: { id: string; label: string }[] = [
@@ -452,6 +505,11 @@ function DemoPanel() {
       stage: 'done', delay: 300, apply: () => {
         cur.final = snap.final; cur.enhancements = snap.enhancements;
         cur.stopped_reason = snap.stopped_reason; cur.has_html = true; cur.status = 'done';
+        // Vision-derived report blocks (present on newer snapshots) surface
+        // in the demo just as they will on a live run.
+        cur.pointcheck = snap.pointcheck ?? null;
+        cur.alt_text_review = snap.alt_text_review ?? null;
+        cur.fidelity = snap.fidelity ?? null;
       },
     });
     let i = 0;
@@ -832,6 +890,93 @@ function DemoPanel() {
                 </div>
                 <p className="text-[11px] text-slate-400 text-center leading-relaxed">
                   {job.baseline!.violations} violations at baseline — the loop <span className="text-slate-400">adds ARIA</span>, it doesn't fix broken HTML.
+                </p>
+              </div>
+            )}
+
+            {/* ── Coverage checks (PointCheck Layer-1) — beyond axe's ruleset ── */}
+            {done && job?.pointcheck && !job.pointcheck.error && (
+              <div className="border border-slate-700/60 rounded-xl p-4 space-y-2">
+                <p className="text-xs text-slate-400 font-medium uppercase tracking-wider">Coverage checks (beyond axe-core)</p>
+                {(job.pointcheck.findings ?? []).length === 0 ? (
+                  <p className="text-xs text-slate-300 flex items-center gap-2">
+                    <CheckCircle size={12} className="text-emerald-400 shrink-0" />
+                    Structure, keyboard, and rendered-contrast checks found nothing axe missed.
+                  </p>
+                ) : (
+                  (job.pointcheck.findings ?? []).map((f, i) => (
+                    <div key={i} className={`px-3 py-2.5 rounded-lg text-xs border ${SEVERITY_STYLE[f.severity] ?? SEVERITY_STYLE.minor}`}>
+                      <div className="flex items-center gap-2">
+                        <AlertTriangle size={12} className="shrink-0" />
+                        <span className="font-mono shrink-0">WCAG {f.criterion}</span>
+                        <span className="uppercase text-[10px] tracking-wider opacity-70 ml-auto shrink-0">{f.severity}</span>
+                      </div>
+                      <p className="mt-1 leading-relaxed">{f.description}</p>
+                      {f.fix && <p className="mt-1 opacity-80 leading-relaxed">Fix: {f.fix}</p>}
+                    </div>
+                  ))
+                )}
+              </div>
+            )}
+
+            {/* ── Content fidelity — original PDF vs converted document ── */}
+            {done && job?.fidelity && job.fidelity.status === 'ok' && (
+              <div className="border border-slate-700/60 rounded-xl p-4 space-y-2">
+                <p className="text-xs text-slate-400 font-medium uppercase tracking-wider">Content fidelity (original vs converted)</p>
+                {(job.fidelity.findings ?? []).length === 0 ? (
+                  <p className="text-xs text-slate-300 flex items-center gap-2">
+                    <CheckCircle size={12} className="text-emerald-400 shrink-0" />
+                    No content-loss signals across {job.fidelity.pages_analyzed} page{(job.fidelity.pages_analyzed ?? 0) !== 1 ? 's' : ''}.
+                  </p>
+                ) : (
+                  (job.fidelity.findings ?? []).map((f, i) => (
+                    <div key={i} className={`px-3 py-2.5 rounded-lg text-xs border ${SEVERITY_STYLE[f.severity] ?? SEVERITY_STYLE.minor}`}>
+                      <div className="flex items-center gap-2">
+                        <AlertTriangle size={12} className="shrink-0" />
+                        <span className="uppercase text-[10px] tracking-wider opacity-70">{f.severity}</span>
+                      </div>
+                      <p className="mt-1 leading-relaxed">{f.description}</p>
+                    </div>
+                  ))
+                )}
+                <p className="text-[11px] text-slate-400 leading-relaxed">
+                  An independent vision model (Molmo-7B-D) inventoried each original page and compared it against the converted document.
+                </p>
+              </div>
+            )}
+
+            {/* ── Alt-text review — independent judge on generated alt text ── */}
+            {done && job?.alt_text_review && (job.alt_text_review.images_judged ?? 0) > 0 && (
+              <div className="border border-slate-700/60 rounded-xl p-4 space-y-2">
+                <p className="text-xs text-slate-400 font-medium uppercase tracking-wider">Alt-text review (independent judge)</p>
+                {(job.alt_text_review.images ?? [])
+                  .filter((img) => img.success && (img.score ?? 5) <= 2)
+                  .map((img) => (
+                    <div key={img.filename} className={`px-3 py-2.5 rounded-lg text-xs border ${SEVERITY_STYLE.serious}`}>
+                      <div className="flex items-center gap-2">
+                        <AlertTriangle size={12} className="shrink-0" />
+                        <span className="font-mono truncate">{img.filename}</span>
+                        <span className="ml-auto shrink-0 font-mono">{img.score}/5</span>
+                      </div>
+                      <p className="mt-1 leading-relaxed">{img.critique}</p>
+                    </div>
+                  ))}
+                <p className="text-xs text-slate-300 flex items-center gap-2">
+                  {(job.alt_text_review.flagged_low_quality ?? []).length === 0 ? (
+                    <>
+                      <CheckCircle size={12} className="text-emerald-400 shrink-0" />
+                      All {job.alt_text_review.images_judged} image description{(job.alt_text_review.images_judged ?? 0) !== 1 ? 's' : ''} passed independent review
+                      {job.alt_text_review.avg_score ? ` (avg ${job.alt_text_review.avg_score}/5)` : ''}.
+                    </>
+                  ) : (
+                    <span className="text-slate-400">
+                      {job.alt_text_review.images_judged} judged · avg {job.alt_text_review.avg_score ?? '—'}/5 ·{' '}
+                      {(job.alt_text_review.flagged_low_quality ?? []).length} flagged for review
+                    </span>
+                  )}
+                </p>
+                <p className="text-[11px] text-slate-400 leading-relaxed">
+                  A different vision model than the one that wrote the alt text grades each description 1–5.
                 </p>
               </div>
             )}
