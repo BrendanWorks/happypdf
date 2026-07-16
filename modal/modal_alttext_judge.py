@@ -344,6 +344,97 @@ def judge_alt_text(items: list[dict]) -> list[dict]:
     return results
 
 
+def parse_fidelity_response(text: str) -> dict:
+    """Parse the page-inventory answer into counts/flags (never fabricates).
+
+    Expected format: IMAGES: n / TABLES: n / CHART: yes|no / TEXT: yes|no.
+    Missing or unparseable fields come back None — callers must skip Nones
+    rather than treat them as zero (a None count is 'unknown', not 'empty').
+    """
+    text = (text or "").strip()
+
+    def _count(label: str):
+        m = re.search(rf"{label}\s*[:=]?\s*(\d+)", text, re.I)
+        if m:
+            return min(int(m.group(1)), 50)  # cap absurd model output
+        # spelled-out zero/none
+        m = re.search(rf"{label}\s*[:=]?\s*(no|none|zero)\b", text, re.I)
+        return 0 if m else None
+
+    def _flag(label: str):
+        m = re.search(rf"{label}\s*[:=]?\s*(yes|no|true|false)\b", text, re.I)
+        if not m:
+            return None
+        return m.group(1).lower() in ("yes", "true")
+
+    return {
+        "images": _count("IMAGES"),
+        "tables": _count("TABLES"),
+        "has_chart": _flag("CHART"),
+        "text_heavy": _flag("TEXT"),
+    }
+
+
+_FIDELITY_PROMPT = (
+    "Look at this page from a PDF document. Answer in exactly this format:\n"
+    "IMAGES: <number of photographs, figures, charts, logos, or illustrations "
+    "visible on the page>\n"
+    "TABLES: <number of data tables with visible rows and columns>\n"
+    "CHART: <yes or no — is any of the images a chart, graph, or data visualization>\n"
+    "TEXT: <yes or no — does the page contain more than a few sentences of readable text>"
+)
+
+
+@app.function(
+    image=image,
+    gpu="A10G",
+    timeout=900,
+    memory=16384,
+    max_containers=1,       # cost ceiling — the gate is never latency-critical
+    scaledown_window=300,
+)
+def judge_page_fidelity(pages: list[dict]) -> list[dict]:
+    """
+    Content-inventory each rendered PDF page (PointCheck Phase 3, PDF side).
+
+    pages:   [{"page_number": int, "image_b64": str}]
+    returns: [{"page_number", "images", "tables", "has_chart", "text_heavy",
+               "success": bool}]  (counts/flags may be None = unknown)
+
+    The HTML side of the fidelity comparison is computed structurally from the
+    DOM (src/fidelity_gate.py) — only the unstructured PDF needs vision.
+    Batch call per document; per-page failures never sink the batch.
+    """
+    from io import BytesIO
+
+    from PIL import Image
+
+    global _judge
+    if _judge is None:
+        _judge = _MolmoJudge()
+
+    results = []
+    for p in pages:
+        n = p.get("page_number", 0)
+        try:
+            img = Image.open(BytesIO(base64.b64decode(p["image_b64"]))).convert("RGB")
+            raw = _judge.query(img, _FIDELITY_PROMPT, max_new_tokens=60)
+            parsed = parse_fidelity_response(raw)
+            ok = any(v is not None for v in parsed.values())
+            results.append({"page_number": n, "success": ok, **parsed})
+            print(f"[fidelity] page {n}: {parsed}")
+        except Exception as e:
+            import traceback
+
+            print(f"[fidelity] page {n} failed (non-fatal): {type(e).__name__}: {e}\n"
+                  f"{traceback.format_exc()}")
+            results.append(
+                {"page_number": n, "success": False, "images": None,
+                 "tables": None, "has_chart": None, "text_heavy": None}
+            )
+    return results
+
+
 @app.local_entrypoint()
 def smoke(image_path: str, alt_text: str = "an image", context: str = ""):
     """Smoke test one image: modal run modal/modal_alttext_judge.py --image-path x.png --alt-text '...'"""

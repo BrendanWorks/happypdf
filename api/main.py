@@ -293,6 +293,7 @@ def _live(
     threading.Thread(target=_heartbeat, args=(jid, stop_heartbeat), daemon=True).start()
     threading.Thread(target=_warm_olmo_reviewer, daemon=True).start()
     judge_pool = None  # alt-text judge executor; shut down in finally on error paths
+    fidelity_pool = None  # fidelity-gate executor; ditto
     try:
         import build_syllabus_slice as bss
         import reviewers
@@ -303,6 +304,16 @@ def _live(
         provider = reviewers.make_live_provider(reviewer_profile, openai_api_key=openai_api_key)
 
         _set(jid, source="live pipeline (olmOCR + Qwen2-VL + live reviewers + Claude judge)")
+
+        # PointCheck Phase 3: fidelity gate's PDF-side vision inventory needs
+        # only the raw PDF, so it starts NOW — its GPU cold start overlaps
+        # extraction and the review rounds. Report-only, best-effort; the
+        # HTML-side comparison is instant and happens post-convergence.
+        import fidelity_gate as fg
+
+        fidelity_pool = ThreadPoolExecutor(max_workers=1)
+        fidelity_future = fidelity_pool.submit(fg.analyze_pdf_pages, pdf_bytes)
+
         _set(jid, stage="extracting")
         with tempfile.NamedTemporaryFile("wb", suffix=".pdf", delete=False) as f:
             f.write(pdf_bytes)
@@ -399,6 +410,18 @@ def _live(
                 alt_text_review = {"status": "unavailable"}
         judge_pool.shutdown(wait=False)
 
+        # Fidelity gate: the PDF-side inventory has had the whole pipeline to
+        # finish; combine with the final HTML (instant, local). Report-only.
+        try:
+            _set(jid, stage="fidelity")
+            fidelity = fg.compare_with_html(
+                fidelity_future.result(timeout=180), final_html
+            )
+        except Exception as e:
+            print(f"[fidelity] non-fatal: {type(e).__name__}: {e}", flush=True)
+            fidelity = {"status": "unavailable", "findings": []}
+        fidelity_pool.shutdown(wait=False)
+
         # Large HTML lives in its own blob key, not the job record — polls
         # fetch the whole record every 1.5s and must stay small.
         JOBS.put_blob(jid, "final_html", final_html)
@@ -414,6 +437,7 @@ def _live(
             reviewer_profile=reviewer_profile,
             pointcheck=_safe_pointcheck(final_html),
             alt_text_review=alt_text_review,
+            fidelity=fidelity,
         )
     except Exception as e:
         # Log full error server-side for operators; generic message for user
@@ -423,6 +447,8 @@ def _live(
         stop_heartbeat.set()
         if judge_pool is not None:
             judge_pool.shutdown(wait=False)
+        if fidelity_pool is not None:
+            fidelity_pool.shutdown(wait=False)
 
 
 # ---------------------------------------------------------------------------
