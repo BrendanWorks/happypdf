@@ -2,13 +2,15 @@
 
 Status: **Proposed / future work.** No code from this doc has been implemented. This exists to capture the research and phased recommendation so it isn't lost.
 
+Revised July 15 2026: merged the original check-porting plan with a capability-track review. The original doc asked "which PointCheck checks port onto happypdf's output HTML?" — this revision also answers the broader question, "where does PointCheck's visual inspection make happypdf better for users?" The two produce different GPU priorities. File/line claims in *Current state* and Phase 1 were re-verified against both codebases during the revision.
+
 ## Context / Motivation
 
 happypdf scores its generated HTML using axe-core alone (`src/loop.py`'s `AxeScorer`), and this project's own architecture doc already admits the gap: [`docs/ARCHITECTURE.md`](ARCHITECTURE.md) states axe-core "covers roughly 30-40% of WCAG success criteria — it cannot judge reading order, content loss during extraction, or whether alt text is actually correct."
 
 [PointCheck](https://pointcheck.org) ([github.com/BrendanWorks/PointCheck](https://github.com/BrendanWorks/PointCheck)), a separate project by the same author, was built specifically to catch what DOM-only scanners miss. Its own validation data (`wcag_tool_comparison.csv`) shows real cases — W3C's "Before" accessibility test page, the AU and Mars test pages — where axe reports 0 violations but PointCheck correctly flags JS-only links, 200%-zoom text clipping, and visually-insufficient focus rings.
 
-This doc captures whether that tech is portable into happypdf's very different pipeline (a static generated HTML file, not a live URL) and what a phased integration would look like.
+Note where the ARCHITECTURE.md gap actually lives: **reading order, content loss, and alt-text correctness are conversion-fidelity problems, not output-scanning problems.** No check that inspects only the generated HTML can address them — they require looking at the original PDF too, or at the images themselves. That observation drives the two-track structure below.
 
 ## Current state: happypdf's scoring contract
 
@@ -19,6 +21,8 @@ This doc captures whether that tech is portable into happypdf's very different p
 ```
 
 Called ~4x per document (baseline + up to `MAX_ROUNDS=3` remediation rounds). A regression guard (`loop.py:296-305`) reverts any round that increases `violations`. Convergence requires score ≥95% AND `hard_gates_pass()` AND zero new patches applied (`loop.py:314-317`).
+
+Also relevant: the text reviewers never see images at all — `_strip_data_uris()` (`src/reviewers.py:152`) removes them before review, and the preservation gate (`src/gate.py`) compares extracted-vs-patched structure, so nothing in the current pipeline can detect content that olmOCR dropped or scrambled *before* the HTML existed.
 
 ## PointCheck's architecture
 
@@ -32,45 +36,87 @@ Two checks stand out as directly additive to axe:
 - `page_structure.py`'s `STRUCTURE_JS` catches filename-pattern alt text (`img_042.png` set as the alt attribute), vague link text ("click here"), and non-decorative empty-alt images via size/link heuristics — none of which axe's ruleset covers.
 - `color_blindness.py`'s DOM-tree alpha-composite walk (`getEffectiveBg()`) fixes exactly the class of false-pass bug happypdf's own docs flag: axe can report a contrast check as passing when the actual rendered color comes from stacked semi-transparent layers.
 
-## Recommended phasing
+Beyond the checks, PointCheck has two transferable **capabilities** that are not checks at all:
+- `MolmoQAAnalyzer` (`backend/app/models/molmo2.py`) — Molmo-7B-D-0924 in 4-bit NF4 (~4 GB VRAM), a general screenshot/image QA model, including the hard-won Transformers 5.x compat patches (ROPE default key, lenient processor init, DynamicCache patch, read-only-property setters).
+- The LLM-as-judge eval pattern from PointCheck's `regression_suite.py` — an independent model grading another model's output.
 
-**Phase 1 — port Layer-1-only checks, `analyzer=None`, zero GPU cost.**
+## Two tracks
+
+**Track A — port checks onto the generated HTML** (the original plan). Improves scanning coverage of the thing happypdf already controls and already validates. Cheap, low-risk, incremental.
+
+**Track B — apply vision QA to the conversion problem itself.** Judges alt-text quality with an independent vision model, and compares rendered output against the original PDF pages. This is the only track that touches the three admitted gaps (reading order, content loss, alt-text correctness), and it is where GPU budget should go first.
+
+## Recommended phasing (merged)
+
+**Phase 1 (Track A) — port Layer-1-only checks, `analyzer=None`, zero GPU cost.**
 Port `page_structure.py`'s `STRUCTURE_JS`, `color_blindness.py`'s contrast walk, and `keyboard_nav.py`'s static JS scan (`KEYBOARD_STATIC_JS` — skip the Layer 3 agent-loop import entirely). All three reuse the Chromium page `AxeScorer` already keeps open per job.
 
 Mechanically: `AxeScorer` uses sync Playwright; PointCheck's checks are async. Bridge with a small `asyncio.run()` wrapper around just the Layer-1 JS-eval calls — don't migrate all of `AxeScorer` to async, which would be a larger, riskier touch to `_run_loop_inner`'s control flow for no benefit at this phase. This bridge is safe here specifically: the caller of `AxeScorer`/`run_loop`, `_live()`, runs on a plain `threading.Thread` (`api/main.py:597-599`), not inside FastAPI's event loop, so there's no "asyncio.run() cannot be called from a running event loop" conflict to worry about.
 
-**Phase 2 — pilot Layer 2 (single-shot MolmoWeb-8B QA) selectively, not blanket.**
-Layer 2 questions are one screenshot + one Molmo call (~30-50s per `MOLMO_TIMEOUT`), materially cheaper than the full dual-model Focus Visibility flow. Try `page_structure.py`'s heading-hierarchy question against a handful of happypdf's existing `benchmark/` docs before committing GPU budget to it.
+**Phase 2 (Track B) — independent alt-text judging with Molmo-7B-D.**
+Today Qwen2-VL generates alt text (`src/build_syllabus_slice.py` step 4) and nothing verifies it — the reviewers can't see images. Add a judge step: for each generated alt text, show Molmo-7B-D the image plus the text and ask for a 1–5 adequacy score with a one-line critique, and an independent opinion on `requires_long_desc` (charts/data graphics need long descriptions far more often than photos). Low scores get flagged in the manifest for human attention (non-blocking at first; optionally trigger one regeneration retry later).
 
-**Phase 3 — defer Focus Visibility.**
-`focus_indicator.py` (MolmoWeb-8B + Molmo-7B-D, ~20GB VRAM combined) risks contention with happypdf's Modal container, which already loads olmOCR-2 + alt-text Qwen2-VL and makes 3 external LLM calls per round. If pursued later, run it as a **separate Modal GPU function** (matching the existing pattern in `src/build_syllabus_slice.py` for olmOCR/alt-text as separate functions) called once post-convergence, not per round — avoids multiplying PointCheck's own documented 60-90s cold start by up to 4x. Converted PDFs also have simpler, deterministic tab order compared to live interactive sites, so the payoff here is genuinely lower priority than Phase 1/2.
+Why this is the first GPU spend rather than the original Phase 2 (heading-hierarchy screenshot QA): it is per-image rather than per-page-per-round, the model is the cheap one (~4 GB 4-bit → A10G or smaller), the judge is a *different* model than the generator so it's a real check rather than self-grading, and it directly addresses an admitted gap ("whether alt text is actually correct") instead of re-inspecting structure the gate already validates.
 
-**Skip:** `form_errors.py` (PDF-to-HTML conversions essentially never produce `<form>` elements) and `zoom_test.py`'s Layer 2/3 (low value for single-column converted documents; its Layer 1 CDP check is cheap enough to fold into Phase 1 as a bonus if convenient, but not a priority).
+Implementation notes:
+- New Modal function (own app or function, scale-to-zero), matching the existing pattern of separate functions for olmOCR/alt-text. Do **not** co-locate with the extraction container.
+- Lift `MolmoQAAnalyzer` from PointCheck including all compat patches; pin `transformers` and bake weights into the image at build time, exactly as `modal/modal_olmocr_v2.py` already does — Molmo's Transformers compatibility is fragile and the patches exist for a reason.
+- Cache the model at container/module level so batch jobs reuse the warm container (PointCheck commit `95ae1b4` is the reference implementation of this pattern; it took a scan from 155 s to 19 s).
 
-## Integration point
+**Phase 3 (Track B) — visual fidelity gate: rendered output vs original PDF pages.**
+Render each original PDF page to an image (pdf2image/pypdfium2) and screenshot the corresponding region of the produced HTML (the Chromium instance is already there). Ask Molmo-7B-D a fixed question battery about each side — "How many figures/tables appear on this page?", "Is there a chart, and what does it show?", "What are the first and last sentences?", "Does this figure contain substantial readable text?" — and turn disagreements into findings: *"Page 3 of the original contains a bar chart that does not appear in the output."*
 
-Add a sibling module (e.g. `src/pointcheck_scorer.py`) called alongside `scorer.score(patched)` in `_run_loop_inner` (`loop.py:263`), returning a separate `{"pointcheck": {...}}` block. Do **not** fold results into axe's `violations`/`critical_serious` keys — the regression guard (`loop.py:296-305`) and convergence check (`loop.py:314`) key off those directly, and `judge.py`/`applicator.py` don't yet have patch strategies for PointCheck-specific findings (e.g. structural heading-order issues). Report PointCheck findings as a non-blocking coverage section first; only promote specific categories into the hard-gate logic once matching patch strategies exist.
+This is the differentiator: it upgrades the preservation claim from "structural counts matched" to "an independent vision model compared the output against the original document, page by page." It also catches text-rendered-as-image (the scanned-PDF failure mode, which today passes silently as an image with alt text) and gross reading-order scrambles in multi-column sources. Run once post-convergence, not per round. Findings are a non-blocking report section first, same discipline as Phase 1; page-to-region alignment between a paginated PDF and a single-flow HTML document is approximate, so start with per-page content-inventory questions (counts, presence) rather than exact-position comparisons.
+
+**Phase 4 — deferred.**
+- *Heading-hierarchy screenshot QA* (the original Phase 2): largely subsumed by the Phase 3 question battery; revisit only if fidelity-gate findings show structure-specific misses.
+- *Focus Visibility* (`focus_indicator.py`, MolmoWeb-8B + Molmo-7B-D, ~20 GB combined): unchanged deferral reasoning — converted documents have simple, deterministic tab order; if ever pursued, run as a separate Modal GPU function once post-convergence, not per round.
+- *Pointing-annotated findings*: MolmoWeb-8B's `point_to()` can localize a finding on the page image and embed a crop in the manifest (PointCheck's `screenshot_b64`-per-finding pattern). High polish value, but it needs the 16 GB model — do it last, and only if report impact justifies the bigger GPU.
+
+**Skip (unchanged):** `form_errors.py` (PDF-to-HTML conversions essentially never produce `<form>` elements) and `zoom_test.py`'s Layer 2/3 (low value for single-column converted documents; its Layer 1 CDP check is cheap enough to fold into Phase 1 as a bonus if convenient, but not a priority).
+
+## Integration points
+
+- **Phase 1:** sibling module (e.g. `src/pointcheck_scorer.py`) called alongside `scorer.score(patched)` in `_run_loop_inner` (`loop.py:263`), returning a separate `{"pointcheck": {...}}` block. Do **not** fold results into axe's `violations`/`critical_serious` keys — the regression guard (`loop.py:296-305`) and convergence check (`loop.py:314`) key off those directly, and `judge.py`/`applicator.py` don't yet have patch strategies for PointCheck-specific findings. Report findings as a non-blocking coverage section first; only promote specific categories into the hard-gate logic once matching patch strategies exist.
+- **Phase 2:** a judge call after `generate_alt_text()` in `src/build_syllabus_slice.py`; results land as new manifest fields per image (`alt_judge_score`, `alt_judge_critique`, `alt_judge_long_desc_opinion`).
+- **Phase 3:** post-convergence step in `_run_loop_inner` (or in the job runner after `run_loop` returns), emitting a `{"fidelity": {...}}` block in the report.
 
 ## Risk assessment
 
-- **Prod-safety: low.** The async/sync bridge is safe (see Phase 1 above), and any implementation goes through this project's standing backend deploy gate — local syntax/type check → staging deploy → full `regression_suite.py` — before touching prod.
-- **Technical/correctness: low.** The JS itself is a verbatim copy (PointCheck's own comment reads "unchanged from PointCheck v1 — reproduced in full for self-containment"), not new logic — just relocated, and isolated to a non-blocking sibling report.
-- **Output quality: moderate — the main real risk.** PointCheck's checks were validated against live websites (W3C's test page, GDS, AU, Mars), not PDF-derived single-flow documents. Some findings (e.g. "missing skip navigation," `landmark-one-main`) may be irrelevant noise on happypdf's document shape, which has no page chrome to begin with. Mitigate by running against happypdf's own `benchmark/` docs and pruning/tuning anything that fires spuriously before it's customer-facing.
-- **Maintenance: low but real long-term.** This would be a fork, not a shared dependency — the JS lives in two repos and can drift over time.
+- **Prod-safety: low.** The async/sync bridge is safe (see Phase 1), and any implementation goes through this project's standing backend deploy gate — local syntax/type check → staging deploy → full `regression_suite.py` — before touching prod.
+- **Technical/correctness (Track A): low.** The JS is a verbatim copy, not new logic — just relocated, and isolated to a non-blocking sibling report.
+- **Output quality (Track A): moderate — the main real risk for ported checks.** PointCheck's checks were validated against live websites (W3C's test page, GDS, AU, Mars), not PDF-derived single-flow documents. Some findings (e.g. "missing skip navigation") may be irrelevant noise on happypdf's document shape. Mitigate by running against `benchmark/` docs and pruning anything that fires spuriously before it's customer-facing. Note this risk applies to Track A only — Track B's judge and fidelity gate are designed around the conversion problem rather than adapted from web scanning.
+- **Output quality (Track B): moderate, different failure mode.** A miscalibrated judge nags users about acceptable alt text; a naive fidelity battery false-alarms on pagination differences. Both need calibration runs against `benchmark/` docs with known-good and known-bad examples before being shown to users, and both must launch as non-blocking report sections.
+- **Model fragility (Track B): known and manageable.** Molmo on recent Transformers requires the compat patches in PointCheck's `molmo2.py`; pin versions and bake weights into the image (same discipline as olmOCR-2).
+- **Maintenance: low but real long-term.** Track A is a fork, not a shared dependency — the JS lives in two repos and can drift. Track B lifts `MolmoQAAnalyzer` once; same caveat.
 
 ## Licensing
 
-PointCheck has no `LICENSE` file (all-rights-reserved by default). Since both projects share the same author, this isn't a legal blocker — just add an attribution/license header on any ported module for cleanliness.
+PointCheck has no `LICENSE` file (all-rights-reserved by default). Since both projects share the same author, this isn't a legal blocker — just add an attribution/license header on any ported module for cleanliness. Independent quick win: add a LICENSE to the PointCheck repo itself.
 
-## Payoff (if Phase 1 is built)
+## Payoff
 
-More issues actually caught, for free — no added latency or cost, since it rides on the browser page already open for axe scoring. Closes part of the real gap between "validated" (meaning axe-validated, ~30-40% of WCAG) and what customers likely assume the claim means. The visible score won't change immediately, since Phase 1 findings are reported as a separate non-blocking section rather than folded into the pass/fail gate — that's deliberate, to avoid false convergence regressions, but worth knowing if the goal is "raise the number" rather than "catch more real problems."
+- **Phase 1:** more issues actually caught, for free — no added latency or cost, since it rides on the browser page already open for axe scoring. The visible score won't change (findings are a separate non-blocking section, deliberately, to avoid false convergence regressions).
+- **Phase 2:** the single most important accessibility artifact happypdf produces — alt text — gets independently verified instead of trusted. Manifest gains a per-image quality signal users can act on.
+- **Phase 3:** the preservation claim becomes visual and page-by-page, closing the "reading order / content loss" gap axe and the structural gate cannot touch. This is the feature that most changes what a customer can trust the tool to have done.
 
-## Verification (for whenever Phase 1 is actually implemented)
+## Verification
 
-Run the ported checks against happypdf's existing `benchmark/` documents and confirm:
+Per phase, against `benchmark/` documents, before anything is customer-facing:
+
+**Phase 1:**
 1. No false positives against docs that already score 100% on axe.
-2. Genuine new findings on docs with known issues (cross-check against PointCheck's own `wcag_tool_comparison.csv` categories).
+2. Genuine new findings on docs with known issues (cross-check against PointCheck's `wcag_tool_comparison.csv` categories).
 3. The axe-regression guard and 95% convergence threshold still behave correctly with the new sibling `pointcheck` block present but not feeding into `violations`/`critical_serious`.
+
+**Phase 2:**
+1. Judge scores correlate with human judgment on a hand-labeled sample of benchmark images (good alt ≥4, filename/vacuous alt ≤2).
+2. `requires_long_desc` opinion flags charts/graphs and not photos.
+3. No pipeline failure when the judge function is unavailable (non-fatal, same pattern as PointCheck's narrative fallback).
+
+**Phase 3:**
+1. A known-bad fixture (a PDF with a deliberately dropped figure) MUST produce a fidelity finding — the ground-truth-document pattern from PointCheck's regression suite.
+2. Clean benchmark docs produce zero fidelity findings across two consecutive runs (variance check).
+3. Multi-column benchmark doc: reading-order questions produce consistent answers.
 
 Per this project's standing deploy rule, any backend change goes through `modal deploy --env staging` + `regression_suite.py` before prod.
