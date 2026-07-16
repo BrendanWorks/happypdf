@@ -292,6 +292,7 @@ def _live(
     stop_heartbeat = threading.Event()
     threading.Thread(target=_heartbeat, args=(jid, stop_heartbeat), daemon=True).start()
     threading.Thread(target=_warm_olmo_reviewer, daemon=True).start()
+    judge_pool = None  # alt-text judge executor; shut down in finally on error paths
     try:
         import build_syllabus_slice as bss
         import reviewers
@@ -320,6 +321,15 @@ def _live(
             _set(jid, stage="alt_text")
             images, alt_map = alt_future.result()
         pdf_path.unlink(missing_ok=True)
+
+        # PointCheck Phase 2: independent alt-text judging (Molmo-7B-D),
+        # kicked off NOW so the judge GPU's cold start overlaps the review
+        # rounds instead of adding to them. Report-only and best-effort —
+        # collected (with a timeout) after the loop finishes.
+        judge_pool = ThreadPoolExecutor(max_workers=1)
+        judge_future = (
+            judge_pool.submit(bss.judge_alt_text_map, images, alt_map) if images else None
+        )
 
         _set(jid, stage="html")
         title = bss.extract_title_from_markdown(markdown)
@@ -375,6 +385,20 @@ def _live(
         except Exception as e:
             print(f"Warning: enhancements calculation failed: {e}")
             enhancements_list = []
+        # Collect the alt-text judge verdicts (started before the loop; a
+        # warm judge is long done by now, a cold one gets a bounded grace
+        # period). Timeout/failure leaves alt_text_review as an explicit
+        # "unavailable" marker — never fails the job.
+        alt_text_review = None
+        if judge_future is not None:
+            _set(jid, stage="alt_judge")
+            try:
+                alt_text_review = judge_future.result(timeout=240)
+            except Exception as e:
+                print(f"[alt-judge] non-fatal: {type(e).__name__}: {e}", flush=True)
+                alt_text_review = {"status": "unavailable"}
+        judge_pool.shutdown(wait=False)
+
         # Large HTML lives in its own blob key, not the job record — polls
         # fetch the whole record every 1.5s and must stay small.
         JOBS.put_blob(jid, "final_html", final_html)
@@ -389,6 +413,7 @@ def _live(
             reviewer_health=summary.get("reviewer_health", {}),
             reviewer_profile=reviewer_profile,
             pointcheck=_safe_pointcheck(final_html),
+            alt_text_review=alt_text_review,
         )
     except Exception as e:
         # Log full error server-side for operators; generic message for user
@@ -396,6 +421,8 @@ def _live(
         _set(jid, status="error", error="Conversion failed. Check your API key and try again.")
     finally:
         stop_heartbeat.set()
+        if judge_pool is not None:
+            judge_pool.shutdown(wait=False)
 
 
 # ---------------------------------------------------------------------------

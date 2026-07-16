@@ -50,6 +50,9 @@ AXE_CANDIDATES = [AXE_LOCAL]
 # app ("olmocr", modal/modal_olmocr_final.py) is still deployed as a fallback.
 OLMOCR_APP, OLMOCR_FN = "olmocr-v2", "process_pdf"
 ALTTEXT_APP, ALTTEXT_FN = "pdfaccess-alttext", "generate_alt_text"
+# Alt-text judge (PointCheck Phase 2, modal/modal_alttext_judge.py) — an
+# independent Molmo-7B-D second opinion on Qwen2-VL's alt text. Report-only.
+JUDGE_APP, JUDGE_FN = "alttext-judge", "judge_alt_text"
 
 
 def log(msg: str) -> None:
@@ -192,6 +195,61 @@ def generate_alt_text(images: list[dict]) -> dict[str, dict]:
             )
         mapping[img["filename"]] = res
     return mapping
+
+
+# ---------------------------------------------------------------------------
+# Step 4b: alt-text judge (Molmo-7B-D, report-only) — PointCheck Phase 2
+# ---------------------------------------------------------------------------
+def judge_alt_text_map(images: list[dict], alt_map: dict[str, dict]) -> dict | None:
+    """
+    Independent review of the generated alt text by a DIFFERENT vision model
+    (Molmo-7B-D via the "alttext-judge" Modal app). Returns a report-only
+    summary block for the job record, or None when there is nothing to judge.
+
+    Callers must treat this as best-effort: any failure here is the caller's
+    to swallow — judging must never fail or slow a conversion (it runs
+    concurrently with the review loop; see api/main.py).
+    """
+    items = []
+    for img in images:
+        alt = (alt_map.get(img["filename"]) or {}).get("alt_text", "")
+        if not alt:
+            continue
+        items.append(
+            {
+                "filename": img["filename"],
+                "image_b64": img["b64"],
+                "alt_text": alt,
+                "context": img.get("context", ""),
+            }
+        )
+    if not items:
+        return None
+
+    log(f"alt judge: calling Modal {JUDGE_APP}/{JUDGE_FN} for {len(items)} image(s)...")
+    fn = modal.Function.from_name(JUDGE_APP, JUDGE_FN)
+    results = fn.remote(items)  # one batch call — N images never cost N cold starts
+
+    scores = [r["score"] for r in results if r.get("success") and r.get("score")]
+    # Flag threshold calibrated on the Accessible University logo smoke test
+    # (July 16 2026): the judge is strict — a reasonable alt scored 3 while
+    # filename-alt and wrong-content alt both scored 1. <=2 separates garbage
+    # from acceptable; <=3 would nag users about decent alt text.
+    flagged = [
+        r["filename"] for r in results if r.get("success") and (r.get("score") or 5) <= 2
+    ]
+    for r in results:
+        log(
+            f"  {r['filename']}: score={r.get('score')} "
+            f"long_desc={r.get('long_desc_opinion')} \"{(r.get('critique') or '')[:60]}\""
+        )
+    return {
+        "judge_model": "Molmo-7B-D-0924 (independent of the alt-text generator)",
+        "images": results,
+        "images_judged": len(results),
+        "flagged_low_quality": flagged,
+        "avg_score": round(sum(scores) / len(scores), 2) if scores else None,
+    }
 
 
 # ---------------------------------------------------------------------------
