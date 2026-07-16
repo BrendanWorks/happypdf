@@ -39,6 +39,7 @@ const HAS_API = API_BASE.length > 0;
 declare global {
   interface Window {
     gtag?: (...args: unknown[]) => void;
+    dataLayer?: unknown[];
   }
 }
 
@@ -49,6 +50,79 @@ function trackEvent(action: string, params?: Record<string, string | number>) {
   if (typeof window.gtag === 'function') {
     window.gtag('event', action, params);
   }
+}
+
+const GA_MEASUREMENT_ID = 'G-W8LMNK8TFP';
+const CONSENT_KEY = 'happypdf_analytics_consent';
+
+// Injects gtag.js and starts sending events. Only called after consent.
+function loadAnalytics() {
+  if (typeof window.gtag === 'function') return; // already loaded
+  const script = document.createElement('script');
+  script.async = true;
+  script.src = `https://www.googletagmanager.com/gtag/js?id=${GA_MEASUREMENT_ID}`;
+  document.head.appendChild(script);
+  window.dataLayer = window.dataLayer || [];
+  window.gtag = function gtag(...args: unknown[]) {
+    window.dataLayer!.push(args);
+  };
+  window.gtag('js', new Date());
+  window.gtag('config', GA_MEASUREMENT_ID);
+}
+
+// Bottom cookie-consent banner gating Google Analytics. Shows once per
+// browser until the user chooses; re-openable via the footer link.
+function ConsentBanner() {
+  const [choice, setChoice] = useState<'accepted' | 'declined' | null>(
+    () => (localStorage.getItem(CONSENT_KEY) as 'accepted' | 'declined' | null) ?? null
+  );
+  const [forceOpen, setForceOpen] = useState(false);
+
+  useEffect(() => {
+    if (choice === 'accepted') loadAnalytics();
+  }, [choice]);
+
+  useEffect(() => {
+    const reopen = () => setForceOpen(true);
+    window.addEventListener('happypdf:open-cookie-prefs', reopen);
+    return () => window.removeEventListener('happypdf:open-cookie-prefs', reopen);
+  }, []);
+
+  const decide = (value: 'accepted' | 'declined') => {
+    localStorage.setItem(CONSENT_KEY, value);
+    setChoice(value);
+    setForceOpen(false);
+  };
+
+  if (choice !== null && !forceOpen) return null;
+
+  return (
+    <div className="fixed bottom-0 inset-x-0 z-[100] border-t border-slate-800 bg-slate-900/98 backdrop-blur-sm">
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 py-4 flex flex-col sm:flex-row items-center gap-4">
+        <p className="text-sm text-slate-300 flex-1">
+          We use Google Analytics to see aggregate site usage (page views, upload counts). We never send file names, file contents, or API keys to analytics.{' '}
+          <a href="/privacy.html" className="underline text-teal-400 hover:text-teal-300">
+            Privacy Policy
+          </a>
+          .
+        </p>
+        <div className="flex items-center gap-2 shrink-0">
+          <button
+            onClick={() => decide('declined')}
+            className="px-4 py-2 text-sm rounded-lg border border-slate-700 text-slate-300 hover:bg-slate-800 transition-colors"
+          >
+            Decline
+          </button>
+          <button
+            onClick={() => decide('accepted')}
+            className="px-4 py-2 text-sm rounded-lg bg-teal-500 hover:bg-teal-400 text-slate-900 font-semibold transition-colors"
+          >
+            Accept
+          </button>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 type Metric = { score: number; passes: number; violations: number };
@@ -924,6 +998,7 @@ function FaqItem({ q, a }: { q: string; a: string }) {
 export default function App() {
   return (
     <div className="min-h-screen bg-slate-950 text-slate-200 font-sans antialiased">
+      <ConsentBanner />
       {/* ── Nav ─────────────────────────────────────────────────────────── */}
       <header className="sticky top-0 z-50 border-b border-slate-800/80 bg-slate-950/90 backdrop-blur-sm">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between">
@@ -1337,6 +1412,18 @@ export default function App() {
             <a href="https://arxiv.org/abs/2105.00076v1" rel="noopener noreferrer" className="hover:text-slate-300 transition-colors">
               Research
             </a>
+            <a href="/privacy.html" className="hover:text-slate-300 transition-colors">
+              Privacy
+            </a>
+            <a href="/terms.html" className="hover:text-slate-300 transition-colors">
+              Terms
+            </a>
+            <button
+              onClick={() => window.dispatchEvent(new Event('happypdf:open-cookie-prefs'))}
+              className="hover:text-slate-300 transition-colors"
+            >
+              Cookie preferences
+            </button>
           </div>
 
           <p className="text-slate-400 text-xs text-center sm:text-right">
