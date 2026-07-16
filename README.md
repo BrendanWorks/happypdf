@@ -213,6 +213,7 @@ All 13 documents complete end-to-end with the preservation gate passing on every
 - ✅ OLMo-only reviewer profile (`REVIEWER_PROFILE=olmo-only`) for air-gapped / government / restricted-network deployments
 
 **Upcoming Features:**
+- Port select [PointCheck](https://pointcheck.org) accessibility checks to catch what axe-core misses (~30-40% WCAG coverage) — see [docs/POINTCHECK_INTEGRATION.md](docs/POINTCHECK_INTEGRATION.md)
 - Visual-artifact filtering for the element ID builder (repeated separator lines etc. can hash-collide into duplicate IDs — currently detected and logged, not filtered upstream) and a second-pass classifier to reduce heading-promotion false positives; see `docs/ARCHITECTURE.md`
 - Download full package ZIP (HTML output + JSON manifest + Report + Original PDF)
 - CLI instance for batch processing and local runs
