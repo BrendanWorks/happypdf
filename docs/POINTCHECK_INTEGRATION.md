@@ -1,6 +1,6 @@
-# PointCheck Integration — Design Doc (not yet implemented)
+# PointCheck Integration — Design Doc
 
-Status: **Proposed / future work.** No code from this doc has been implemented. This exists to capture the research and phased recommendation so it isn't lost.
+Status: **Phase 1 implemented (July 16 2026)** — `src/pointcheck_scorer.py` + wiring in `api/main.py`'s `_live` (report-only `pointcheck` / `pointcheck_baseline` blocks on the job record). Phases 2+ remain proposed. Implementation note: the checks run via `pointcheck_score(html)` — a one-shot sync-Playwright run mirroring `loop.axe_score()` — called post-baseline and post-loop in `_live` rather than inside `_run_loop_inner`; the JS strings were copied verbatim, so no async bridge was needed at all. Validation: 3 new pytest cases (planted issues fire; clean document-shaped HTML is silent; web-noise prunes verified), zero false positives against all three `api/snapshots/` final_htmls (each 100% on axe), and a staging + prod e2e conversion with both blocks present and the pipeline unaffected.
 
 Revised July 15 2026: merged the original check-porting plan with a capability-track review. The original doc asked "which PointCheck checks port onto happypdf's output HTML?" — this revision also answers the broader question, "where does PointCheck's visual inspection make happypdf better for users?" The two produce different GPU priorities. File/line claims in *Current state* and Phase 1 were re-verified against both codebases during the revision.
 

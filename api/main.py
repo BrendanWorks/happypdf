@@ -273,6 +273,19 @@ def _live(
     chain (provider factory + judge byok dict) — never written to os.environ —
     so concurrent jobs with different credentials cannot observe each other's
     keys and there is no restore step that can race."""
+
+    def _safe_pointcheck(html: str) -> dict:
+        # PointCheck Layer-1 coverage checks (see docs/POINTCHECK_INTEGRATION.md).
+        # Report-only: never feeds axe's score/gates, and a failure here must
+        # never fail the conversion.
+        try:
+            from pointcheck_scorer import pointcheck_score
+
+            return pointcheck_score(html)
+        except Exception as e:
+            print(f"[pointcheck] non-fatal: {type(e).__name__}: {e}", flush=True)
+            return {"findings": [], "counts": {}, "error": "pointcheck_unavailable"}
+
     import tempfile
     from concurrent.futures import ThreadPoolExecutor
 
@@ -318,7 +331,7 @@ def _live(
 
         _set(jid, stage="axe_baseline")
         baseline_axe = axe_score(baseline_html)
-        _set(jid, baseline=baseline_axe)
+        _set(jid, baseline=baseline_axe, pointcheck_baseline=_safe_pointcheck(baseline_html))
 
         def on_round(entry, _patched, reviewer_health=None):
             with JOBS_LOCK:
@@ -375,6 +388,7 @@ def _live(
             status="done",
             reviewer_health=summary.get("reviewer_health", {}),
             reviewer_profile=reviewer_profile,
+            pointcheck=_safe_pointcheck(final_html),
         )
     except Exception as e:
         # Log full error server-side for operators; generic message for user
