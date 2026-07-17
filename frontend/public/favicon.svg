@@ -1,8 +1,13 @@
 <svg viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg">
-  <!-- Document background -->
-  <rect x="4" y="2" width="24" height="28" rx="2" fill="#0f172a"/>
-  <rect x="4" y="2" width="24" height="28" rx="2" fill="none" stroke="#14b8a6" stroke-width="1.5"/>
-
-  <!-- Checkmark inside document (accessibility/validation theme) -->
-  <path d="M10 14 L14 18 L22 10" stroke="#14b8a6" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+  <!-- Matches the site header mark: teal rounded square + dark FileText glyph -->
+  <rect x="2" y="2" width="28" height="28" rx="7" fill="#14b8a6"/>
+  <g transform="translate(16 16) scale(0.62) translate(-12 -12)"
+     fill="none" stroke="#0f172a" stroke-width="2.4"
+     stroke-linecap="round" stroke-linejoin="round">
+    <path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/>
+    <path d="M14 2v4a2 2 0 0 0 2 2h4"/>
+    <path d="M10 9H8"/>
+    <path d="M16 13H8"/>
+    <path d="M16 17H8"/>
+  </g>
 </svg>
