@@ -151,3 +151,61 @@ class TestServedHtmlHeaders:
         r = client.get(f"/api/jobs/{jid}/html")
         assert r.status_code == 200
         assert "sandbox" in r.headers.get("content-security-policy", "")
+
+
+class TestReplayReportBlocks:
+    """Demo replays must surface the same report blocks a live run produces
+    (PointCheck coverage, alt-text judge, fidelity gate) — and must still
+    complete on older snapshots captured before those blocks existed."""
+
+    SNAP_CORE = {
+        "source": "test snapshot",
+        "baseline": {"passes": 10, "violations": 0, "score": 100},
+        "rounds": [
+            {
+                "round": 1,
+                "patches_applied": 2,
+                "passes": 12,
+                "score": 100,
+                "violations": 0,
+                "gate_passed": True,
+                "gate_checks": [],
+            }
+        ],
+        "final": {"passes": 12, "violations": 0, "score": 100},
+        "final_html": "<html></html>",
+        "enhancements": [],
+        "stopped_reason": "converged",
+        "total_seconds": 123.0,
+    }
+
+    def _run_replay(self, monkeypatch, snap):
+        monkeypatch.setattr(api_main, "_load_snapshot", lambda name: snap)
+        monkeypatch.setattr(api_main.time, "sleep", lambda s: None)
+        jid = api_main._new_job("replay", "test")
+        api_main._replay(jid, "test")
+        return api_main.JOBS.get(jid)
+
+    def test_blocks_pass_through(self, monkeypatch):
+        snap = {
+            **self.SNAP_CORE,
+            "pointcheck_baseline": {"findings": [], "counts": {}},
+            "pointcheck": {"findings": [{"sc": "1.1.1"}], "counts": {"1.1.1": 1}},
+            "alt_text_review": {"images_judged": 3, "flagged_low_quality": []},
+            "fidelity": {"status": "ok", "findings": [], "pages_analyzed": 2},
+            "reviewer_health": {"olmo": "ok"},
+        }
+        rec = self._run_replay(monkeypatch, snap)
+        assert rec["status"] == "done"
+        assert rec["pointcheck_baseline"] == {"findings": [], "counts": {}}
+        assert rec["pointcheck"]["counts"] == {"1.1.1": 1}
+        assert rec["alt_text_review"]["images_judged"] == 3
+        assert rec["fidelity"]["status"] == "ok"
+        assert rec["reviewer_health"] == {"olmo": "ok"}
+
+    def test_old_snapshot_without_blocks_still_completes(self, monkeypatch):
+        rec = self._run_replay(monkeypatch, dict(self.SNAP_CORE))
+        assert rec["status"] == "done"
+        assert rec.get("pointcheck") is None
+        assert rec.get("alt_text_review") is None
+        assert rec.get("fidelity") is None

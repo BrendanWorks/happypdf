@@ -200,7 +200,9 @@ def _replay(jid: str, name: str) -> None:
         for sid in ("uploading", "extracting", "alt_text", "html", "axe_baseline"):
             _set(jid, stage=sid)
             time.sleep(pace[sid])
-        _set(jid, baseline=snap["baseline"])
+        # Report blocks appear in snapshots captured after the PointCheck
+        # integration; .get() tolerates older snapshots that predate them.
+        _set(jid, baseline=snap["baseline"], pointcheck_baseline=snap.get("pointcheck_baseline"))
 
         revealed = []
         for rnd in snap["rounds"]:
@@ -217,6 +219,10 @@ def _replay(jid: str, name: str) -> None:
             has_final_html=True,
             stopped_reason=snap["stopped_reason"],
             total_seconds=snap["total_seconds"],
+            reviewer_health=snap.get("reviewer_health", {}),
+            pointcheck=snap.get("pointcheck"),
+            alt_text_review=snap.get("alt_text_review"),
+            fidelity=snap.get("fidelity"),
             status="done",
         )
     except Exception as e:  # pragma: no cover

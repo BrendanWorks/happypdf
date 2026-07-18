@@ -73,7 +73,7 @@ def build(name: str, label: str, doctype: str) -> dict:
     baseline_html = (BENCH / f"{name}_live_baseline.html").read_text()
     final_html = (BENCH / f"{name}_live_final.html").read_text()
     rounds = [round_summary(r) for r in summary["rounds"] if r.get("status") == "accepted"]
-    return {
+    snap = {
         "id": name,
         "label": label,
         "doctype": doctype,
@@ -83,9 +83,17 @@ def build(name: str, label: str, doctype: str) -> dict:
         "final": summary["final"],
         "stopped_reason": summary["stopped_reason"],
         "total_seconds": summary["total_seconds"],
+        "reviewer_health": summary.get("reviewer_health", {}),
         "enhancements": enhancements(baseline_html, final_html),
         "final_html": final_html,
     }
+    # Report blocks (PointCheck coverage, alt-text judge, fidelity gate) exist
+    # in summaries captured by scripts/capture_live_snapshots.py. They come
+    # from the SAME run as everything above — never mix blocks across runs.
+    for key in ("pointcheck_baseline", "pointcheck", "alt_text_review", "fidelity"):
+        if key in summary:
+            snap[key] = summary[key]
+    return snap
 
 
 def main() -> int:
