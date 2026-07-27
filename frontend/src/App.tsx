@@ -1591,6 +1591,17 @@ export default function App() {
             </a>
           </p>
         </div>
+        <p className="max-w-6xl mx-auto px-4 sm:px-6 mt-6 text-center text-xs text-slate-500">
+          Built by{' '}
+          <a
+            href="https://www.linkedin.com/in/brendanworks/"
+            rel="noopener noreferrer"
+            className="underline underline-offset-2 hover:text-slate-300 transition-colors"
+          >
+            Brendan Works, Ph.D.
+          </a>{' '}
+          · Product manager, builder, and open-source tinkerer. Open to new roles.
+        </p>
       </footer>
     </div>
   );
