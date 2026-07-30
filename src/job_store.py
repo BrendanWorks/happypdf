@@ -137,19 +137,29 @@ class DailyRateLimiter:
             self._dict = modal.Dict.from_name(self._name, create_if_missing=True)
         return self._dict
 
-    def check_and_increment(self, limit: int) -> tuple[bool, int]:
-        """Returns (allowed, count_after). Increments only when allowed."""
+    def check_and_increment(self, limit: int, bucket: str = "") -> tuple[bool, int]:
+        """Returns (allowed, count_after). Increments only when allowed.
+
+        `bucket` partitions the counter so an issued access token draws on its
+        own daily quota instead of the shared public pool. Keys are
+        "<date>:<bucket>", which keeps the prune below correct: same-day token
+        keys sort after the bare date, older ones sort before it.
+
+        The bucket is a caller-supplied label (never the token itself), so no
+        credential is written to the store.
+        """
         today = datetime.now().strftime("%Y-%m-%d")
+        key = f"{today}:{bucket}" if bucket else today
         with self._lock:
             try:
-                count = int(self._backend.get(today) or 0)
+                count = int(self._backend.get(key) or 0)
             except Exception:
                 count = 0  # a transient store hiccup must not block conversions
             if count >= limit:
                 return False, count
             count += 1
             try:
-                self._backend[today] = count
+                self._backend[key] = count
                 # Drop old days so the store stays a handful of keys.
                 yesterday_and_older = [
                     k for k in list(self._backend.keys()) if isinstance(k, str) and k < today

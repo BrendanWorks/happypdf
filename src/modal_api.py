@@ -79,6 +79,14 @@ app = modal.App(APP_NAME)
         # modal/modal_olmo_wcag.py). Create once:
         #   modal secret create olmo-reviewer-auth OLMO_REVIEWER_TOKEN=$(openssl rand -hex 32)
         modal.Secret.from_name("olmo-reviewer-auth"),
+        # Issued access tokens granting a per-partner daily quota, so a pilot
+        # does not spend the shared public pool. Holds JSON:
+        #   {"<token>": {"label": "community-transit", "daily_limit": 200}}
+        # Create empty once; an empty object means no tokens exist and every
+        # caller uses the public pool:
+        #   echo '{"HAPPYPDF_ACCESS_TOKENS": "{}"}' > t.json
+        #   modal secret create happypdf-access-tokens --from-json t.json
+        modal.Secret.from_name("happypdf-access-tokens"),
     ],
     min_containers=0,  # scale to zero when idle — no standing cost
     max_containers=1,  # single container => consistent in-memory job state

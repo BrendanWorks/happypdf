@@ -15,6 +15,7 @@ or:
 """
 
 import asyncio
+import hmac
 import json
 import os
 import re
@@ -24,7 +25,7 @@ import uuid
 from datetime import datetime
 from pathlib import Path
 
-from fastapi import FastAPI, File, Form, HTTPException, UploadFile
+from fastapi import FastAPI, File, Form, Header, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, Response
 
@@ -111,6 +112,73 @@ app.add_middleware(
 # container recycle can't reset the day's count; in-process locally.
 DAILY_LIMIT = int(os.environ.get("HAPPYPDF_DAILY_LIMIT", "20"))  # raised for demo testing
 RATE_LIMITER = DailyRateLimiter()
+
+# Issued access tokens, so a pilot partner draws on its own daily quota instead
+# of exhausting the shared public pool (20/day is a demo budget, not a pilot
+# one). Config lives in the `happypdf-access-tokens` Modal secret as JSON:
+#
+#   {"<opaque-token>": {"label": "community-transit", "daily_limit": 200}}
+#
+# Absent or malformed config simply means no tokens exist and every caller uses
+# the public pool -- self-hosters and local dev must not need this to convert.
+# GPU cost is per conversion, so a token raises a caller's ceiling; it never
+# lifts the upload size cap or skips content sniffing.
+_ACCESS_TOKENS: dict[str, dict] | None = None
+
+
+def _access_tokens() -> dict[str, dict]:
+    global _ACCESS_TOKENS
+    if _ACCESS_TOKENS is None:
+        raw = os.environ.get("HAPPYPDF_ACCESS_TOKENS", "").strip()
+        parsed: dict[str, dict] = {}
+        if raw:
+            try:
+                loaded = json.loads(raw)
+                if isinstance(loaded, dict):
+                    for tok, cfg in loaded.items():
+                        if not isinstance(tok, str) or not tok or not isinstance(cfg, dict):
+                            continue
+                        label = str(cfg.get("label") or "").strip()
+                        # The label becomes a rate-limit store key, so keep it a
+                        # safe slug and never fall back to the token itself.
+                        if not re.fullmatch(r"[a-z0-9][a-z0-9_-]{0,40}", label):
+                            print(f"[tokens] skipping entry with invalid label: {label!r}", flush=True)
+                            continue
+                        try:
+                            quota = int(cfg.get("daily_limit"))
+                        except (TypeError, ValueError):
+                            print(f"[tokens] skipping {label}: bad daily_limit", flush=True)
+                            continue
+                        if quota <= 0:
+                            continue
+                        parsed[tok] = {"label": label, "daily_limit": quota}
+            except Exception as e:
+                # Never fail closed on a config typo -- degrade to public-only.
+                print(f"[tokens] config unreadable, ignoring: {type(e).__name__}", flush=True)
+        _ACCESS_TOKENS = parsed
+        if parsed:
+            print(f"[tokens] {len(parsed)} access token(s) loaded", flush=True)
+    return _ACCESS_TOKENS
+
+
+def _resolve_quota(token: str | None) -> tuple[str, int] | None:
+    """Map a supplied token to its (bucket, daily_limit).
+
+    Returns None when no token was supplied (caller uses the public pool).
+    Raises 401 when a token was supplied but does not match, so a partner with
+    a typo'd token gets told, rather than silently eating the public quota.
+    Compared with compare_digest against every configured token so matching
+    time does not depend on how much of the token is correct.
+    """
+    if not token:
+        return None
+    match = None
+    for candidate, cfg in _access_tokens().items():
+        if hmac.compare_digest(token, candidate):
+            match = cfg
+    if match is None:
+        raise HTTPException(401, "Invalid access token.")
+    return match["label"], match["daily_limit"]
 
 # Upload guardrails for the paid live path: each accepted upload triggers real
 # H100 time, so reject obviously-invalid or oversized files before spending it.
@@ -587,6 +655,9 @@ def health():
         "jobs": len(JOBS),
         "checks": checks,
         "checks_age_s": round(time.time() - checked_at) if checked_at else None,
+        # Count only, never the tokens or their labels: confirms the
+        # access-token secret actually reached the container after issuing one.
+        "access_tokens": len(_access_tokens()),
     }
 
 
@@ -610,6 +681,8 @@ async def start_live(
     anthropic_api_key: str = Form(default=None),
     openai_api_key: str = Form(default=None),
     reviewer_profile: str = Form(default="default"),
+    access_token: str = Form(default=None),
+    x_happypdf_token: str = Header(default=None),
 ):
     if not (file.filename or "").lower().endswith(".pdf"):
         raise HTTPException(400, "please upload a .pdf")
@@ -646,13 +719,25 @@ async def start_live(
             400, "This PDF couldn't be read. It may be corrupt — try re-exporting it."
         ) from None
 
-    allowed, count = RATE_LIMITER.check_and_increment(DAILY_LIMIT)
-    if not allowed:
-        raise HTTPException(
-            429,
+    # An issued token spends its own daily quota; everyone else shares the
+    # public pool. Resolved after the cheap upload guardrails above so a bad
+    # file is still rejected before any quota is touched.
+    quota = _resolve_quota(x_happypdf_token or access_token)
+    if quota is None:
+        bucket, limit = "", DAILY_LIMIT
+        exhausted = (
             f"Daily live-conversion limit reached ({DAILY_LIMIT}/day). "
-            f"Try the instant replay demos, or self-host for unlimited runs.",
+            f"Try the instant replay demos, or self-host for unlimited runs."
         )
+    else:
+        bucket, limit = quota
+        exhausted = (
+            f"Daily conversion limit reached for this access token ({limit}/day). "
+            f"It resets at midnight, or self-host for unlimited runs."
+        )
+    allowed, count = RATE_LIMITER.check_and_increment(limit, bucket=bucket)
+    if not allowed:
+        raise HTTPException(429, exhausted)
 
     # Validate BYOK keys upfront (fail fast). Run in a worker thread — these are
     # blocking network calls, and blocking the event loop here would stall every

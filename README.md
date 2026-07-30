@@ -350,6 +350,25 @@ Procurement friction is real for government and enterprise buyers. If an organiz
 - Generated HTML derives from PDF content and LLM output, so it is defense-in-depth sanitized: table fragments pass an allowlist sanitizer, markdown image conversion escapes attributes and rejects unsafe URL schemes, and the API serves job HTML with a `Content-Security-Policy: sandbox` header. Downloadable reports HTML-escape every manifest-derived field (including the uploaded filename).
 - The OLMo reviewer GPU endpoint requires a shared bearer token (`olmo-reviewer-auth` Modal secret). Without it, the endpoint would be publicly callable GPU compute. Self-hosters: `modal secret create olmo-reviewer-auth OLMO_REVIEWER_TOKEN=$(openssl rand -hex 32)` before deploying `modal/modal_olmo_wcag.py`.
 
+### Daily quotas and access tokens
+
+Every live conversion spends real GPU time on whoever owns the deployment, so the live path is rate limited. By default all callers share one **public pool** of `HAPPYPDF_DAILY_LIMIT` conversions per day (20), counted in a Modal Dict so a container recycle cannot reset it.
+
+An **access token** gives one caller its own daily bucket instead, which is what a pilot partner needs: they get a workable quota without draining the public demo, and the public demo cannot drain theirs. Tokens live in the `happypdf-access-tokens` Modal secret as JSON:
+
+```json
+{"<opaque-token>": {"label": "community-transit", "daily_limit": 200}}
+```
+
+Issue one by writing that JSON to the secret (`modal secret create happypdf-access-tokens --from-json tokens.json --force`), then restart the API so a fresh container picks the value up. Callers pass it as an `X-HappyPDF-Token` header or an `access_token` form field on `POST /api/jobs/live`.
+
+Operational notes:
+- **An empty object (`{}`) means no tokens exist** and every caller uses the public pool. Absent or malformed config degrades to the same state rather than refusing conversions, so a typo cannot take the service down.
+- The rate-limit store keys on the token's **label**, never the token itself, so no credential is written to the Dict.
+- Tokens are compared with `hmac.compare_digest`. An unrecognized token gets a 401 rather than silently falling back to the public pool, so a partner with a bad token finds out immediately.
+- A token raises a caller's daily ceiling and nothing else. It does not lift the upload size cap, skip PDF content sniffing, or change what runs.
+- `GET /api/health` reports `access_tokens` as a **count only**, which is the quickest way to confirm a newly issued token actually reached the running container.
+
 ### Data persistence
 - Job state (progress, scores, enhancement metadata) and generated HTML live in a [Modal Dict](https://modal.com/docs/guide/dicts-and-queues) so conversions survive container restarts; records are pruned after **24 hours**.
 - Uploaded PDF bytes are held in memory only for the duration of the job and are never written to the job store.

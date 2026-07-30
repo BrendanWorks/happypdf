@@ -209,3 +209,105 @@ class TestReplayReportBlocks:
         assert rec.get("pointcheck") is None
         assert rec.get("alt_text_review") is None
         assert rec.get("fidelity") is None
+
+
+class TestAccessTokenQuotas:
+    """An issued token draws on its own daily bucket so a pilot partner cannot
+    exhaust the public pool (and vice versa)."""
+
+    TOKENS = {"tok-ct-secret": {"label": "community-transit", "daily_limit": 3}}
+
+    @pytest.fixture
+    def tokened(self, monkeypatch):
+        monkeypatch.setattr(api_main, "_ACCESS_TOKENS", self.TOKENS)
+        monkeypatch.setattr(api_main, "DAILY_LIMIT", 2)
+        api_main.RATE_LIMITER._mem.clear()
+        return api_main
+
+    def _pdf(self):
+        import fitz
+
+        doc = fitz.open()
+        doc.new_page()
+        return doc.tobytes()
+
+    def _post(self, client, token=None, header=True):
+        files = {"file": ("x.pdf", self._pdf(), "application/pdf")}
+        if token and header:
+            return client.post("/api/jobs/live", files=files, headers={"X-HappyPDF-Token": token})
+        if token:
+            return client.post("/api/jobs/live", files=files, data={"access_token": token})
+        return client.post("/api/jobs/live", files=files)
+
+    def test_token_bucket_is_separate_from_public_pool(self, client, tokened, monkeypatch):
+        # Drain the public pool (limit 2), then the token must still work.
+        monkeypatch.setattr(api_main, "_live", lambda *a, **k: None)
+        assert self._post(client).status_code == 200
+        assert self._post(client).status_code == 200
+        assert self._post(client).status_code == 429  # public exhausted
+        r = self._post(client, "tok-ct-secret")
+        assert r.status_code == 200, "token should not be blocked by the public pool"
+
+    def test_token_quota_is_enforced(self, client, tokened, monkeypatch):
+        monkeypatch.setattr(api_main, "_live", lambda *a, **k: None)
+        for _ in range(3):  # token daily_limit = 3
+            assert self._post(client, "tok-ct-secret").status_code == 200
+        r = self._post(client, "tok-ct-secret")
+        assert r.status_code == 429
+        assert "access token" in r.json()["detail"]
+        # ...and the public pool is untouched by the token's spending.
+        assert self._post(client).status_code == 200
+
+    def test_token_accepted_as_form_field_too(self, client, tokened, monkeypatch):
+        monkeypatch.setattr(api_main, "_live", lambda *a, **k: None)
+        assert self._post(client, "tok-ct-secret", header=False).status_code == 200
+
+    def test_invalid_token_rejected(self, client, tokened):
+        r = self._post(client, "not-a-real-token")
+        assert r.status_code == 401
+
+    def test_invalid_token_does_not_consume_quota(self, client, tokened):
+        self._post(client, "not-a-real-token")
+        assert api_main.RATE_LIMITER._mem == {}
+
+    def test_token_does_not_bypass_upload_guardrails(self, client, tokened, monkeypatch):
+        """A quota raises the ceiling; it must not skip content sniffing."""
+        r = client.post(
+            "/api/jobs/live",
+            files={"file": ("x.pdf", b"MZ not a pdf", "application/pdf")},
+            headers={"X-HappyPDF-Token": "tok-ct-secret"},
+        )
+        assert r.status_code == 400
+
+    def test_no_tokens_configured_means_public_only(self, client, monkeypatch):
+        monkeypatch.setattr(api_main, "_ACCESS_TOKENS", {})
+        r = self._post(client, "anything")
+        assert r.status_code == 401
+
+
+class TestAccessTokenConfigParsing:
+    def _parse(self, monkeypatch, raw):
+        monkeypatch.setattr(api_main, "_ACCESS_TOKENS", None)
+        monkeypatch.setenv("HAPPYPDF_ACCESS_TOKENS", raw)
+        return api_main._access_tokens()
+
+    def test_absent_config_is_not_an_error(self, monkeypatch):
+        monkeypatch.setattr(api_main, "_ACCESS_TOKENS", None)
+        monkeypatch.delenv("HAPPYPDF_ACCESS_TOKENS", raising=False)
+        assert api_main._access_tokens() == {}
+
+    def test_malformed_json_degrades_to_public_only(self, monkeypatch):
+        assert self._parse(monkeypatch, "{not json") == {}
+
+    def test_entries_with_unsafe_labels_are_dropped(self, monkeypatch):
+        """The label becomes a store key, so it must stay a slug."""
+        raw = '{"t": {"label": "../../etc", "daily_limit": 5}}'
+        assert self._parse(monkeypatch, raw) == {}
+
+    def test_entries_with_bad_quota_are_dropped(self, monkeypatch):
+        assert self._parse(monkeypatch, '{"t": {"label": "ok", "daily_limit": "lots"}}') == {}
+        assert self._parse(monkeypatch, '{"t": {"label": "ok", "daily_limit": 0}}') == {}
+
+    def test_valid_entry_loads(self, monkeypatch):
+        got = self._parse(monkeypatch, '{"t": {"label": "ct-pilot", "daily_limit": 200}}')
+        assert got == {"t": {"label": "ct-pilot", "daily_limit": 200}}

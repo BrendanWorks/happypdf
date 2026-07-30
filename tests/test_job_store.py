@@ -15,6 +15,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 from job_store import (  # noqa: E402
     STALE_RUNNING_S,
+    DailyRateLimiter,
     JobStore,
     mark_interrupted_if_stale,
 )
@@ -87,3 +88,39 @@ class TestMarkInterruptedIfStale:
     def test_falls_back_to_started_when_no_updated(self):
         job = {"status": "running", "started": time.time() - STALE_RUNNING_S - 10}
         assert mark_interrupted_if_stale(job)["status"] == "error"
+
+
+class TestDailyRateLimiterBuckets:
+    """Buckets let an issued token spend its own quota. The store key is
+    "<date>:<bucket>", which the day-prune must still age out correctly."""
+
+    def test_buckets_count_independently(self):
+        rl = DailyRateLimiter(on_modal=False)
+        assert rl.check_and_increment(1) == (True, 1)
+        assert rl.check_and_increment(1) == (False, 1)  # public pool spent
+        # A bucketed caller is unaffected by the public pool being empty.
+        assert rl.check_and_increment(2, bucket="ct") == (True, 1)
+        assert rl.check_and_increment(2, bucket="ct") == (True, 2)
+        assert rl.check_and_increment(2, bucket="ct") == (False, 2)
+        # Two different tokens do not share a bucket.
+        assert rl.check_and_increment(1, bucket="other") == (True, 1)
+
+    def test_bucket_never_stores_the_token_itself(self):
+        rl = DailyRateLimiter(on_modal=False)
+        rl.check_and_increment(5, bucket="ct-pilot")
+        assert all("ct-pilot" in k for k in rl._mem)
+        assert not any("secret" in k for k in rl._mem)
+
+    def test_prune_ages_out_bucketed_keys_but_keeps_today(self):
+        from datetime import datetime
+
+        rl = DailyRateLimiter(on_modal=False)
+        today = datetime.now().strftime("%Y-%m-%d")
+        rl._mem["2020-01-01"] = 9
+        rl._mem["2020-01-01:ct"] = 9
+        rl.check_and_increment(5, bucket="ct")   # writes today:ct and prunes
+        rl.check_and_increment(5)                # writes today and prunes
+        assert "2020-01-01" not in rl._mem
+        assert "2020-01-01:ct" not in rl._mem
+        assert rl._mem[f"{today}:ct"] == 1
+        assert rl._mem[today] == 1
