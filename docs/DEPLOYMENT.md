@@ -17,7 +17,7 @@ export MODAL_TOKEN_ID=ak-xxxxxxxxxxxxxxxx
 export MODAL_TOKEN_SECRET=as-xxxxxxxxxxxxxxxx
 ```
 
-Alternatively, run `modal token new` once to write credentials to `~/.modal.toml` (which is gitignored — never commit it).
+Alternatively, run `modal token new` once to write credentials to `~/.modal.toml` (which is gitignored: never commit it).
 
 The GPU functions must be deployed under your account:
 
@@ -27,7 +27,7 @@ modal deploy modal/modal_alttext_adapter.py  # deploys app "pdfaccess-alttext"
 ```
 
 If you also deploy the OLMo reviewer endpoint (`modal/modal_olmo_wcag.py`), create its
-auth secret first — the endpoint is a GPU-backed web URL and requires a shared bearer
+auth secret first: the endpoint is a GPU-backed web URL and requires a shared bearer
 token so only your orchestrator can call it:
 
 ```bash
@@ -82,11 +82,11 @@ python src/build_syllabus_slice.py --no-cache
 | `output/syllabus_axe_baseline.json` | The raw, verbatim axe-core result (`violations`, `passes`, `incomplete`, `testEngine`). Use this for programmatic checks. |
 | stdout logs | Timestamped per-stage timing plus the final `score / violations / passes / images` summary. |
 
-A score of 100% on this benchmark means the *output* HTML has zero axe violations — the success case, since the *input* PDF is deliberately inaccessible. Remember that axe covers only part of WCAG; see [ARCHITECTURE.md](ARCHITECTURE.md#score-vs-hard-gates).
+A score of 100% on this benchmark means the *output* HTML has zero axe violations; the success case, since the *input* PDF is deliberately inaccessible. Remember that axe covers only part of WCAG; see [ARCHITECTURE.md](ARCHITECTURE.md#score-vs-hard-gates).
 
 ## Troubleshooting
 
-- **Modal timeout / function not found.** Confirm the apps are deployed under your account: `modal app list` should show `olmocr` and `pdfaccess-alttext` in the `deployed` state. An app left in `stopped` state was run ephemerally with `modal run` and cannot be looked up by name — redeploy it with `modal deploy`.
+- **Modal timeout / function not found.** Confirm the apps are deployed under your account: `modal app list` should show `olmocr` and `pdfaccess-alttext` in the `deployed` state. An app left in `stopped` state was run ephemerally with `modal run` and cannot be looked up by name, redeploy it with `modal deploy`.
 - **Long first run.** The first call pays olmOCR's cold start (~3-4 min to start the vLLM server on a cold H100) plus Qwen2-VL cold start (~1-1.5 min). Subsequent runs use the disk cache and finish in seconds. Use `--no-cache` only when you actually need fresh extraction.
 - **`axe-core not found`.** The orchestrator looks for `node_modules/axe-core/axe.min.js` at the repo root first, then a shared parent install. Run `npm install` in the repo root if it is missing.
 - **Playwright headless issues.** If Chromium fails to launch, re-run `playwright install chromium`. On Linux you may also need `playwright install-deps`.

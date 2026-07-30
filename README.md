@@ -12,7 +12,7 @@ happypdf turns inaccessible PDFs into clean, semantic HTML5. It uses vision-base
 
 Watch happypdf transform an inaccessible PDF into WCAG 2.2 AA–validated HTML with full remediation audit trail. 
 
-**[► Full video](https://github.com/BrendanWorks/happypdf/releases/download/v1.0/Sizzle_Video.mov)** — Available in [MP4](https://github.com/BrendanWorks/happypdf/releases/download/v1.0/happypdf-demo.mp4) (689 KB) or [MOV](https://github.com/BrendanWorks/happypdf/releases/download/v1.0/Sizzle_Video.mov) (2.8 MB)
+**[► Full video](https://github.com/BrendanWorks/happypdf/releases/download/v1.0/Sizzle_Video.mov)**: Available in [MP4](https://github.com/BrendanWorks/happypdf/releases/download/v1.0/happypdf-demo.mp4) (689 KB) or [MOV](https://github.com/BrendanWorks/happypdf/releases/download/v1.0/Sizzle_Video.mov) (2.8 MB)
 
 ## Table of Contents
 - [Why This Exists](#why-this-exists)
@@ -50,7 +50,7 @@ happypdf processes PDFs through a reproducible pipeline:
 4. **Score accessibility** using axe-core in a real headless Chromium browser.
 5. **Review & enhance** via multi-model peer reviewers + judge model.
 6. **Apply safe patches** (ARIA labels, roles, descriptions, etc.).
-7. **Validate preservation** — text, images, headings, and tables are never lost.
+7. **Validate preservation**: text, images, headings, and tables are never lost.
 8. **Verify independently** using checks that run *outside* the remediation loop, confirming coverage beyond axe-core, content fidelity against the original PDF, and alt-text quality (see [Independent Verification](#independent-verification)).
 
 The result is remediated, WCAG-scored HTML plus a detailed, human-readable manifest of every enhancement.
@@ -62,9 +62,9 @@ Most accessibility tools force a binary choice: pay per conversion or build it y
 **Bring Your Own Keys (BYOK)** lets you use your existing Claude (Anthropic) or ChatGPT (OpenAI) enterprise credentials. If your organization already has approved AI contracts, happypdf routes remediation through them at **no additional licensing cost**.
 
 ### Why This Matters
-- **Zero new procurement friction** — Use models your security and legal teams have already approved.
-- **True cost transparency** — Pay only for the compute you actually use.
-- **Consistent pipeline** — The same high-quality orchestration works across hosted demo, self-hosted, and BYOK modes.
+- **Zero new procurement friction**: Use models your security and legal teams have already approved.
+- **True cost transparency**: Pay only for the compute you actually use.
+- **Consistent pipeline**: The same high-quality orchestration works across hosted demo, self-hosted, and BYOK modes.
 
 This makes happypdf uniquely practical for enterprises and government organizations.
 
@@ -94,11 +94,11 @@ There is a configurable reviewer pipeline controlled by the `REVIEWER_PROFILE` e
 ### OLMo-Only Mode
 
 Set `REVIEWER_PROFILE=olmo-only` to run single-model review with only OLMo (no Gemini/GPT reviewers). This is useful for:
-- **Government & Defense** — Minimal external API surface, full control over review compute.
-- **Restricted Networks** — Reviews stay on your Modal deployment.
-- **Cost-Conscious Workflows** — Single model vs. three-model consensus.
+- **Government & Defense**: Minimal external API surface, full control over review compute.
+- **Restricted Networks**: Reviews stay on your Modal deployment.
+- **Cost-Conscious Workflows**: Single model vs. three-model consensus.
 
-**Scope note:** this profile removes the *peer reviewers'* external calls only. Extraction and alt text are still remote Modal GPU calls in every mode, and the judge's LLM-safe fixes (alt-text rewrites) still call Claude/OpenAI when those keys are configured — with no judge keys, those fixes are routed to human review instead. It is not an air-gapped mode.
+**Scope note:** this profile removes the *peer reviewers'* external calls only. Extraction and alt text are still remote Modal GPU calls in every mode, and the judge's LLM-safe fixes (alt-text rewrites) still call Claude/OpenAI when those keys are configured; with no judge keys, those fixes are routed to human review instead. It is not an air-gapped mode.
 
 **Trade-off:** Single-model review catches fewer failure modes than multi-model consensus, so quality may drop slightly (5-10% fewer WCAG suggestions). But review inference stays within your own Modal account.
 
@@ -116,9 +116,9 @@ python src/benchmark.py --live
 
 This work extends Ai2's **SciA11y** research (Wang, Cachola, et al., ASSETS '21), which achieved ~86% fidelity but highlighted three key gaps: automated alt text, table accessibility, and iterative WCAG validation. happypdf addresses all three:
 
-- **Alt text** — Qwen2-VL generates context-aware descriptions.
-- **Tables** — Robust recovery of proper `<table>`, `<th>`, etc. structure.
-- **Iterative validation** — Multi-round peer review + preservation gates ensure enhancements are safe and additive.
+- **Alt text**: Qwen2-VL generates context-aware descriptions.
+- **Tables**: Robust recovery of proper `<table>`, `<th>`, etc. structure.
+- **Iterative validation**: Multi-round peer review + preservation gates ensure enhancements are safe and additive.
 
 ## How the Pipeline Works
 
@@ -126,14 +126,14 @@ This work extends Ai2's **SciA11y** research (Wang, Cachola, et al., ASSETS '21)
 
 ## Extraction Model: olmOCR-2
 
-Step 1 of the pipeline — turning the PDF into markdown — runs [olmOCR](https://github.com/allenai/olmocr) on a Modal H100. **Production runs olmOCR-2-7B-1025-FP8** (promoted in v1.2 after a staged v1-vs-v2 comparison); the original v1 app stays deployed as a one-line-revert fallback.
+Step 1 of the pipeline, turning the PDF into markdown, runs [olmOCR](https://github.com/allenai/olmocr) on a Modal H100. **Production runs olmOCR-2-7B-1025-FP8** (promoted in v1.2 after a staged v1-vs-v2 comparison); the original v1 app stays deployed as a one-line-revert fallback.
 
 | | Modal app | Deploy file | Model |
 |---|---|---|---|
 | **Production** | `olmocr-v2` | `modal/modal_olmocr_v2.py` | explicit `olmOCR-2-7B-1025-FP8`, weights baked into the image |
 | **Fallback** | `olmocr` | `modal/modal_olmocr_final.py` | olmocr CLI default (v1, `olmOCR-7B-0725-FP8`) |
 
-The production deployment pins `olmocr>=0.4.0`, passes an explicit `--model` (so extraction can't drift with the package default), bakes the ~16 GB weights into the image at build time (no runtime HuggingFace dependency), runs one extraction per container (`single_use_containers=True` — a reused warm container can hang the vLLM boot), and streams the CLI's output to Modal logs so a stuck extraction is diagnosable.
+The production deployment pins `olmocr>=0.4.0`, passes an explicit `--model` (so extraction can't drift with the package default), bakes the ~16 GB weights into the image at build time (no runtime HuggingFace dependency), runs one extraction per container (`single_use_containers=True`: a reused warm container can hang the vLLM boot), and streams the CLI's output to Modal logs so a stuck extraction is diagnosable.
 
 ```bash
 # Deploy / update production extraction
@@ -202,7 +202,7 @@ All 13 documents complete end-to-end with the preservation gate passing on every
 | Furnace (Amana) | Technical | 11.9M | 16 | 96.3% (26 pass) | 96.9% (31 pass) | 3 | 7.9 | 1 baseline violation not resolvable by a safe deterministic fix |
 | Hands-Only CPR Sheet | Medical | 219K | 1 | 100% (22 pass) | 100% (27 pass) | 2 | 3.6 | — |
 
-**Measured live on v1.2.2 (2026-07-15)** — every row is a real end-to-end conversion through the deployed pipeline (olmOCR-2 extraction → parallel alt text → semantic HTML → axe baseline → three-reviewer loop with Claude judge). Raw per-job records are committed in [`benchmark/v122_live_run/`](benchmark/v122_live_run/). Sizes and page counts are measured from the actual files.
+**Measured live on v1.2.2 (2026-07-15)**: every row is a real end-to-end conversion through the deployed pipeline (olmOCR-2 extraction → parallel alt text → semantic HTML → axe baseline → three-reviewer loop with Claude judge). Raw per-job records are committed in [`benchmark/v122_live_run/`](benchmark/v122_live_run/). Sizes and page counts are measured from the actual files.
 
 > **On run-to-run variance.** The table above is a single coherent suite run, preserved as measured. The demo replays on happypdf.org come from a later re-run (2026-07-17) and show slightly different pass counts on one document: IRS Schedule C finished at 28 passes there versus 33 here. Both runs are real. Reviewers are probabilistic, so which safe enhancements they propose varies between runs; the deterministic parts do not. Baseline scores, violation counts, and the preservation gate's verdict were identical across both runs on all three demo documents. This is expected behavior for an ensemble-review system and is exactly why the preservation gate, not the pass count, is the thing being guaranteed.
 
@@ -216,11 +216,11 @@ All 13 documents complete end-to-end with the preservation gate passing on every
 - **Safety systems exercised for real:** the axe-regression guard reverted a worsening round on two documents, and the preservation gate passed on every accepted round across the suite
 - **Total ARIA enhancements:** 41 across the suite
 
-**Comprehensive Test Suite (13 PDFs Total)** — Document provenance and licensing notes are in [`benchmark/README.md`](benchmark/README.md) — the hosted demo offers original-PDF downloads only for the two public-domain documents.
+**Comprehensive Test Suite (13 PDFs Total)**: Document provenance and licensing notes are in [`benchmark/README.md`](benchmark/README.md): the hosted demo offers original-PDF downloads only for the two public-domain documents.
 
 ## Project Status & Roadmap
 
-**✅ Production Ready** — Fully deployed with working BYOK, benchmarks, manifest/report downloads, and security controls.
+**✅ Production Ready**: Fully deployed with working BYOK, benchmarks, manifest/report downloads, and security controls.
 
 **Recently Completed (July 2026):**
 - ✅ Full audit-trail JSON manifest export (with demo snapshot support)
@@ -235,7 +235,7 @@ All 13 documents complete end-to-end with the preservation gate passing on every
 - ✅ Consent-gated analytics on the hosted site (opt-in cookie banner, no analytics before Accept)
 
 **Upcoming Features:**
-- Visual-artifact filtering for the element ID builder (repeated separator lines etc. can hash-collide into duplicate IDs — currently detected and logged, not filtered upstream) and a second-pass classifier to reduce heading-promotion false positives; see `docs/ARCHITECTURE.md`
+- Visual-artifact filtering for the element ID builder (repeated separator lines etc. can hash-collide into duplicate IDs: currently detected and logged, not filtered upstream) and a second-pass classifier to reduce heading-promotion false positives; see `docs/ARCHITECTURE.md`
 - Download full package ZIP (HTML output + JSON manifest + Report + Original PDF)
 - CLI instance for batch processing and local runs
 - Upgrade job storage from Modal Dict (current, 24h TTL) to Supabase for long-term history and batch dashboards
@@ -272,12 +272,12 @@ npm install --legacy-peer-deps
 export MODAL_TOKEN_ID=your_token_id
 export MODAL_TOKEN_SECRET=your_token_secret
 
-# Create the OLMo reviewer auth secret (required — the API deploy references it)
+# Create the OLMo reviewer auth secret (required: the API deploy references it)
 modal secret create olmo-reviewer-auth OLMO_REVIEWER_TOKEN=$(openssl rand -hex 32)
 ```
 
 **OLMo reviewer for self-hosts:** the code's default `OLMO_REVIEWER_URL` points at the
-hosted demo's endpoint, which requires *its* bearer token — your deployment will skip the
+hosted demo's endpoint, which requires *its* bearer token; your deployment will skip the
 OLMo reviewer (and continue with Gemini/GPT) unless you deploy your own and point at it:
 
 ```bash
@@ -304,13 +304,13 @@ cp .env.example .env   # fill in your Modal + provider credentials
 docker compose up --build
 ```
 
-This containerizes the orchestrator (`api/` + `src/`, with Playwright and axe-core baked in) and the built frontend — `make docker-up` does the same thing. It does **not** make the pipeline air-gapped: olmOCR extraction and Qwen2-VL alt-text generation are remote calls to Modal GPU functions, and the reviewer/judge step calls Anthropic/OpenAI/Google over the network in every deployment mode. You still need a Modal account and reviewer API keys either way — this just containerizes the orchestration layer for reproducible self-hosting, not the GPU inference itself.
+This containerizes the orchestrator (`api/` + `src/`, with Playwright and axe-core baked in) and the built frontend; `make docker-up` does the same thing. It does **not** make the pipeline air-gapped: olmOCR extraction and Qwen2-VL alt-text generation are remote calls to Modal GPU functions, and the reviewer/judge step calls Anthropic/OpenAI/Google over the network in every deployment mode. You still need a Modal account and reviewer API keys either way; this just containerizes the orchestration layer for reproducible self-hosting, not the GPU inference itself.
 
 ## Architecture Highlights
 
 - **Stable Element IDs** (`block-{page}-{hash}`) for safe, repeatable patching.
-- **Review-source agnostic** design — easily swap reviewers.
-- **Security-first BYOK** — Your key is sent once per job to call the provider on your behalf, then never persisted or reused. See [Security](#security) for the verified details.
+- **Review-source agnostic** design: easily swap reviewers.
+- **Security-first BYOK**: Your key is sent once per job to call the provider on your behalf, then never persisted or reused. See [Security](#security) for the verified details.
 
 ## Design Decisions
 
@@ -327,16 +327,16 @@ Procurement friction is real for government and enterprise buyers. If an organiz
 
 ### BYOK API key handling
 
-**Default (hosted) credentials** — happypdf's own keys, used unless you supply your own:
+**Default (hosted) credentials**: happypdf's own keys, used unless you supply your own:
 - Stored in Modal's encrypted secret vault.
 - Injected into backend containers as environment variables.
 - The frontend never receives these credentials.
 
-**BYOK (user-supplied) credentials** — when you paste your own key into the settings panel:
+**BYOK (user-supplied) credentials**: when you paste your own key into the settings panel:
 - The key is entered in your browser and sent once, over HTTPS, to power that single job's provider calls.
-- It is passed **explicitly down the call chain** (provider factory → judge → API client constructor) for that job only — it is never written to the process environment, so concurrent jobs with different credentials can never observe each other's keys, and there is no restore step that could race. It is never persisted, logged, or reused across requests.
+- It is passed **explicitly down the call chain** (provider factory → judge → API client constructor) for that job only; it is never written to the process environment, so concurrent jobs with different credentials can never observe each other's keys, and there is no restore step that could race. It is never persisted, logged, or reused across requests.
 - Error messages are sanitized to avoid leaking API responses or credentials.
-- Job state is stored in a Modal Dict keyed by job id; BYOK keys are **not** part of job state — they live only in the worker thread's call stack for the duration of the job.
+- Job state is stored in a Modal Dict keyed by job id; BYOK keys are **not** part of job state; they live only in the worker thread's call stack for the duration of the job.
 
 **History:** v1.2 verified the earlier environment-swap mechanism end-to-end with a real key. v1.2.1 replaced that mechanism entirely with explicit key plumbing after review flagged that environment mutation could leak keys between concurrent jobs.
 
@@ -360,7 +360,7 @@ Procurement friction is real for government and enterprise buyers. If an organiz
 The hosted site (happypdf.org) uses Google Analytics (GA4) to understand traffic and usage. **Analytics is opt-in.**
 - **Nothing is loaded before consent.** `gtag.js` is not in `frontend/index.html` at all; it is injected from `App.tsx` only after an explicit Accept on the cookie banner (or immediately on a return visit if the visitor previously accepted). Choosing Decline means no analytics script, no GA cookies, and no events. The choice is stored under `happypdf_analytics_consent` and is revisitable any time via **Cookie preferences** in the footer.
 - Once accepted, standard GA4 data is collected: page views, device/browser info, approximate location, and first-party cookies (`_ga`, `_ga_*`).
-- Custom events track pipeline usage — upload started (file size only), conversion succeeded/failed (pass count only), and BYOK used (provider name only). **No filenames, document content, or API keys are ever sent to analytics.**
+- Custom events track pipeline usage: upload started (file size only), conversion succeeded/failed (pass count only), and BYOK used (provider name only). **No filenames, document content, or API keys are ever sent to analytics.**
 - Self-hosted deployments can drop analytics entirely by removing the consent component's injection call in `frontend/src/App.tsx`. It is not wired into the pipeline.
 
 ### Self-hosting checklist
@@ -377,7 +377,7 @@ For self-hosted deployments:
 
 **axe-core catches ~30-40% of WCAG success criteria.** Automated tools test *syntax*, not *semantics*. A link with non-descriptive text ("click here") passes axe-core; reading order problems, incorrectly-described images, and tables with ambiguous headers don't register as violations because they require human judgment. happypdf reports what automated tools can measure and flags uncertain cases for human review. This is honest about what automation can do, and it is why the preservation gate matters more than the axe-core score alone.
 
-**The baseline is often already valid.** The HTML generator creates semantic structure up front (landmarks, headings, tables with proper `<th>` cells, images with alt text). Many PDFs have zero baseline violations because olmOCR + deterministic HTML generation already produces passing HTML. The review loop focuses on *semantic correctness and optimization* — does an image's alt text actually describe what it shows? Is table navigation fully correct? These improvements are harder to measure (axe-core may show the same score) but matter for real assistive technology use.
+**The baseline is often already valid.** The HTML generator creates semantic structure up front (landmarks, headings, tables with proper `<th>` cells, images with alt text). Many PDFs have zero baseline violations because olmOCR + deterministic HTML generation already produces passing HTML. The review loop focuses on *semantic correctness and optimization*: does an image's alt text actually describe what it shows? Is table navigation fully correct? These improvements are harder to measure (axe-core may show the same score) but matter for real assistive technology use.
 
 **Heading detection is heuristic.** olmOCR sometimes emits section labels (e.g., "Methodology") as plain paragraphs rather than markdown headings. The builder promotes short standalone labels to `<h2>` and synthesizes an `<h1>` from the first content line when none exists. This is a trade-off: we get stronger document structure in most cases, but edge cases (a label that looks like a heading but isn't) can mis-tag. Complex documents still benefit from a human pass to verify outline accuracy.
 
@@ -385,7 +385,7 @@ For self-hosted deployments:
 
 ### Performance & Completeness
 
-**Multi-model review is slower than single-model patching.** Running three reviewers (OLMo, Gemini, GPT) in parallel takes longer than one model generating patches directly. We chose ensemble review anyway because each model catches different failure modes — OLMo reasons about structure, Gemini handles semantic descriptions, GPT suggests ARIA patterns — and the judge model deduplicates and filters out unsafe patches. Single-model approaches trade speed for resilience to model-specific blindspots.
+**Multi-model review is slower than single-model patching.** Running three reviewers (OLMo, Gemini, GPT) in parallel takes longer than one model generating patches directly. We chose ensemble review anyway because each model catches different failure modes: OLMo reasons about structure, Gemini handles semantic descriptions, GPT suggests ARIA patterns, and the judge model deduplicates and filters out unsafe patches. Single-model approaches trade speed for resilience to model-specific blindspots.
 
 **OCR quality sets a floor.** Scanned pages, low-resolution images, and complex vector graphics reduce extraction fidelity. olmOCR is excellent but not magic; if the source PDF has unreadable text, the output won't magically make it readable. This is a constraint of the input, not the tool.
 
@@ -403,7 +403,7 @@ See [`docs/PRESERVATION_PROOF.md`](docs/PRESERVATION_PROOF.md) for the mathemati
 
 ## Contributing & License
 
-Pull requests are welcome — see [`CONTRIBUTING.md`](CONTRIBUTING.md) for setup, branch, and code-style conventions. For major changes, please open an issue first.
+Pull requests are welcome; see [`CONTRIBUTING.md`](CONTRIBUTING.md) for setup, branch, and code-style conventions. For major changes, please open an issue first.
 
 Questions or bugs: [open a GitHub issue](https://github.com/BrendanWorks/happypdf/issues).
 

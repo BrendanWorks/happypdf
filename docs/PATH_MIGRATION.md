@@ -40,10 +40,10 @@ AXE_CANDIDATES = [AXE_LOCAL]
 
 Centralized path resolution with:
 
-1. **Smart axe-core discovery** — tries multiple locations in order of preference
-2. **Environment variable overrides** — `AXE_CORE_PATH` for custom locations
-3. **Path validation** — fails fast at startup with clear instructions
-4. **Portable imports** — all modules use `Path(__file__).resolve().parent`
+1. **Smart axe-core discovery**: tries multiple locations in order of preference
+2. **Environment variable overrides**: `AXE_CORE_PATH` for custom locations
+3. **Path validation**: fails fast at startup with clear instructions
+4. **Portable imports**: all modules use `Path(__file__).resolve().parent`
 
 ### Updated Files
 
@@ -198,9 +198,9 @@ Please refer to SETUP.md for project structure.
 
 ## Documentation
 
-- **SETUP.md** — Complete setup guide for all environments
-- **path_resolver.py** — Well-documented module with docstrings
-- **This file** — Technical migration notes
+- **SETUP.md**: Complete setup guide for all environments
+- **path_resolver.py**: Well-documented module with docstrings
+- **This file**: Technical migration notes
 
 ## Next Steps
 

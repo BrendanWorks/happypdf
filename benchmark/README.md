@@ -12,7 +12,7 @@ These PDFs are the test corpus behind the README's benchmark table. Provenance:
 | `furnace_amana.pdf` | Appliance manual | Third-party |
 | `cosmic_story_mat.pdf`, `CreatingaOnePager.pdf`, `example.pdf`, `invoicesample.pdf` | Instructional/sample documents | Third-party |
 
-The third-party documents are included solely as accessibility-testing fixtures —
+The third-party documents are included solely as accessibility-testing fixtures
 to demonstrate and regression-test PDF remediation. They remain the property of
 their respective authors and are not otherwise redistributed by this project; the
 hosted demo only offers original-PDF downloads for the two public-domain documents.

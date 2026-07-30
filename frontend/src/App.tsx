@@ -44,7 +44,7 @@ declare global {
 }
 
 // Fires a GA4 event if gtag loaded (no-op otherwise, e.g. ad blockers).
-// Never pass user-supplied content (filenames, uploaded text) as a param —
+// Never pass user-supplied content (filenames, uploaded text) as a param
 // this app markets itself on not leaking user data to third parties.
 function trackEvent(action: string, params?: Record<string, string | number>) {
   if (typeof window.gtag === 'function') {
@@ -98,7 +98,7 @@ function ConsentBanner() {
 
   return (
     <div className="fixed bottom-0 inset-x-0 z-[100] border-t border-slate-800 bg-slate-900/98 backdrop-blur-sm">
-      {/* Compact on phones — the banner was eating ~40% of a 375px viewport */}
+      {/* Compact on phones; the banner was eating ~40% of a 375px viewport */}
       <div className="max-w-6xl mx-auto px-4 sm:px-6 py-3 sm:py-4 flex flex-col sm:flex-row items-center gap-3 sm:gap-4">
         <p className="text-xs sm:text-sm text-slate-300 flex-1">
           We use Google Analytics to see aggregate site usage (page views, upload counts). We never send file names, file contents, or API keys to analytics.{' '}
@@ -138,7 +138,7 @@ type Round = {
 type Enhancement = { element_id: string; attribute: string; value: string };
 type StageDef = { id: string; label: string };
 // PointCheck-derived report blocks (report-only; present on live jobs once
-// the API ships Phases 1-3 — every section renders only when its block
+// the API ships Phases 1-3; every section renders only when its block
 // exists, so older jobs and demo snapshots simply don't show them).
 type PointcheckFinding = {
   check: string;
@@ -243,11 +243,11 @@ const STAGES: StageDef[] = [
   { id: 'done', label: 'Output ready' },
 ];
 
-// Why each stage takes the time it takes — shown under the active stage so the
+// Why each stage takes the time it takes, shown under the active stage so the
 // wait is explained, not just displayed. Ranges come from measured prod runs.
 const STAGE_INFO: Record<string, { blurb: string; typical: string }> = {
   extracting: {
-    blurb: 'A GPU server boots and reads your pages visually — no fragile text-layer parsing. The first conversion in a while pays the hardware start-up.',
+    blurb: 'A GPU server boots and reads your pages visually, with no fragile text-layer parsing. The first conversion in a while pays the hardware start-up.',
     typical: '2–4 min',
   },
   alt_text: {
@@ -255,7 +255,7 @@ const STAGE_INFO: Record<string, { blurb: string; typical: string }> = {
     typical: 'a few seconds',
   },
   html: {
-    blurb: 'Your document becomes semantic HTML5 — landmarks, headings, tables, and stable element IDs for safe patching.',
+    blurb: 'Your document becomes semantic HTML5, landmarks, headings, tables, and stable element IDs for safe patching.',
     typical: 'seconds',
   },
   axe_baseline: {
@@ -271,7 +271,7 @@ const STAGE_INFO: Record<string, { blurb: string; typical: string }> = {
     typical: '30–90 s',
   },
   round3: {
-    blurb: 'Final review pass — most documents converge before reaching it.',
+    blurb: 'Final review pass, most documents converge before reaching it.',
     typical: '30–90 s',
   },
 };
@@ -379,7 +379,7 @@ function PipelineRoleDiagram({ highlightMode }: { highlightMode: KeyMode | null 
   return (
     <div className="rounded-xl border border-slate-700/40 bg-slate-900/60 p-5 sm:p-6">
       <p className="text-xs uppercase tracking-widest text-slate-400 font-semibold mb-4">
-        Pipeline roles — use Claude, OpenAI, or both
+        Pipeline roles, use Claude, OpenAI, or both
       </p>
       <div className="flex flex-col sm:flex-row sm:items-stretch gap-3 sm:gap-2">
         {nodes.map((node, i) => (
@@ -461,7 +461,7 @@ function DemoPanel() {
   };
   useEffect(() => stopTimers, []);
 
-  // Revoke the previous blob URL before dropping it — blob URLs are never
+  // Revoke the previous blob URL before dropping it, blob URLs are never
   // garbage-collected while the page lives, so repeated demo runs would leak.
   const clearHtmlUrl = () => {
     setHtmlUrl((prev) => { if (prev) URL.revokeObjectURL(prev); return null; });
@@ -490,7 +490,7 @@ function DemoPanel() {
       reviewer_health: snap.reviewer_health,
     };
     // Replay pacing: slow enough that each stage's explainer blurb can be
-    // read as it activates — the demo doubles as a narrated pipeline tour.
+    // read as it activates; the demo doubles as a narrated pipeline tour.
     const steps: { stage: string; delay: number; apply?: () => void }[] = [
       { stage: 'uploading', delay: 350 },
       { stage: 'extracting', delay: 2600 },
@@ -565,10 +565,10 @@ function DemoPanel() {
           trackEvent('remediation_failed');
         }
       } catch {
-        // Network error — transient; keep polling under the same cap.
+        // Network error, transient; keep polling under the same cap.
         if (++transientFailures >= MAX_TRANSIENT) failWith('Lost connection to the server. Please try again.');
       }
-    }, 1500); // each poll is a network read of the job store — 1.5s is plenty for UI pacing
+    }, 1500); // each poll is a network read of the job store, 1.5s is plenty for UI pacing
   };
   const apiLive = async (file: File) => {
     begin(file.name);
@@ -593,7 +593,7 @@ function DemoPanel() {
     }
   };
 
-  // Demos replay the bundled snapshots client-side — free, instant, and independent of the
+  // Demos replay the bundled snapshots client-side, free, instant, and independent of the
   // (paid) live API. For demos, manifest/report use the snapshot ID directly (special handling in API).
   const startDemo = (id: string, label: string) => clientReplay(id, label);
   const onDropFile = (file: File) => {
@@ -633,7 +633,7 @@ function DemoPanel() {
         <span className="w-3 h-3 rounded-full bg-rose-500/80" />
         <span className="w-3 h-3 rounded-full bg-amber-400/80" />
         <span className="w-3 h-3 rounded-full bg-emerald-500/80" />
-        <span className="ml-3 text-xs font-mono text-slate-400">happypdf — pipeline</span>
+        <span className="ml-3 text-xs font-mono text-slate-400">happypdf, pipeline</span>
         {!idle && (
           <button onClick={reset} className="ml-auto text-slate-400 hover:text-slate-300 transition-colors" aria-label="Reset demo">
             <X size={14} />
@@ -696,7 +696,7 @@ function DemoPanel() {
                       </label>
                       <p className="text-xs text-slate-400 pt-1">OLMo mode disables Gemini and GPT review. Single-model review produces fewer accessibility suggestions but requires no external API keys.</p>
                     </div>
-                    <p className="text-xs text-slate-400">⚠️ Sent over HTTPS to call the provider on your behalf — never logged or stored server-side. Not saved between sessions; you'll re-enter it after a refresh.</p>
+                    <p className="text-xs text-slate-400">⚠️ Sent over HTTPS to call the provider on your behalf, never logged or stored server-side. Not saved between sessions; you'll re-enter it after a refresh.</p>
                     {(byokKeys.anthropic || byokKeys.openai) && (
                       <button
                         type="button"
@@ -734,7 +734,7 @@ function DemoPanel() {
               </div>
             )}
             <div>
-              <p className="text-xs text-slate-400 mb-2">Pick a document — these are the actual recorded outputs:</p>
+              <p className="text-xs text-slate-400 mb-2">Pick a document. These are the actual recorded outputs:</p>
               <div className="flex flex-wrap gap-2">
                 {DEMOS.map((d) => (
                   <button key={d.id} onClick={() => startDemo(d.id, d.label)} className="text-xs font-mono px-3 py-1.5 rounded-md bg-slate-700 text-teal-400 hover:bg-slate-600 transition-colors">
@@ -841,7 +841,7 @@ function DemoPanel() {
                 className="flex items-center justify-center gap-2 px-4 py-2.5 bg-slate-800 hover:bg-slate-700 border border-teal-500/30 text-teal-300 text-sm rounded-lg transition-colors"
               >
                 <Eye size={14} />
-                Preview your document now — enhancements still applying
+                Preview your document now, enhancements still applying
               </a>
             )}
 
@@ -889,12 +889,12 @@ function DemoPanel() {
                   </div>
                 </div>
                 <p className="text-[11px] text-slate-400 text-center leading-relaxed">
-                  {job.baseline!.violations} violations at baseline — the loop <span className="text-slate-400">adds ARIA</span>, it doesn't fix broken HTML.
+                  {job.baseline!.violations} violations at baseline; the loop <span className="text-slate-400">adds ARIA</span>, it doesn't fix broken HTML.
                 </p>
               </div>
             )}
 
-            {/* ── Coverage checks (PointCheck Layer-1) — beyond axe's ruleset ── */}
+            {/* ── Coverage checks (PointCheck Layer-1): beyond axe's ruleset ── */}
             {done && job?.pointcheck && !job.pointcheck.error && (
               <div className="border border-slate-700/60 rounded-xl p-4 space-y-2">
                 <p className="text-xs text-slate-400 font-medium uppercase tracking-wider">Coverage checks (beyond axe-core)</p>
@@ -919,7 +919,7 @@ function DemoPanel() {
               </div>
             )}
 
-            {/* ── Content fidelity — original PDF vs converted document ── */}
+            {/* ── Content fidelity, original PDF vs converted document ── */}
             {done && job?.fidelity && job.fidelity.status === 'ok' && (
               <div className="border border-slate-700/60 rounded-xl p-4 space-y-2">
                 <p className="text-xs text-slate-400 font-medium uppercase tracking-wider">Content fidelity (original vs converted)</p>
@@ -945,7 +945,7 @@ function DemoPanel() {
               </div>
             )}
 
-            {/* ── Alt-text review — independent judge on generated alt text ── */}
+            {/* ── Alt-text review, independent judge on generated alt text ── */}
             {done && job?.alt_text_review && (job.alt_text_review.images_judged ?? 0) > 0 && (
               <div className="border border-slate-700/60 rounded-xl p-4 space-y-2">
                 <p className="text-xs text-slate-400 font-medium uppercase tracking-wider">Alt-text review (independent judge)</p>
@@ -970,7 +970,7 @@ function DemoPanel() {
                     </>
                   ) : (
                     <span className="text-slate-400">
-                      {job.alt_text_review.images_judged} judged · avg {job.alt_text_review.avg_score ?? '—'}/5 ·{' '}
+                      {job.alt_text_review.images_judged} judged · avg {job.alt_text_review.avg_score ?? ', '}/5 ·{' '}
                       {(job.alt_text_review.flagged_low_quality ?? []).length} flagged for review
                     </span>
                   )}
@@ -985,7 +985,7 @@ function DemoPanel() {
               <div className="space-y-1.5">
                 <p className="text-xs text-slate-400 font-medium uppercase tracking-wider px-1">ARIA enhancements added</p>
                 {job.enhancements.length === 0 ? (
-                  <p className="text-xs text-slate-400 px-1">Baseline already passes — no enhancements suggested.</p>
+                  <p className="text-xs text-slate-400 px-1">Baseline already passes. No enhancements suggested.</p>
                 ) : (
                   job.enhancements.map((e, i) => (
                     <div key={i} className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-xs border border-emerald-500/20 bg-emerald-500/5">
@@ -1217,7 +1217,7 @@ export default function App() {
             <div className="grid lg:grid-cols-2 gap-12 items-center">
               <div className="min-w-0 text-center lg:text-left">
                 <h1 className="text-4xl sm:text-5xl lg:text-[3.25rem] font-extrabold text-white leading-[1.1] tracking-tight mb-6">
-                  {/* Normal spaces — the old nbsp chain made this one ~398px
+                  {/* Normal spaces; the old nbsp chain made this one ~398px
                       unbreakable token, wider than a 375px phone. */}
                   PDF → accessible HTML.{' '}
                   <span className="text-teal-400">Validated.</span>{' '}
@@ -1284,7 +1284,7 @@ export default function App() {
                 How it works
               </h2>
               <p className="mt-4 text-slate-400 max-w-xl mx-auto">
-                An iterative multi-model loop — not a single-pass linter. Each round, peer
+                An iterative multi-model loop, not a single-pass linter. Each round, peer
                 reviewers flag issues; Claude judges and patches; axe-core rescores.
               </p>
             </div>
@@ -1307,7 +1307,7 @@ export default function App() {
                   {
                     step: '01',
                     title: 'olmOCR extraction',
-                    body: 'Allenai/olmOCR-2-7B-1025 (Qwen2.5-VL backbone) runs on Modal H100 for pure vision-based PDF extraction — no fragile text-layer anchoring. A separate Qwen2-VL model generates alt text for every embedded image with a screen-reader–tuned prompt, running in parallel with extraction.',
+                    body: 'Allenai/olmOCR-2-7B-1025 (Qwen2.5-VL backbone) runs on Modal H100 for pure vision-based PDF extraction, with no fragile text-layer anchoring. A separate Qwen2-VL model generates alt text for every embedded image with a screen-reader–tuned prompt, running in parallel with extraction.',
                     side: 'left',
                   },
                   {
@@ -1319,7 +1319,7 @@ export default function App() {
                   {
                     step: '03',
                     title: 'axe-core baseline',
-                    body: 'Playwright drives a real Chromium instance — not a DOM parser. Every axe-core result is labeled "automated check coverage," never misrepresented as full WCAG conformance.',
+                    body: 'Playwright drives a real Chromium instance, not a DOM parser. Every axe-core result is labeled "automated check coverage," never misrepresented as full WCAG conformance.',
                     side: 'left',
                   },
                   {
@@ -1379,12 +1379,12 @@ export default function App() {
               <FeatureRow
                 icon={<ShieldCheck size={18} />}
                 title="Hallucination gating"
-                body="Reviewer findings that cite element IDs not present in the document are dropped, and structurally impossible fixes (like alt text on a non-image) are rejected as hallucinations — logged in the audit trail, never applied."
+                body="Reviewer findings that cite element IDs not present in the document are dropped, and structurally impossible fixes (like alt text on a non-image) are rejected as hallucinations, logged in the audit trail, never applied."
               />
               <FeatureRow
                 icon={<BarChart3 size={18} />}
                 title="Honest scoring"
-                body='Score progression is labeled "automated check coverage" throughout. The product never claims automated WCAG conformance — because no automated tool can.'
+                body='Score progression is labeled "automated check coverage" throughout. The product never claims automated WCAG conformance, because no automated tool can.'
               />
               <FeatureRow
                 icon={<Zap size={18} />}
@@ -1486,15 +1486,15 @@ export default function App() {
               />
               <FaqItem
                 q="What document types work best?"
-                a="Dense digital PDFs (government forms, regulations, academic papers) produce the best results — olmOCR was trained specifically on these. Scanned historical documents also work via pure vision, though quality depends on scan quality. Complex multi-column layouts, mixed-content documents, and tables with merged cells are all handled."
+                a="Dense digital PDFs (government forms, regulations, academic papers) produce the best results, olmOCR was trained specifically on these. Scanned historical documents also work via pure vision, though quality depends on scan quality. Complex multi-column layouts, mixed-content documents, and tables with merged cells are all handled."
               />
               <FaqItem
                 q="What does BYOK mean and why does it matter?"
-                a="BYOK is Bring Your Own Keys — you connect your existing Claude or ChatGPT enterprise API credentials. If your organization already pays for Claude or GPT-4o API access through enterprise agreements, HappyPDF uses those credentials at no additional cost. This sidesteps the procurement process that blocks most AI tools from reaching enterprise teams."
+                a="BYOK is Bring Your Own Keys: you connect your existing Claude or ChatGPT enterprise API credentials. If your organization already pays for Claude or GPT-4o API access through enterprise agreements, HappyPDF uses those credentials at no additional cost. This sidesteps the procurement process that blocks most AI tools from reaching enterprise teams."
               />
               <FaqItem
                 q="How is this different from commercial remediation tools?"
-                a="Most commercial remediation tools are closed-box: you pay per conversion and can't inspect how changes were decided. HappyPDF is fully open source — the pipeline, scoring formula, and patch logic are all public, and the enhancements summary shows every ARIA attribute added and why."
+                a="Most commercial remediation tools are closed-box: you pay per conversion and can't inspect how changes were decided. HappyPDF is fully open source: the pipeline, scoring formula, and patch logic are all public, and the enhancements summary shows every ARIA attribute added and why."
               />
               <FaqItem
                 q="Why three rounds maximum?"
@@ -1559,7 +1559,7 @@ export default function App() {
             </span>
           </div>
 
-          {/* flex-wrap: six links at gap-6 are ~478px — wider than a phone */}
+          {/* flex-wrap: six links at gap-6 are ~478px, wider than a phone */}
           <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2">
             <a href="https://pointcheck.org/" rel="noopener noreferrer" className="hover:text-slate-300 transition-colors flex items-center gap-1">
               PointCheck <ExternalLink size={11} />

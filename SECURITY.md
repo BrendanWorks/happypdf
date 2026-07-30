@@ -14,7 +14,7 @@ If you're reporting an issue with a third-party dependency (Modal, olmOCR, Anthr
 
 ## Scope
 
-This covers the happypdf codebase (`api/`, `src/`, `modal/`, `frontend/`) and its deployment configuration. It does not cover the security of your own self-hosted deployment's infrastructure (Modal account, secrets manager, ingress) — see the [Self-hosting checklist](README.md#self-hosting-checklist) in the README for hardening guidance there.
+This covers the happypdf codebase (`api/`, `src/`, `modal/`, `frontend/`) and its deployment configuration. It does not cover the security of your own self-hosted deployment's infrastructure (Modal account, secrets manager, ingress): see the [Self-hosting checklist](README.md#self-hosting-checklist) in the README for hardening guidance there.
 
 ## What to Include
 
@@ -24,4 +24,4 @@ This covers the happypdf codebase (`api/`, `src/`, `modal/`, `frontend/`) and it
 
 ## Response
 
-This is a small, actively-maintained project — response time is best-effort, not guaranteed. Confirmed vulnerabilities will be fixed and disclosed via a GitHub Security Advisory once a patch is available.
+This is a small, actively-maintained project; response time is best-effort, not guaranteed. Confirmed vulnerabilities will be fixed and disclosed via a GitHub Security Advisory once a patch is available.

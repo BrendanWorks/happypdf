@@ -362,7 +362,7 @@ REVIEW_INSTRUCTION = (
     "which every block-level element has a stable `data-ir-id` attribute. Identify "
     "accessibility issues that can be fixed by adding or correcting ARIA attributes "
     "(aria-label, role, aria-describedby) or alt text. For each issue, cite the exact "
-    "`data-ir-id` value of the element it applies to — never invent an id that is not "
+    "`data-ir-id` value of the element it applies to, never invent an id that is not "
     "present in the HTML. Prefer concrete, deterministic fixes and put the literal "
     "attribute and value in suggested_fix, e.g. 'Add aria-label=\"Class schedule\" to "
     "the table.'\n\n"

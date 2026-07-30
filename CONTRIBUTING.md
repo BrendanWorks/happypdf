@@ -4,15 +4,15 @@ Thanks for your interest! Here's how to get started.
 
 ## Development Setup
 
-**Option A — locally:**
+**Option A, locally:**
 1. Clone the repo
 2. Follow the setup instructions in [`docs/SETUP.md`](docs/SETUP.md)
 3. `make dev-backend` and `make dev-frontend` (in separate terminals) to run both halves with live reload
 4. Run `make lint` and `make test` to verify everything works
 
-**Option B — Docker:**
+**Option B, Docker:**
 1. `cp .env.example .env` and fill in your Modal + provider credentials
-2. `make docker-up` (or `docker compose up --build`) — runs the full stack in containers
+2. `make docker-up` (or `docker compose up --build`): runs the full stack in containers
 3. See the [Run Locally with Docker](README.md#run-locally-with-docker) section in the README for what this does and doesn't cover
 
 ## Making Changes

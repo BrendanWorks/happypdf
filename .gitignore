@@ -68,3 +68,12 @@ temp/
 debug/
 *.modal.cache
 cache/
+
+# Raw video/audio working files and drafts. Only the small committed demo
+# assets (videos/happypdf-demo.gif, videos/happypdf-demo.mp4) belong in git;
+# full-size recordings go to GitHub Releases instead of repo history.
+videos/**/*.mov
+videos/**/*.MP3
+videos/**/*.mp3
+videos/2*.mp4
+videos/SubstackV1.*
