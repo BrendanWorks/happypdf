@@ -6,7 +6,7 @@ Convert inaccessible PDFs into **WCAG 2.2-validated** semantic HTML5 with multi-
 
 happypdf turns inaccessible PDFs into clean, semantic HTML5. It uses vision-based OCR for extraction, generates high-quality alt text, builds proper structure (landmarks, headings, tables), scores the result with axe-core in a real Chromium browser, and runs a multi-round review loop that safely enhances accessibility **without losing original content**.
 
-## Demo
+## Video Demo
 
 ![happypdf demo animation](./videos/happypdf-demo.gif)
 
@@ -18,7 +18,7 @@ Watch happypdf transform an inaccessible PDF into WCAG 2.2 AA–validated HTML w
 - [Why This Exists](#why-this-exists)
 - [What happypdf Does](#what-happypdf-does)
 - [The Secret Sauce: True BYOK Enterprise Support](#the-secret-sauce-true-byok-enterprise-support)
-- [Demo](#demo)
+- [Try It Live](#try-it-live)
 - [Deployment Modes](#deployment-modes)
 - [Why This Project?](#why-this-project)
 - [How the Pipeline Works](#how-the-pipeline-works)
@@ -30,7 +30,7 @@ Watch happypdf transform an inaccessible PDF into WCAG 2.2 AA–validated HTML w
 - [Architecture Highlights](#architecture-highlights)
 - [Design Decisions](#design-decisions)
 - [Security](#security)
-- [Known Limitations](#known-limitations)
+- [Limitations & Trade-offs](#limitations--trade-offs)
 - [Related Work](#related-work)
 - [Contributing & License](#contributing--license)
 
@@ -68,9 +68,9 @@ Most accessibility tools force a binary choice: pay per conversion or build it y
 
 This makes happypdf uniquely practical for enterprises and government organizations.
 
-## Demo
+## Try It Live
 
-Try it at **[https://happypdf.org](https://happypdf.org)**.
+No account, no key, no install. Convert your own PDF or replay a recorded run at **[happypdf.org](https://happypdf.org)**.
 
 **Features:**
 - Drag-and-drop PDF upload
@@ -124,7 +124,7 @@ This work extends Ai2's **SciA11y** research (Wang, Cachola, et al., ASSETS '21)
 
 ![happypdf pipeline animation](./videos/pipeline-demo.gif)
 
-## Extraction Model: olmOCR-2
+### Extraction Model: olmOCR-2
 
 Step 1 of the pipeline, turning the PDF into markdown, runs [olmOCR](https://github.com/allenai/olmocr) on a Modal H100. **Production runs olmOCR-2-7B-1025-FP8** (promoted in v1.2 after a staged v1-vs-v2 comparison); the original v1 app stays deployed as a one-line-revert fallback.
 
