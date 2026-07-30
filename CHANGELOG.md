@@ -2,15 +2,15 @@
 
 This project doesn't use formal semantic versioning yet — entries are grouped by date. See [GitHub Releases](https://github.com/BrendanWorks/happypdf/releases) for downloadable demo assets — latest is [v1.2](https://github.com/BrendanWorks/happypdf/releases/tag/v1.2), demo videos are attached to [v1.0](https://github.com/BrendanWorks/happypdf/releases/tag/v1.0).
 
-## 2026-07-16 → 07-18 — Independent verification layer
+## 2026-07-16 → 07-18: Independent verification layer
 
 The pipeline no longer only grades its own work. Three report-only checks now run outside the remediation loop and surface in the results UI. None of them can change an axe score, gate convergence, or fail a conversion.
 
-- **Coverage checks beyond axe-core** (`src/pointcheck_scorer.py`) — structure, keyboard, and rendered-contrast checks ported verbatim from PointCheck's `wcag_checks`, catching filename-as-alt, vague link text, mouse-only handlers, positive `tabindex`, duplicate IDs, and alpha-composited contrast failures. One-shot sync Playwright run, ~1s, no GPU.
-- **Content fidelity gate** (`src/fidelity_gate.py`) — Molmo-7B-D inventories each rendered PDF page and compares against a structural DOM count, flagging content *loss* only, with tolerances calibrated on the benchmark corpus. Closes the blind spot where the preservation gate compares extracted-vs-patched and cannot see what olmOCR dropped before the HTML existed.
-- **Independent alt-text judge** — a different vision model than the generator (Molmo-7B-D vs Qwen2-VL) grades every description 1–5; ≤2 is flagged. Caught a filename-as-alt failure on a document axe-core had scored 100%.
+- **Coverage checks beyond axe-core** (`src/pointcheck_scorer.py`): structure, keyboard, and rendered-contrast checks ported verbatim from PointCheck's `wcag_checks`, catching filename-as-alt, vague link text, mouse-only handlers, positive `tabindex`, duplicate IDs, and alpha-composited contrast failures. One-shot sync Playwright run, ~1s, no GPU.
+- **Content fidelity gate** (`src/fidelity_gate.py`): Molmo-7B-D inventories each rendered PDF page and compares against a structural DOM count, flagging content *loss* only, with tolerances calibrated on the benchmark corpus. Closes the blind spot where the preservation gate compares extracted-vs-patched and cannot see what olmOCR dropped before the HTML existed.
+- **Independent alt-text judge**: a different vision model than the generator (Molmo-7B-D vs Qwen2-VL) grades every description 1–5; ≤2 is flagged. Caught a filename-as-alt failure on a document axe-core had scored 100%.
 - Both GPU-backed checks start early and run concurrently with extraction and the review rounds, so cold starts overlap existing work.
-- **Demo snapshots regenerated** so every value in a replay — core stats and all three verification blocks — comes from one real pipeline run per document (`scripts/capture_live_snapshots.py`, which aborts rather than capture a degraded run).
+- **Demo snapshots regenerated** so every value in a replay (core stats and all three verification blocks) comes from one real pipeline run per document (`scripts/capture_live_snapshots.py`, which aborts rather than capture a degraded run).
 - Consent-gated analytics on the hosted site: `gtag.js` is no longer in `index.html` and loads only after an explicit Accept.
 - 118 tests passing.
 

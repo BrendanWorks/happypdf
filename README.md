@@ -51,7 +51,7 @@ happypdf processes PDFs through a reproducible pipeline:
 5. **Review & enhance** via multi-model peer reviewers + judge model.
 6. **Apply safe patches** (ARIA labels, roles, descriptions, etc.).
 7. **Validate preservation** — text, images, headings, and tables are never lost.
-8. **Verify independently** — checks that run *outside* the remediation loop confirm coverage beyond axe-core, content fidelity against the original PDF, and alt-text quality (see [Independent Verification](#independent-verification)).
+8. **Verify independently** using checks that run *outside* the remediation loop, confirming coverage beyond axe-core, content fidelity against the original PDF, and alt-text quality (see [Independent Verification](#independent-verification)).
 
 The result is remediated, WCAG-scored HTML plus a detailed, human-readable manifest of every enhancement.
 
@@ -166,10 +166,10 @@ A pipeline that only checks its own work has a conflict of interest. Three verif
 | Layer | What it does | Runs on |
 |---|---|---|
 | **Coverage checks** | Structure, keyboard, and rendered-contrast checks ported from [PointCheck](https://pointcheck.org) that catch issue classes axe-core misses entirely: filename-as-alt-text, vague link text, mouse-only handlers, positive `tabindex`, duplicate IDs, alpha-composited contrast failures. Covers WCAG 1.1.1, 1.3.1, 2.2.2, 2.4.2, 2.4.4, 3.1.1, 4.1.1, 4.1.2. | Headless Chromium (~1s, no GPU) |
-| **Content fidelity gate** | Answers the question no output-side check can: *did content survive the PDF → HTML conversion?* Molmo-7B-D inventories each rendered PDF page (images, tables, charts, text presence); the HTML side is counted structurally from the DOM. Findings are **loss-only** with calibrated tolerances — it flags "the PDF appears to have more tables than the output," never surpluses. | Modal GPU (`alttext-judge`) |
+| **Content fidelity gate** | Answers the question no output-side check can: *did content survive the PDF → HTML conversion?* Molmo-7B-D inventories each rendered PDF page (images, tables, charts, text presence); the HTML side is counted structurally from the DOM. Findings are **loss-only** with calibrated tolerances: it flags "the PDF appears to have more tables than the output," never surpluses. | Modal GPU (`alttext-judge`) |
 | **Alt-text judge** | A *different* vision model than the one that wrote the alt text (Molmo-7B-D, versus Qwen2-VL for generation) grades every image description 1–5 against the actual image. Descriptions scoring ≤2 are flagged as low quality. | Modal GPU (`alttext-judge`) |
 
-**Why this matters.** The preservation gate in the remediation loop compares extracted-versus-patched HTML, so anything olmOCR dropped *before* the HTML existed is invisible to it. The fidelity gate closes that blind spot by going back to the original PDF pixels. Similarly, axe-core cannot tell whether alt text is *correct* — only whether it is *present*. In validation, axe-core scored a converted document 100% while the independent judge caught an image whose alt text was literally a filename.
+**Why this matters.** The preservation gate in the remediation loop compares extracted-versus-patched HTML, so anything olmOCR dropped *before* the HTML existed is invisible to it. The fidelity gate closes that blind spot by going back to the original PDF pixels. Similarly, axe-core cannot tell whether alt text is *correct*, only whether it is *present*. In validation, axe-core scored a converted document 100% while the independent judge caught an image whose alt text was literally a filename.
 
 Both GPU-backed checks are started early and run concurrently with extraction and the review rounds, so their cold starts overlap work the pipeline is doing anyway rather than adding to total time.
 
@@ -204,7 +204,7 @@ All 13 documents complete end-to-end with the preservation gate passing on every
 
 **Measured live on v1.2.2 (2026-07-15)** — every row is a real end-to-end conversion through the deployed pipeline (olmOCR-2 extraction → parallel alt text → semantic HTML → axe baseline → three-reviewer loop with Claude judge). Raw per-job records are committed in [`benchmark/v122_live_run/`](benchmark/v122_live_run/). Sizes and page counts are measured from the actual files.
 
-> **On run-to-run variance.** The table above is a single coherent suite run, preserved as measured. The demo replays on happypdf.org come from a later re-run (2026-07-17) and show slightly different pass counts on one document — IRS Schedule C finished at 28 passes there versus 33 here. Both runs are real. Reviewers are probabilistic, so which safe enhancements they propose varies between runs; the deterministic parts do not. Baseline scores, violation counts, and the preservation gate's verdict were identical across both runs on all three demo documents. This is expected behavior for an ensemble-review system and is exactly why the preservation gate, not the pass count, is the thing being guaranteed.
+> **On run-to-run variance.** The table above is a single coherent suite run, preserved as measured. The demo replays on happypdf.org come from a later re-run (2026-07-17) and show slightly different pass counts on one document: IRS Schedule C finished at 28 passes there versus 33 here. Both runs are real. Reviewers are probabilistic, so which safe enhancements they propose varies between runs; the deterministic parts do not. Baseline scores, violation counts, and the preservation gate's verdict were identical across both runs on all three demo documents. This is expected behavior for an ensemble-review system and is exactly why the preservation gate, not the pass count, is the thing being guaranteed.
 
 **Key Metrics:**
 - **Total PDFs tested:** 13
@@ -231,7 +231,7 @@ All 13 documents complete end-to-end with the preservation gate passing on every
 - ✅ Fresh-machine self-hosting test in an isolated VM, caught and fixed a missing Quick Start step
 - ✅ Research-informed documentation: trade-offs in design decisions, preservation proof mathematical contract
 - ✅ OLMo-only reviewer profile (`REVIEWER_PROFILE=olmo-only`) for air-gapped / government / restricted-network deployments
-- ✅ **Independent verification layer** — [PointCheck](https://pointcheck.org) coverage checks, a Molmo-7B-D content fidelity gate against the original PDF, and an independent alt-text judge, all report-only and surfaced in the results UI (see [Independent Verification](#independent-verification))
+- ✅ **Independent verification layer**: [PointCheck](https://pointcheck.org) coverage checks, a Molmo-7B-D content fidelity gate against the original PDF, and an independent alt-text judge, all report-only and surfaced in the results UI (see [Independent Verification](#independent-verification))
 - ✅ Consent-gated analytics on the hosted site (opt-in cookie banner, no analytics before Accept)
 
 **Upcoming Features:**
@@ -361,7 +361,7 @@ The hosted site (happypdf.org) uses Google Analytics (GA4) to understand traffic
 - **Nothing is loaded before consent.** `gtag.js` is not in `frontend/index.html` at all; it is injected from `App.tsx` only after an explicit Accept on the cookie banner (or immediately on a return visit if the visitor previously accepted). Choosing Decline means no analytics script, no GA cookies, and no events. The choice is stored under `happypdf_analytics_consent` and is revisitable any time via **Cookie preferences** in the footer.
 - Once accepted, standard GA4 data is collected: page views, device/browser info, approximate location, and first-party cookies (`_ga`, `_ga_*`).
 - Custom events track pipeline usage — upload started (file size only), conversion succeeded/failed (pass count only), and BYOK used (provider name only). **No filenames, document content, or API keys are ever sent to analytics.**
-- Self-hosted deployments can drop analytics entirely by removing the consent component's injection call in `frontend/src/App.tsx` — it is not wired into the pipeline.
+- Self-hosted deployments can drop analytics entirely by removing the consent component's injection call in `frontend/src/App.tsx`. It is not wired into the pipeline.
 
 ### Self-hosting checklist
 For self-hosted deployments:
