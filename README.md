@@ -233,13 +233,13 @@ All 13 documents complete end-to-end with the preservation gate passing on every
 - ✅ OLMo-only reviewer profile (`REVIEWER_PROFILE=olmo-only`) for air-gapped / government / restricted-network deployments
 - ✅ **Independent verification layer**: [PointCheck](https://pointcheck.org) coverage checks, a Molmo-7B-D content fidelity gate against the original PDF, and an independent alt-text judge, all report-only and surfaced in the results UI (see [Independent Verification](#independent-verification))
 - ✅ Consent-gated analytics on the hosted site (opt-in cookie banner, no analytics before Accept)
+- ✅ **NVDA screen reader validation**: converted output walked through NVDA in a recorded session, confirming the generated structure works with a real assistive technology and not just with automated checks
 
 **Upcoming Features:**
 - Visual-artifact filtering for the element ID builder (repeated separator lines etc. can hash-collide into duplicate IDs: currently detected and logged, not filtered upstream) and a second-pass classifier to reduce heading-promotion false positives; see `docs/ARCHITECTURE.md`
 - Download full package ZIP (HTML output + JSON manifest + Report + Original PDF)
 - CLI instance for batch processing and local runs
 - Upgrade job storage from Modal Dict (current, 24h TTL) to Supabase for long-term history and batch dashboards
-- JAWS / NVDA screen reader validation
 - Batch processing dashboard
 - Expanded documentation and examples
 
@@ -378,6 +378,8 @@ For self-hosted deployments:
 **axe-core catches ~30-40% of WCAG success criteria.** Automated tools test *syntax*, not *semantics*. A link with non-descriptive text ("click here") passes axe-core; reading order problems, incorrectly-described images, and tables with ambiguous headers don't register as violations because they require human judgment. happypdf reports what automated tools can measure and flags uncertain cases for human review. This is honest about what automation can do, and it is why the preservation gate matters more than the axe-core score alone.
 
 **The baseline is often already valid.** The HTML generator creates semantic structure up front (landmarks, headings, tables with proper `<th>` cells, images with alt text). Many PDFs have zero baseline violations because olmOCR + deterministic HTML generation already produces passing HTML. The review loop focuses on *semantic correctness and optimization*: does an image's alt text actually describe what it shows? Is table navigation fully correct? These improvements are harder to measure (axe-core may show the same score) but matter for real assistive technology use.
+
+**Screen reader validation is NVDA-specific so far.** Converted output has been walked through NVDA to confirm it behaves for a real assistive-technology user rather than only for a linter. Screen readers differ in how they announce ARIA, tables, and landmarks, so JAWS and VoiceOver behavior has not been separately verified. Any organization with a JAWS-standardized user base should validate there before relying on this for conformance.
 
 **Heading detection is heuristic.** olmOCR sometimes emits section labels (e.g., "Methodology") as plain paragraphs rather than markdown headings. The builder promotes short standalone labels to `<h2>` and synthesizes an `<h1>` from the first content line when none exists. This is a trade-off: we get stronger document structure in most cases, but edge cases (a label that looks like a heading but isn't) can mis-tag. Complex documents still benefit from a human pass to verify outline accuracy.
 
