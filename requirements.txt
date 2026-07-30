@@ -3,7 +3,7 @@
 #  Function.from_name API the orchestrator uses, so the tested 1.x pin is required.)
 
 playwright==1.60.0     # headless Chromium driver for running axe-core in a real browser
-PyMuPDF==1.27.2.3      # PDF parsing + embedded image extraction (imported as `fitz`)
+PyMuPDF==1.28.0      # PDF parsing + embedded image extraction (imported as `fitz`)
 modal==1.4.3           # calls the deployed olmOCR and Qwen2-VL GPU functions
 # NOTE: olmocr itself is NOT a local dependency — it (and its torch/vllm stack)
 # is installed only inside the Modal GPU image. Do not add it here or CI will try
