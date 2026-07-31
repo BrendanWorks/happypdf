@@ -54,6 +54,7 @@ function trackEvent(action: string, params?: Record<string, string | number>) {
 
 const GA_MEASUREMENT_ID = 'G-W8LMNK8TFP';
 const CONSENT_KEY = 'happypdf_analytics_consent';
+const ACCESS_TOKEN_KEY = 'happypdf_access_token';
 
 // Injects gtag.js and starts sending events. Only called after consent.
 function loadAnalytics() {
@@ -445,6 +446,18 @@ function DemoPanel() {
   const [byokKeys, setByokKeys] = useState({ anthropic: '', openai: '' });
   const [showByokSettings, setShowByokSettings] = useState(false);
   const [reviewerProfile, setReviewerProfile] = useState<'default' | 'olmo-only'>('default');
+  // An access token grants its own daily conversion quota instead of the shared
+  // public pool. Unlike the provider keys above it IS remembered, because the
+  // people who have one convert repeatedly and would otherwise retype it every
+  // visit. It is scoped to this site's quota, never provider billing.
+  const [accessToken, setAccessToken] = useState(
+    () => localStorage.getItem(ACCESS_TOKEN_KEY) ?? ''
+  );
+  const saveAccessToken = (value: string) => {
+    setAccessToken(value);
+    if (value.trim()) localStorage.setItem(ACCESS_TOKEN_KEY, value.trim());
+    else localStorage.removeItem(ACCESS_TOKEN_KEY);
+  };
   const pollRef = useRef<number | null>(null);
   const timerRef = useRef<number | null>(null);
   // 1s tick that drives the elapsed/per-stage timers while a job runs.
@@ -579,6 +592,8 @@ function DemoPanel() {
       fd.append('reviewer_profile', reviewerProfile);
       if (byokKeys.anthropic) { fd.append('anthropic_api_key', byokKeys.anthropic); trackEvent('byok_authenticated', { provider: 'claude' }); }
       if (byokKeys.openai) { fd.append('openai_api_key', byokKeys.openai); trackEvent('byok_authenticated', { provider: 'openai' }); }
+      // Never send the token value to analytics, only that one was used.
+      if (accessToken.trim()) { fd.append('access_token', accessToken.trim()); trackEvent('access_token_used'); }
       const r = await fetch(`${API_BASE}/api/jobs/live`, { method: 'POST', body: fd });
       if (!r.ok) {
         const errData = await r.json().catch(() => ({ detail: 'Unknown error' }));
@@ -633,7 +648,7 @@ function DemoPanel() {
         <span className="w-3 h-3 rounded-full bg-rose-500/80" />
         <span className="w-3 h-3 rounded-full bg-amber-400/80" />
         <span className="w-3 h-3 rounded-full bg-emerald-500/80" />
-        <span className="ml-3 text-xs font-mono text-slate-400">happypdf, pipeline</span>
+        <span className="ml-3 text-xs font-mono text-slate-400">happypdf / pipeline</span>
         {!idle && (
           <button onClick={reset} className="ml-auto text-slate-400 hover:text-slate-300 transition-colors" aria-label="Reset demo">
             <X size={14} />
@@ -652,10 +667,38 @@ function DemoPanel() {
                   className="text-xs text-slate-400 hover:text-slate-300 font-medium flex items-center gap-2 transition-colors"
                 >
                   <Key size={14} />
-                  {showByokSettings ? 'Hide' : 'Add'} your own API keys (optional)
+                  {showByokSettings ? 'Hide' : 'Add'} an access token or your own API keys (optional)
+                  {accessToken.trim() && !showByokSettings && (
+                    <span className="text-teal-400 normal-case">· token active</span>
+                  )}
                 </button>
                 {showByokSettings && (
                   <div className="space-y-2 pt-2 border-t border-slate-700/50">
+                    <div className="space-y-2 pb-3 border-b border-slate-700/50">
+                      <p className="text-xs font-medium text-slate-400">Access token</p>
+                      <input
+                        type="password"
+                        placeholder="Access token (if you were issued one)"
+                        value={accessToken}
+                        onChange={(e) => saveAccessToken(e.target.value)}
+                        className="w-full px-3 py-2 bg-slate-900 border border-slate-600/50 rounded text-xs text-slate-300 placeholder-slate-600 focus:outline-none focus:border-teal-400/50"
+                      />
+                      <p className="text-xs text-slate-400">
+                        {accessToken.trim()
+                          ? 'Conversions draw on your own daily quota instead of the shared public limit. Remembered on this device until you clear it.'
+                          : 'Organizations running a pilot get a token with their own daily conversion quota, separate from the shared public limit. Without one you share the public pool.'}
+                      </p>
+                      {accessToken.trim() && (
+                        <button
+                          type="button"
+                          onClick={() => saveAccessToken('')}
+                          className="text-xs text-slate-400 hover:text-slate-300 underline transition-colors"
+                        >
+                          Forget this token
+                        </button>
+                      )}
+                    </div>
+                    <p className="text-xs font-medium text-slate-400 pt-1">Provider keys</p>
                     <input
                       type="password"
                       placeholder="Anthropic API key (optional)"
